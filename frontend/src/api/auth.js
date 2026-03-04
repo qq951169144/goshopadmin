@@ -59,23 +59,27 @@ export const authApi = {
   // 验证验证码
   verifyCaptcha: (data) => api.post('/auth/captcha/verify', data),
   
-  // 获取角色列表
+  // 用户管理
+  getUsers: () => api.get('/users'),
+  getUser: (id) => api.get(`/users/${id}`),
+  createUser: (data) => api.post('/users', data),
+  updateUser: (id, data) => api.put(`/users/${id}`, data),
+  deleteUser: (id) => api.delete(`/users/${id}`),
+  
+  // 角色管理
   getRoles: () => api.get('/roles'),
-  
-  // 创建角色
+  getRole: (id) => api.get(`/roles/${id}`),
   createRole: (data) => api.post('/roles', data),
-  
-  // 更新角色
   updateRole: (id, data) => api.put(`/roles/${id}`, data),
-  
-  // 删除角色
   deleteRole: (id) => api.delete(`/roles/${id}`),
+  assignPermissions: (roleId, data) => api.post(`/roles/${roleId}/permissions`, data),
   
-  // 获取权限列表
+  // 权限管理
   getPermissions: () => api.get('/permissions'),
-  
-  // 为角色分配权限
-  assignPermissions: (roleId, data) => api.post(`/roles/${roleId}/permissions`, data)
+  getPermission: (id) => api.get(`/permissions/${id}`),
+  createPermission: (data) => api.post('/permissions', data),
+  updatePermission: (id, data) => api.put(`/permissions/${id}`, data),
+  deletePermission: (id) => api.delete(`/permissions/${id}`)
 };
 
 export default api;

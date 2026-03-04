@@ -192,6 +192,17 @@ const handleLogin = async () => {
           localStorage.setItem('token', loginResponse.data.token);
           localStorage.setItem('user', JSON.stringify(loginResponse.data.user));
           
+          // 获取用户权限信息
+          try {
+            const userInfoResponse = await authApi.getCurrentUser();
+            if (userInfoResponse.code === 200) {
+              // 保存权限信息到localStorage
+              localStorage.setItem('permissions', JSON.stringify(userInfoResponse.data.permissions || []));
+            }
+          } catch (error) {
+            console.error('获取用户权限失败', error);
+          }
+          
           ElMessage.success('登录成功');
           // 跳转到首页
           window.location.href = '/';
