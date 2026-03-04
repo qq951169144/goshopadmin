@@ -68,3 +68,10 @@ logs/
 # 临时文件
 tmp/
 temp/
+
+# Trae IDE 配置目录
+.trae/
+
+# Docker数据目录
+docker/data/
+docker/docker/data/

@@ -1,0 +1,180 @@
+version: '3.8'
+
+services:
+  # MySQL服务
+  mysql:
+    image: mysql:8.0
+    container_name: goshopadmin-mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=goshopadmin
+      - MYSQL_USER=goshopadmin
+      - MYSQL_PASSWORD=password
+    networks:
+      - goshopadmin-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis服务
+  redis:
+    image: redis:7.0
+    container_name: goshopadmin-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - goshopadmin-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # RabbitMQ服务
+  rabbitmq:
+    image: rabbitmq:3.10-management
+    container_name: goshopadmin-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_VHOST=/
+    networks:
+      - goshopadmin-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 后端服务
+  backend:
+    image: golang:1.24-alpine
+    container_name: goshopadmin-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../backend:/app  # 开发环境挂载本地代码
+    working_dir: /app
+    environment:
+      - SERVER_PORT=8080
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=password
+      - DB_NAME=goshopadmin
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      - JWT_SECRET=your-secret-key
+      - JWT_EXPIRE_HOUR=24
+      - MQ_HOST=rabbitmq
+      - MQ_PORT=5672
+      - MQ_USER=guest
+      - MQ_PASSWORD=guest
+      - MQ_VHOST=/
+    networks:
+      - goshopadmin-network
+    restart: always
+    depends_on:
+      - mysql
+      - redis
+      - rabbitmq
+    command: sh -c "go mod download && go run main.go"  # 开发环境使用go run
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 前端服务
+  frontend:
+    image: node:20-alpine
+    container_name: goshopadmin-frontend
+    ports:
+      - "3000:3000"  # Vite开发服务器端口
+    volumes:
+      - ../frontend:/app  # 开发环境挂载本地代码
+    working_dir: /app
+    networks:
+      - goshopadmin-network
+    restart: always
+    depends_on:
+      - backend
+    command: sh -c "npm install && npm run dev -- --host"  # 开发环境使用Vite开发服务器
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx服务
+  nginx:
+    image: nginx:1.20
+    container_name: goshopadmin-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - frontend-build:/usr/share/nginx/html
+    networks:
+      - goshopadmin-network
+    restart: always
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/mysql
+      o: bind
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/redis
+      o: bind
+  rabbitmq-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/rabbitmq
+      o: bind
+  frontend-build:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/frontend-build
+      o: bind
+
+networks:
+  goshopadmin-network:
+    driver: bridge
+    name: goshopadmin-network
