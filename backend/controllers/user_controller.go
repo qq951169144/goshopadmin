@@ -70,6 +70,7 @@ type CreateUserRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
 	RoleID   int    `json:"role_id" binding:"required"`
+	Status   string `json:"status"`
 }
 
 // CreateUser 创建用户
@@ -80,7 +81,12 @@ func (c *UserController) CreateUser(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.authService.CreateUser(req.Username, req.Password, req.RoleID)
+	// 如果没有提供状态，默认为active
+	status := req.Status
+	if status == "" {
+		status = "active"
+	}
+	user, err := c.authService.CreateUser(req.Username, req.Password, req.RoleID, status)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建用户失败"})
 		return

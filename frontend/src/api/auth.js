@@ -79,7 +79,18 @@ export const authApi = {
   getPermission: (id) => api.get(`/permissions/${id}`),
   createPermission: (data) => api.post('/permissions', data),
   updatePermission: (id, data) => api.put(`/permissions/${id}`, data),
-  deletePermission: (id) => api.delete(`/permissions/${id}`)
+  deletePermission: (id) => api.delete(`/permissions/${id}`),
+  
+  // 商户管理
+  getMerchants: () => api.get('/merchants'),
+  getMerchant: (id) => api.get(`/merchants/${id}`),
+  createMerchant: (data) => api.post('/merchants', data),
+  updateMerchant: (id, data) => api.put(`/merchants/${id}`, data),
+  deleteMerchant: (id) => api.delete(`/merchants/${id}`),
+  auditMerchant: (id, data) => api.put(`/merchants/${id}/audit`, data),
+  getMerchantUsers: (merchantId) => api.get(`/merchants/${merchantId}/users`),
+  addMerchantUser: (merchantId, data) => api.post(`/merchants/${merchantId}/users`, data),
+  removeMerchantUser: (merchantId, userId) => api.delete(`/merchants/${merchantId}/users/${userId}`)
 };
 
 export default api;

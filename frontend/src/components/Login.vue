@@ -1,7 +1,7 @@
 <template>
   <div class="login-container">
     <div class="login-form">
-      <h2>商城后台管理系统 - 2.0</h2>
+      <h2>商城后台管理系统 - 3.0</h2>
       <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="80px">
         <el-form-item label="用户名" prop="username">
           <el-input v-model="loginForm.username" placeholder="请输入用户名" />

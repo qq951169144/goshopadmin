@@ -62,6 +62,7 @@ func (c *RoleController) GetRole(ctx *gin.Context) {
 type CreateRoleRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
+	Status      string `json:"status"`
 }
 
 // CreateRole 创建角色
@@ -72,7 +73,12 @@ func (c *RoleController) CreateRole(ctx *gin.Context) {
 		return
 	}
 
-	role, err := c.authService.CreateRole(req.Name, req.Description)
+	// 如果没有提供状态，默认为active
+	status := req.Status
+	if status == "" {
+		status = "active"
+	}
+	role, err := c.authService.CreateRole(req.Name, req.Description, status)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建角色失败"})
 		return
@@ -89,6 +95,7 @@ func (c *RoleController) CreateRole(ctx *gin.Context) {
 type UpdateRoleRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Status      string `json:"status"`
 }
 
 // UpdateRole 更新角色
@@ -106,7 +113,7 @@ func (c *RoleController) UpdateRole(ctx *gin.Context) {
 		return
 	}
 
-	role, err := c.authService.UpdateRole(id, req.Name, req.Description)
+	role, err := c.authService.UpdateRole(id, req.Name, req.Description, req.Status)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新角色失败"})
 		return

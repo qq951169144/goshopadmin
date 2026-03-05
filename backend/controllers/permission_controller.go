@@ -63,6 +63,7 @@ type CreatePermissionRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Code        string `json:"code" binding:"required"`
 	Description string `json:"description"`
+	Status      string `json:"status"`
 }
 
 // CreatePermission 创建权限
@@ -73,7 +74,12 @@ func (c *PermissionController) CreatePermission(ctx *gin.Context) {
 		return
 	}
 
-	permission, err := c.authService.CreatePermission(req.Name, req.Code, req.Description)
+	// 如果没有提供状态，默认为active
+	status := req.Status
+	if status == "" {
+		status = "active"
+	}
+	permission, err := c.authService.CreatePermission(req.Name, req.Code, req.Description, status)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建权限失败"})
 		return
@@ -91,6 +97,7 @@ type UpdatePermissionRequest struct {
 	Name        string `json:"name"`
 	Code        string `json:"code"`
 	Description string `json:"description"`
+	Status      string `json:"status"`
 }
 
 // UpdatePermission 更新权限
@@ -108,7 +115,7 @@ func (c *PermissionController) UpdatePermission(ctx *gin.Context) {
 		return
 	}
 
-	permission, err := c.authService.UpdatePermission(id, req.Name, req.Code, req.Description)
+	permission, err := c.authService.UpdatePermission(id, req.Name, req.Code, req.Description, req.Status)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新权限失败"})
 		return

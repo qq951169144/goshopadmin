@@ -33,6 +33,20 @@
 | `/api/permissions/:id` | `PUT` | 更新权限 | `{"name": "...", "code": "...", "description": "..."}` | `{"code": 200, "message": "更新权限成功", "data": {...}}` |
 | `/api/permissions/:id` | `DELETE` | 删除权限 | 无 | `{"code": 200, "message": "删除权限成功"}` |
 
+### 4. 商户管理API
+
+| 接口路径 | 方法 | 功能描述 | 请求参数 | 成功响应 |
+| :--- | :--- | :--- | :--- | :--- |
+| `/api/merchants` | `GET` | 获取商户列表 | 无 | `{"code": 200, "message": "获取商户列表成功", "data": [...]}` |
+| `/api/merchants/:id` | `GET` | 获取单个商户信息 | 无 | `{"code": 200, "message": "获取商户信息成功", "data": {...}}` |
+| `/api/merchants` | `POST` | 创建商户 | `{"name": "...", "contact_person": "...", "contact_phone": "...", "address": "..."}` | `{"code": 200, "message": "创建商户成功", "data": {...}}` |
+| `/api/merchants/:id` | `PUT` | 更新商户信息 | `{"name": "...", "contact_person": "...", "contact_phone": "...", "address": "...", "status": "..."}` | `{"code": 200, "message": "更新商户成功", "data": {...}}` |
+| `/api/merchants/:id` | `DELETE` | 禁用商户 | 无 | `{"code": 200, "message": "禁用商户成功"}` |
+| `/api/merchants/:id/audit` | `PUT` | 审核商户 | `{"audit_status": "approved", "audit_note": "..."}` | `{"code": 200, "message": "审核商户成功", "data": {...}}` |
+| `/api/merchants/:id/users` | `GET` | 获取商户用户列表 | 无 | `{"code": 200, "message": "获取商户用户列表成功", "data": [...]}` |
+| `/api/merchants/:id/users` | `POST` | 为商户添加用户 | `{"user_id": 1}` | `{"code": 200, "message": "添加商户用户成功"}` |
+| `/api/merchants/:id/users/:user_id` | `DELETE` | 从商户移除用户 | 无 | `{"code": 200, "message": "移除商户用户成功"}` |
+
 ## 二、前端页面功能实现
 
 ### 1. 用户管理页面
@@ -81,6 +95,24 @@
   - 使用MessageBox组件实现删除确认
   - 调用后端API接口实现数据交互
 
+### 4. 商户管理页面
+
+- **功能**：
+  - 显示商户列表，包括ID、商户名称、联系人、联系电话、审核状态、状态等信息
+  - 支持创建新商户，填写商户名称、联系人、联系电话、地址
+  - 支持编辑现有商户，修改商户信息和状态
+  - 支持审核商户，设置审核状态和审核备注
+  - 支持禁用商户，带确认对话框
+  - 支持管理商户用户，查看、添加和移除商户用户
+
+- **实现**：
+  - 使用Element Plus的Table组件展示商户列表
+  - 使用Dialog组件实现创建和编辑商户的表单
+  - 使用Dialog组件实现商户审核功能
+  - 使用Dialog组件实现商户用户管理功能
+  - 使用MessageBox组件实现禁用确认
+  - 调用后端API接口实现数据交互
+
 ## 三、技术实现细节
 
 ### 1. 后端技术栈
@@ -106,6 +138,12 @@
 - **角色表** (`roles`)：id, name, description, created_at, updated_at
 - **权限表** (`permissions`)：id, name, code, description, created_at, updated_at
 - **角色权限关联表** (`role_permissions`)：role_id, permission_id
+- **商户表** (`merchants`)：id, name, contact_person, contact_phone, address, audit_status, status, created_at, updated_at
+- **商户用户关联表** (`merchant_users`)：merchant_id, user_id, created_at
+- **商户审核表** (`merchant_audits`)：id, merchant_id, audit_status, audit_note, audited_by, audited_at
+- **商户银行信息表** (`merchant_banks`)：id, merchant_id, bank_name, account_name, account_number, status, created_at, updated_at
+- **商户提现表** (`merchant_withdraws`)：id, merchant_id, amount, status, bank_id, created_at, updated_at
+- **商户对账单表** (`merchant_statements`)：id, merchant_id, type, amount, balance, description, created_at
 
 ## 四、测试结果
 
@@ -114,6 +152,7 @@
 - ✅ 用户管理API：所有接口正常工作
 - ✅ 角色管理API：所有接口正常工作
 - ✅ 权限管理API：所有接口正常工作
+- ✅ 商户管理API：所有接口正常工作
 - ✅ 认证中间件：正确保护需要认证的接口
 
 ### 2. 前端页面测试
@@ -121,15 +160,17 @@
 - ✅ 用户管理页面：所有功能正常，数据显示正确
 - ✅ 角色管理页面：所有功能正常，权限分配功能正常
 - ✅ 权限管理页面：所有功能正常，数据显示正确
+- ✅ 商户管理页面：所有功能正常，审核流程顺畅
 - ✅ 页面交互：响应及时，操作流畅
 
 ## 五、总结
 
-本次实现完成了商城后台管理系统的用户管理、角色管理和权限管理功能，包括：
+本次实现完成了商城后台管理系统的用户管理、角色管理、权限管理和商户管理功能，包括：
 
-1. **后端API接口**：实现了完整的CRUD操作，支持用户、角色、权限的管理
+1. **后端API接口**：实现了完整的CRUD操作，支持用户、角色、权限和商户的管理
 2. **前端页面**：实现了直观易用的管理界面，支持各种操作功能
 3. **数据交互**：前后端对接正常，数据流转顺畅
 4. **安全性**：使用JWT认证，密码加密存储，权限控制严格
+5. **商户管理**：实现了商户注册、审核、信息管理和用户关联等功能
 
-系统已经具备了完整的用户-角色-权限管理体系，可以满足商城后台的权限管理需求。
+系统已经具备了完整的用户-角色-权限管理体系和商户管理功能，可以满足商城后台的管理需求。

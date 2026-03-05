@@ -138,7 +138,10 @@ func (s *AuthService) ChangePassword(userID int, oldPassword, newPassword string
 // GetUsers 获取用户列表
 func (s *AuthService) GetUsers() ([]*models.User, error) {
 	var users []*models.User
-	result := s.DB.Preload("Role").Find(&users)
+	// 方法1: 使用Select指定只查询Role表的特定字段
+	result := s.DB.Preload("Role", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id, name") // 只查询Role的id和name字段
+	}).Find(&users)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -146,7 +149,7 @@ func (s *AuthService) GetUsers() ([]*models.User, error) {
 }
 
 // CreateUser 创建用户
-func (s *AuthService) CreateUser(username, password string, roleID int) (*models.User, error) {
+func (s *AuthService) CreateUser(username, password string, roleID int, status string) (*models.User, error) {
 	// 检查用户名是否已存在
 	var existingUser models.User
 	result := s.DB.Where("username = ?", username).First(&existingUser)
@@ -162,12 +165,17 @@ func (s *AuthService) CreateUser(username, password string, roleID int) (*models
 		return nil, err
 	}
 
+	// 如果没有提供状态，默认为active
+	if status == "" {
+		status = "active"
+	}
+
 	// 创建用户
 	user := &models.User{
 		Username:  username,
 		Password:  string(hashedPassword),
 		RoleID:    roleID,
-		Status:    "active",
+		Status:    status,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -230,6 +238,7 @@ func (s *AuthService) DeleteUser(id int) error {
 // GetRoles 获取角色列表
 func (s *AuthService) GetRoles() ([]*models.Role, error) {
 	var roles []*models.Role
+	// 加载角色及其权限信息
 	result := s.DB.Preload("Permissions").Find(&roles)
 	if result.Error != nil {
 		return nil, result.Error
@@ -248,7 +257,7 @@ func (s *AuthService) GetRoleByID(id int) (*models.Role, error) {
 }
 
 // CreateRole 创建角色
-func (s *AuthService) CreateRole(name, description string) (*models.Role, error) {
+func (s *AuthService) CreateRole(name, description, status string) (*models.Role, error) {
 	// 检查角色名是否已存在
 	var existingRole models.Role
 	result := s.DB.Where("name = ?", name).First(&existingRole)
@@ -262,6 +271,7 @@ func (s *AuthService) CreateRole(name, description string) (*models.Role, error)
 	role := &models.Role{
 		Name:        name,
 		Description: description,
+		Status:      status,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -275,7 +285,7 @@ func (s *AuthService) CreateRole(name, description string) (*models.Role, error)
 }
 
 // UpdateRole 更新角色
-func (s *AuthService) UpdateRole(id int, name, description string) (*models.Role, error) {
+func (s *AuthService) UpdateRole(id int, name, description, status string) (*models.Role, error) {
 	// 获取角色
 	var role models.Role
 	result := s.DB.First(&role, id)
@@ -289,6 +299,9 @@ func (s *AuthService) UpdateRole(id int, name, description string) (*models.Role
 	}
 	if description != "" {
 		role.Description = description
+	}
+	if status != "" {
+		role.Status = status
 	}
 
 	role.UpdatedAt = time.Now()
@@ -364,7 +377,7 @@ func (s *AuthService) GetPermissionByID(id int) (*models.Permission, error) {
 }
 
 // CreatePermission 创建权限
-func (s *AuthService) CreatePermission(name, code, description string) (*models.Permission, error) {
+func (s *AuthService) CreatePermission(name, code, description, status string) (*models.Permission, error) {
 	// 检查权限名是否已存在
 	var existingPermission models.Permission
 	result := s.DB.Where("name = ?", name).First(&existingPermission)
@@ -387,6 +400,7 @@ func (s *AuthService) CreatePermission(name, code, description string) (*models.
 		Name:        name,
 		Code:        code,
 		Description: description,
+		Status:      status,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -400,7 +414,7 @@ func (s *AuthService) CreatePermission(name, code, description string) (*models.
 }
 
 // UpdatePermission 更新权限
-func (s *AuthService) UpdatePermission(id int, name, code, description string) (*models.Permission, error) {
+func (s *AuthService) UpdatePermission(id int, name, code, description, status string) (*models.Permission, error) {
 	// 获取权限
 	var permission models.Permission
 	result := s.DB.First(&permission, id)
@@ -435,6 +449,11 @@ func (s *AuthService) UpdatePermission(id int, name, code, description string) (
 	// 更新描述
 	if description != "" {
 		permission.Description = description
+	}
+
+	// 更新状态
+	if status != "" {
+		permission.Status = status
 	}
 
 	permission.UpdatedAt = time.Now()
