@@ -26,6 +26,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB) {
 	// 2. API路由组
 	// 路径前缀: /api
 	api := r.Group("/api")
+	api.Use(middleware.RequestLogger())
 	{
 		// 2.1 认证相关路由（部分需要认证）
 		// 路径前缀: /api/auth

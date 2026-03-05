@@ -147,14 +147,17 @@ watch(() => userInfo.value, async (newUser) => {
   if (newUser) {
     user.value = newUser;
     // 获取用户权限信息
-    try {
-      const response = await authApi.getCurrentUser();
-      if (response.code === 200) {
-        // 保存权限信息到localStorage
-        localStorage.setItem('permissions', JSON.stringify(response.data.permissions || []));
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const response = await authApi.getCurrentUser();
+        if (response.code === 200) {
+          // 保存权限信息到localStorage
+          localStorage.setItem('permissions', JSON.stringify(response.data.permissions || []));
+        }
+      } catch (error) {
+        console.error('获取用户权限失败', error);
       }
-    } catch (error) {
-      console.error('获取用户权限失败', error);
     }
   }
 }, { immediate: true });
