@@ -13,7 +13,7 @@
         <el-table :data="merchants" style="width: 100%">
           <el-table-column prop="id" label="ID" width="80" />
           <el-table-column prop="name" label="商户名称" />
-          <el-table-column prop="contact_person" label="联系人" />
+          <el-table-column prop="contact_name" label="联系人" />
           <el-table-column prop="contact_phone" label="联系电话" />
           <el-table-column prop="audit_status" label="审核状态">
             <template #default="scope">
@@ -60,13 +60,22 @@
           <el-input v-model="merchantForm.name" placeholder="请输入商户名称" />
         </el-form-item>
         <el-form-item label="联系人">
-          <el-input v-model="merchantForm.contact_person" placeholder="请输入联系人" />
+          <el-input v-model="merchantForm.contact_name" placeholder="请输入联系人" />
         </el-form-item>
         <el-form-item label="联系电话">
           <el-input v-model="merchantForm.contact_phone" placeholder="请输入联系电话" />
         </el-form-item>
+        <el-form-item label="电子邮箱">
+          <el-input v-model="merchantForm.email" placeholder="请输入电子邮箱" />
+        </el-form-item>
         <el-form-item label="地址">
           <el-input v-model="merchantForm.address" type="textarea" placeholder="请输入地址" />
+        </el-form-item>
+        <el-form-item label="营业执照">
+          <el-input v-model="merchantForm.business_license" placeholder="请输入营业执照图片路径" />
+        </el-form-item>
+        <el-form-item label="税务登记号">
+          <el-input v-model="merchantForm.tax_number" placeholder="请输入税务登记号" />
         </el-form-item>
         <el-form-item label="状态" v-if="merchantForm.id">
           <el-select v-model="merchantForm.status" placeholder="请选择状态">
@@ -126,6 +135,12 @@
         <el-table :data="merchantUsers" style="width: 100%">
           <el-table-column prop="user.id" label="用户ID" width="80" />
           <el-table-column prop="user.username" label="用户名" />
+          <el-table-column prop="role" label="角色">
+            <template #default="scope">
+              {{ getRoleText(scope.row.role) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="merchant.name" label="商户名称" />
           <el-table-column label="操作" width="100">
             <template #default="scope">
               <el-button type="danger" size="small" @click="removeMerchantUser(scope.row.user.id)">
@@ -157,6 +172,13 @@
               :label="user.username"
               :value="user.id"
             />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="选择角色">
+          <el-select v-model="addMerchantUserForm.role" placeholder="请选择角色">
+            <el-option label="老板" value="owner" />
+            <el-option label="经理" value="manager" />
+            <el-option label="员工" value="staff" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -239,9 +261,12 @@ const editMerchant = (merchant) => {
   merchantForm.value = {
     id: merchant.id,
     name: merchant.name,
-    contact_person: merchant.contact_person,
+    contact_name: merchant.contact_name,
     contact_phone: merchant.contact_phone,
+    email: merchant.email,
     address: merchant.address,
+    business_license: merchant.business_license,
+    tax_number: merchant.tax_number,
     status: merchant.status
   };
   merchantDialogTitle.value = '编辑商户';
@@ -388,6 +413,20 @@ const getAuditStatusText = (status) => {
   }
 };
 
+// 获取角色文本
+const getRoleText = (role) => {
+  switch (role) {
+    case 'owner':
+      return '老板';
+    case 'manager':
+      return '经理';
+    case 'staff':
+      return '员工';
+    default:
+      return '';
+  }
+};
+
 // 初始化
 onMounted(() => {
   getMerchants();
@@ -397,5 +436,11 @@ onMounted(() => {
 <style scoped>
 .merchants-content {
   margin-top: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>

@@ -1,12 +1,11 @@
 package models
 
 import (
-	"database/sql/driver"
-	"encoding/json"
-	"errors"
 	"time"
 )
 
+// 暂时注释掉JSON类型，使用map[string]interface{}代替
+/*
 // JSON 类型，用于处理 JSON 字段
 type JSON map[string]interface{}
 
@@ -30,6 +29,7 @@ func (j *JSON) Scan(value interface{}) error {
 	}
 	return json.Unmarshal(bytes, j)
 }
+*/
 
 // MerchantUser 商户用户关联模型
 type MerchantUser struct {
@@ -37,6 +37,7 @@ type MerchantUser struct {
 	MerchantID int       `json:"merchant_id" gorm:"not null"`
 	UserID     int       `json:"user_id" gorm:"not null"`
 	Role       string    `json:"role" gorm:"size:20;not null"`
+	Status     string    `json:"status" gorm:"default:active"`
 	CreatedAt  time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt  time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 	// 关联关系
@@ -54,8 +55,8 @@ type MerchantAudit struct {
 	ID        int       `json:"id" gorm:"primaryKey"`
 	MerchantID int       `json:"merchant_id" gorm:"not null"`
 	AuditType string    `json:"audit_type" gorm:"size:20;not null"`
-	OldData   *JSON     `json:"old_data"`
-	NewData   *JSON     `json:"new_data"`
+	OldData   string    `json:"old_data" gorm:"type:json"`
+	NewData   string    `json:"new_data" gorm:"type:json"`
 	Status    string    `json:"status" gorm:"default:pending"`
 	Remark    string    `json:"remark" gorm:"type:text"`
 	CreatedBy int       `json:"created_by" gorm:"not null"`

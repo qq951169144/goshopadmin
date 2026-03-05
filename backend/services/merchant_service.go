@@ -1,8 +1,10 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"goshopadmin/models"
+	"goshopadmin/utils"
 	"time"
 
 	"gorm.io/gorm"
@@ -39,7 +41,7 @@ func (s *MerchantService) GetMerchantByID(id int) (*models.Merchant, error) {
 }
 
 // CreateMerchant 创建商户
-func (s *MerchantService) CreateMerchant(name, contactPerson, contactPhone, address string, createdBy int) (*models.Merchant, error) {
+func (s *MerchantService) CreateMerchant(name, contactName, contactPhone, email, address, businessLicense, taxNumber string, createdBy int) (*models.Merchant, error) {
 	// 检查商户名称是否已存在
 	var existingMerchant models.Merchant
 	result := s.DB.Where("name = ?", name).First(&existingMerchant)
@@ -51,12 +53,15 @@ func (s *MerchantService) CreateMerchant(name, contactPerson, contactPhone, addr
 
 	// 创建商户
 	merchant := &models.Merchant{
-		Name:          name,
-		ContactPerson: contactPerson,
-		ContactPhone:  contactPhone,
-		Address:       address,
-		AuditStatus:   "pending",
-		Status:        "inactive",
+		Name:            name,
+		ContactName:     contactName,
+		ContactPhone:    contactPhone,
+		Email:           email,
+		Address:         address,
+		BusinessLicense: businessLicense,
+		TaxNumber:       taxNumber,
+		AuditStatus:     "pending",
+		Status:          "inactive",
 	}
 
 	// 开始事务
@@ -70,24 +75,38 @@ func (s *MerchantService) CreateMerchant(name, contactPerson, contactPhone, addr
 	// 创建商户
 	if err := tx.Create(merchant).Error; err != nil {
 		tx.Rollback()
+		utils.Info("创建商户失败: %v", err)
 		return nil, err
 	}
 
 	// 创建审核记录
+	newData := map[string]any{
+		"name":             name,
+		"contact_name":     contactName,
+		"contact_phone":    contactPhone,
+		"email":            email,
+		"address":          address,
+		"business_license": businessLicense,
+		"tax_number":       taxNumber,
+	}
+	newDataJSON, err := json.Marshal(newData)
+	if err != nil {
+		utils.Error("JSON序列化失败: %v", err)
+		tx.Rollback()
+		return nil, err
+	}
+
 	audit := &models.MerchantAudit{
 		MerchantID: merchant.ID,
 		AuditType:  "registration",
-		NewData: &models.JSON{
-			"name":            name,
-			"contact_person":  contactPerson,
-			"contact_phone":   contactPhone,
-			"address":         address,
-		},
-		Status:    "pending",
-		CreatedBy: createdBy,
+		OldData:    "{}",
+		NewData:    string(newDataJSON),
+		Status:     "pending",
+		CreatedBy:  createdBy,
 	}
 
 	if err := tx.Create(audit).Error; err != nil {
+		utils.Info("创建审核记录失败%v", err)
 		tx.Rollback()
 		return nil, err
 	}
@@ -101,7 +120,7 @@ func (s *MerchantService) CreateMerchant(name, contactPerson, contactPhone, addr
 }
 
 // UpdateMerchant 更新商户信息
-func (s *MerchantService) UpdateMerchant(id int, name, contactPerson, contactPhone, address, status string, updatedBy int) (*models.Merchant, error) {
+func (s *MerchantService) UpdateMerchant(id int, name, contactName, contactPhone, email, address, businessLicense, taxNumber, status string, updatedBy int) (*models.Merchant, error) {
 	// 获取商户
 	var merchant models.Merchant
 	result := s.DB.First(&merchant, id)
@@ -118,26 +137,44 @@ func (s *MerchantService) UpdateMerchant(id int, name, contactPerson, contactPho
 	}()
 
 	// 保存旧数据
-	oldData := &models.JSON{
-		"name":           merchant.Name,
-		"contact_person": merchant.ContactPerson,
-		"contact_phone":  merchant.ContactPhone,
-		"address":        merchant.Address,
-		"status":         merchant.Status,
+	oldData := map[string]interface{}{
+		"name":             merchant.Name,
+		"contact_name":     merchant.ContactName,
+		"contact_phone":    merchant.ContactPhone,
+		"email":            merchant.Email,
+		"address":          merchant.Address,
+		"business_license": merchant.BusinessLicense,
+		"tax_number":       merchant.TaxNumber,
+		"status":           merchant.Status,
+	}
+	oldDataJSON, err := json.Marshal(oldData)
+	if err != nil {
+		utils.Error("JSON序列化失败: %v", err)
+		tx.Rollback()
+		return nil, err
 	}
 
 	// 更新商户信息
 	if name != "" {
 		merchant.Name = name
 	}
-	if contactPerson != "" {
-		merchant.ContactPerson = contactPerson
+	if contactName != "" {
+		merchant.ContactName = contactName
 	}
 	if contactPhone != "" {
 		merchant.ContactPhone = contactPhone
 	}
+	if email != "" {
+		merchant.Email = email
+	}
 	if address != "" {
 		merchant.Address = address
+	}
+	if businessLicense != "" {
+		merchant.BusinessLicense = businessLicense
+	}
+	if taxNumber != "" {
+		merchant.TaxNumber = taxNumber
 	}
 	if status != "" {
 		merchant.Status = status
@@ -152,19 +189,30 @@ func (s *MerchantService) UpdateMerchant(id int, name, contactPerson, contactPho
 	}
 
 	// 创建审核记录
+	newData := map[string]interface{}{
+		"name":             merchant.Name,
+		"contact_name":     merchant.ContactName,
+		"contact_phone":    merchant.ContactPhone,
+		"email":            merchant.Email,
+		"address":          merchant.Address,
+		"business_license": merchant.BusinessLicense,
+		"tax_number":       merchant.TaxNumber,
+		"status":           merchant.Status,
+	}
+	newDataJSON, err := json.Marshal(newData)
+	if err != nil {
+		utils.Error("JSON序列化失败: %v", err)
+		tx.Rollback()
+		return nil, err
+	}
+
 	audit := &models.MerchantAudit{
 		MerchantID: merchant.ID,
 		AuditType:  "update",
-		OldData:    oldData,
-		NewData: &models.JSON{
-			"name":           merchant.Name,
-			"contact_person": merchant.ContactPerson,
-			"contact_phone":  merchant.ContactPhone,
-			"address":        merchant.Address,
-			"status":         merchant.Status,
-		},
-		Status:    "pending",
-		CreatedBy: updatedBy,
+		OldData:    string(oldDataJSON),
+		NewData:    string(newDataJSON),
+		Status:     "pending",
+		CreatedBy:  updatedBy,
 	}
 
 	if err := tx.Create(audit).Error; err != nil {
@@ -239,7 +287,11 @@ func (s *MerchantService) AuditMerchant(id int, status, remark string, auditedBy
 // GetMerchantUsers 获取商户用户列表
 func (s *MerchantService) GetMerchantUsers(merchantID int) ([]*models.MerchantUser, error) {
 	var merchantUsers []*models.MerchantUser
-	result := s.DB.Where("merchant_id = ?", merchantID).Preload("User").Find(&merchantUsers)
+	result := s.DB.Where("merchant_id = ? AND status = ?", merchantID, "active").Preload("User", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id, username, status")
+	}).Preload("Merchant", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id, name, status")
+	}).Find(&merchantUsers)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -248,11 +300,23 @@ func (s *MerchantService) GetMerchantUsers(merchantID int) ([]*models.MerchantUs
 
 // AddMerchantUser 添加商户用户
 func (s *MerchantService) AddMerchantUser(merchantID, userID int, role string) error {
-	// 检查是否已存在
+	// 检查是否已存在活跃的关联
 	var existingMerchantUser models.MerchantUser
-	result := s.DB.Where("merchant_id = ? AND user_id = ?", merchantID, userID).First(&existingMerchantUser)
+	result := s.DB.Where("merchant_id = ? AND user_id = ? AND status = ?", merchantID, userID, "active").First(&existingMerchantUser)
 	if result.Error == nil {
 		return errors.New("该用户已关联到商户")
+	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return result.Error
+	}
+
+	// 检查是否存在已禁用的关联，如果存在则重新激活
+	result = s.DB.Where("merchant_id = ? AND user_id = ? AND status = ?", merchantID, userID, "inactive").First(&existingMerchantUser)
+	if result.Error == nil {
+		// 重新激活
+		existingMerchantUser.Status = "active"
+		existingMerchantUser.Role = role
+		result = s.DB.Save(&existingMerchantUser)
+		return result.Error
 	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		return result.Error
 	}
@@ -262,6 +326,7 @@ func (s *MerchantService) AddMerchantUser(merchantID, userID int, role string) e
 		MerchantID: merchantID,
 		UserID:     userID,
 		Role:       role,
+		Status:     "active",
 	}
 
 	result = s.DB.Create(merchantUser)
@@ -270,7 +335,7 @@ func (s *MerchantService) AddMerchantUser(merchantID, userID int, role string) e
 
 // RemoveMerchantUser 移除商户用户
 func (s *MerchantService) RemoveMerchantUser(merchantID, userID int) error {
-	result := s.DB.Where("merchant_id = ? AND user_id = ?", merchantID, userID).Delete(&models.MerchantUser{})
+	result := s.DB.Model(&models.MerchantUser{}).Where("merchant_id = ? AND user_id = ?", merchantID, userID).Update("status", "inactive")
 	return result.Error
 }
 

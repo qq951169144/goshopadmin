@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"goshopadmin/services"
+	"goshopadmin/utils"
 	"net/http"
 	"strconv"
 
@@ -60,10 +61,13 @@ func (c *MerchantController) GetMerchant(ctx *gin.Context) {
 
 // CreateMerchantRequest 创建商户请求结构
 type CreateMerchantRequest struct {
-	Name          string `json:"name" binding:"required"`
-	ContactPerson string `json:"contact_person" binding:"required"`
-	ContactPhone  string `json:"contact_phone" binding:"required"`
-	Address       string `json:"address" binding:"required"`
+	Name            string `json:"name" binding:"required"`
+	ContactName     string `json:"contact_name" binding:"required"`
+	ContactPhone    string `json:"contact_phone" binding:"required"`
+	Email           string `json:"email" binding:"required"`
+	Address         string `json:"address" binding:"required"`
+	BusinessLicense string `json:"business_license" binding:"required"`
+	TaxNumber       string `json:"tax_number" binding:"required"`
 }
 
 // CreateMerchant 创建商户
@@ -83,9 +87,12 @@ func (c *MerchantController) CreateMerchant(ctx *gin.Context) {
 
 	merchant, err := c.merchantService.CreateMerchant(
 		req.Name,
-		req.ContactPerson,
+		req.ContactName,
 		req.ContactPhone,
+		req.Email,
 		req.Address,
+		req.BusinessLicense,
+		req.TaxNumber,
 		userID.(int),
 	)
 	if err != nil {
@@ -102,11 +109,14 @@ func (c *MerchantController) CreateMerchant(ctx *gin.Context) {
 
 // UpdateMerchantRequest 更新商户请求结构
 type UpdateMerchantRequest struct {
-	Name          string `json:"name"`
-	ContactPerson string `json:"contact_person"`
-	ContactPhone  string `json:"contact_phone"`
-	Address       string `json:"address"`
-	Status        string `json:"status"`
+	Name            string `json:"name"`
+	ContactName     string `json:"contact_name"`
+	ContactPhone    string `json:"contact_phone"`
+	Email           string `json:"email"`
+	Address         string `json:"address"`
+	BusinessLicense string `json:"business_license"`
+	TaxNumber       string `json:"tax_number"`
+	Status          string `json:"status"`
 }
 
 // UpdateMerchant 更新商户
@@ -134,9 +144,12 @@ func (c *MerchantController) UpdateMerchant(ctx *gin.Context) {
 	merchant, err := c.merchantService.UpdateMerchant(
 		id,
 		req.Name,
-		req.ContactPerson,
+		req.ContactName,
 		req.ContactPhone,
+		req.Email,
 		req.Address,
+		req.BusinessLicense,
+		req.TaxNumber,
 		req.Status,
 		userID.(int),
 	)
@@ -225,18 +238,21 @@ func (c *MerchantController) AddMerchantUser(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	merchantID, err := strconv.Atoi(idStr)
 	if err != nil {
+		utils.Info("参数错误1 = %v, idStr = %v, merchantID = %v", err, idStr, merchantID)
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
 	var req AddMerchantUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		utils.Info("参数错误2 = %v", err)
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
 	err = c.merchantService.AddMerchantUser(merchantID, req.UserID, req.Role)
 	if err != nil {
+		utils.Info("参数错误3 = %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "添加商户用户失败"})
 		return
 	}

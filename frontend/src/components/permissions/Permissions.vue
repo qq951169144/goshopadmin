@@ -168,4 +168,10 @@ onMounted(() => {
 .permissions-content {
   margin-top: 20px;
 }
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 </style>

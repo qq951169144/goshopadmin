@@ -66,7 +66,8 @@ CREATE TABLE IF NOT EXISTS merchant_users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     merchant_id INT NOT NULL,
     user_id INT NOT NULL,
-    role VARCHAR(20) NOT NULL,
+    `role` enum('owner','manager','staff') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'owner',
+    status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_merchant_user (merchant_id, user_id)
