@@ -49,6 +49,14 @@
               <el-icon><shop /></el-icon>
               <span>商户管理</span>
             </el-menu-item>
+            <el-menu-item index="products" v-if="hasPermission('product:manage')">
+              <el-icon><goods /></el-icon>
+              <span>商品管理</span>
+            </el-menu-item>
+            <el-menu-item index="product-categories" v-if="hasPermission('product:category')">
+              <el-icon><grid /></el-icon>
+              <span>商品分类</span>
+            </el-menu-item>
           </el-menu>
         </el-aside>
         
@@ -70,8 +78,14 @@
             <!-- 商户管理 -->
             <Merchants v-else-if="activeMenu === 'merchants' && hasPermission('merchant:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
             
+            <!-- 商品管理 -->
+            <Products v-else-if="activeMenu === 'products' && hasPermission('product:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
+            
+            <!-- 商品分类管理 -->
+            <ProductCategories v-else-if="activeMenu === 'product-categories' && hasPermission('product:category')" :has-permission="hasPermission" @refresh="handleRefresh" />
+            
             <!-- 无权限提示 -->
-            <el-card v-else-if="(activeMenu === 'users' || activeMenu === 'roles' || activeMenu === 'permissions' || activeMenu === 'merchants')">
+            <el-card v-else-if="(activeMenu === 'users' || activeMenu === 'roles' || activeMenu === 'permissions' || activeMenu === 'merchants' || activeMenu === 'products' || activeMenu === 'product-categories')">
               <div class="no-permission">
                 <el-empty description="您没有权限访问此页面" />
               </div>
@@ -86,7 +100,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
-import { ArrowDown, House, User, Position, Lock, Shop } from '@element-plus/icons-vue';
+import { ArrowDown, House, User, Position, Lock, Shop, Goods, Grid } from '@element-plus/icons-vue';
 import { authApi } from '../api/auth';
 
 // 导入子组件
@@ -95,6 +109,8 @@ import Users from './users/Users.vue';
 import Roles from './roles/Roles.vue';
 import Permissions from './permissions/Permissions.vue';
 import Merchants from './merchants/Merchants.vue';
+import Products from './products/Products.vue';
+import ProductCategories from './products/ProductCategories.vue';
 
 const activeMenu = ref('dashboard');
 const user = ref(null);

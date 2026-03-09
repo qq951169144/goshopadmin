@@ -47,6 +47,26 @@
 | `/api/merchants/:id/users` | `POST` | 为商户添加用户 | `{"user_id": 1}` | `{"code": 200, "message": "添加商户用户成功"}` |
 | `/api/merchants/:id/users/:user_id` | `DELETE` | 从商户移除用户 | 无 | `{"code": 200, "message": "移除商户用户成功"}` |
 
+### 5. 商品管理API
+
+| 接口路径 | 方法 | 功能描述 | 请求参数 | 成功响应 |
+| :--- | :--- | :--- | :--- | :--- |
+| `/api/products` | `GET` | 获取商品列表 | 无 | `{"code": 200, "message": "获取商品列表成功", "data": [...]}` |
+| `/api/products/:id` | `GET` | 获取商品详情 | 无 | `{"code": 200, "message": "获取商品详情成功", "data": {...}}` |
+| `/api/products` | `POST` | 创建商品 | `{"name": "...", "description": "...", "price": 100, "stock": 10, "category_id": 1}` | `{"code": 200, "message": "创建商品成功", "data": {...}}` |
+| `/api/products/:id` | `PUT` | 更新商品 | `{"name": "...", "description": "...", "price": 100, "stock": 10, "category_id": 1, "status": "active"}` | `{"code": 200, "message": "更新商品成功", "data": {...}}` |
+| `/api/products/:id` | `DELETE` | 删除商品 | 无 | `{"code": 200, "message": "删除商品成功"}` |
+| `/api/product-categories` | `GET` | 获取商品分类列表 | 无 | `{"code": 200, "message": "获取分类列表成功", "data": [...]}` |
+| `/api/product-categories/:id` | `GET` | 获取商品分类详情 | 无 | `{"code": 200, "message": "获取分类详情成功", "data": {...}}` |
+| `/api/product-categories` | `POST` | 创建商品分类 | `{"name": "...", "parent_id": 0, "sort": 0}` | `{"code": 200, "message": "创建分类成功", "data": {...}}` |
+| `/api/product-categories/:id` | `PUT` | 更新商品分类 | `{"name": "...", "parent_id": 0, "sort": 0, "status": "active"}` | `{"code": 200, "message": "更新分类成功", "data": {...}}` |
+| `/api/product-categories/:id` | `DELETE` | 删除商品分类 | 无 | `{"code": 200, "message": "删除分类成功"}` |
+| `/api/product-images` | `POST` | 添加商品图片 | `{"product_id": 1, "image_url": "...", "is_main": true, "sort": 0}` | `{"code": 200, "message": "添加图片成功", "data": {...}}` |
+| `/api/product-images/:id` | `DELETE` | 删除商品图片 | 无 | `{"code": 200, "message": "删除图片成功"}` |
+| `/api/product-skus` | `POST` | 添加商品SKU | `{"product_id": 1, "sku_code": "...", "attributes": "{\"color\": \"red\", \"size\": \"M\"}", "price": 100, "stock": 10}` | `{"code": 200, "message": "添加SKU成功", "data": {...}}` |
+| `/api/product-skus/:id` | `PUT` | 更新商品SKU | `{"sku_code": "...", "attributes": "{\"color\": \"red\", \"size\": \"M\"}", "price": 100, "stock": 10, "status": "active"}` | `{"code": 200, "message": "更新SKU成功", "data": {...}}` |
+| `/api/product-skus/:id` | `DELETE` | 删除商品SKU | 无 | `{"code": 200, "message": "删除SKU成功"}` |
+
 ## 二、前端页面功能实现
 
 ### 1. 用户管理页面
@@ -111,6 +131,41 @@
   - 使用Dialog组件实现商户审核功能
   - 使用Dialog组件实现商户用户管理功能
   - 使用MessageBox组件实现禁用确认
+  - 调用后端API接口实现数据交互
+
+### 5. 商品管理页面
+
+- **功能**：
+  - 显示商品列表，包括ID、商品名称、价格、库存、分类、状态等信息
+  - 支持创建新商品，填写商品名称、描述、价格、库存、分类等信息
+  - 支持编辑现有商品，修改商品信息和状态
+  - 支持删除商品，带确认对话框
+  - 支持管理商品图片，添加和删除图片
+  - 支持管理商品SKU，添加、编辑和删除SKU
+  - 支持预览C端商品展示页面
+
+- **实现**：
+  - 使用Element Plus的Table组件展示商品列表
+  - 使用Dialog组件实现创建和编辑商品的表单
+  - 使用富文本编辑器编辑商品详情
+  - 使用Dialog组件实现商品图片管理功能
+  - 使用Dialog组件实现商品SKU管理功能
+  - 使用MessageBox组件实现删除确认
+  - 调用后端API接口实现数据交互
+
+### 6. 商品分类管理页面
+
+- **功能**：
+  - 显示商品分类列表，包括ID、分类名称、父分类、排序等信息
+  - 支持创建新分类，填写分类名称、父分类、排序等信息
+  - 支持编辑现有分类，修改分类信息和状态
+  - 支持删除分类，带确认对话框
+
+- **实现**：
+  - 使用Element Plus的Table组件展示分类列表
+  - 使用Dialog组件实现创建和编辑分类的表单
+  - 使用Tree组件展示分类层级关系
+  - 使用MessageBox组件实现删除确认
   - 调用后端API接口实现数据交互
 
 ## 三、技术实现细节

@@ -17,6 +17,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB) {
 	roleController := controllers.NewRoleController(db)
 	permissionController := controllers.NewPermissionController(db)
 	merchantController := controllers.NewMerchantController(db)
+	productController := controllers.NewProductController(db)
 
 	// 1. 通用路由（无需认证）
 	// 路径: /health, /
@@ -101,6 +102,45 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB) {
 				merchants.GET("/:id/users", merchantController.GetMerchantUsers)
 				merchants.POST("/:id/users", merchantController.AddMerchantUser)
 				merchants.DELETE("/:id/users/:user_id", merchantController.RemoveMerchantUser)
+			}
+
+			// 商品管理路由
+			// 路径: /api/products, /api/products/:id
+			products := protected.Group("/products")
+			{
+				products.GET("", productController.GetProducts)
+				products.GET("/:id", productController.GetProduct)
+				products.POST("", productController.CreateProduct)
+				products.PUT("/:id", productController.UpdateProduct)
+				products.DELETE("/:id", productController.DeleteProduct)
+			}
+
+			// 商品分类管理路由
+			// 路径: /api/product-categories, /api/product-categories/:id
+			categories := protected.Group("/product-categories")
+			{
+				categories.GET("", productController.GetCategories)
+				categories.GET("/:id", productController.GetCategory)
+				categories.POST("", productController.CreateCategory)
+				categories.PUT("/:id", productController.UpdateCategory)
+				categories.DELETE("/:id", productController.DeleteCategory)
+			}
+
+			// 商品图片管理路由
+			// 路径: /api/product-images, /api/product-images/:id
+			images := protected.Group("/product-images")
+			{
+				images.POST("", productController.AddProductImage)
+				images.DELETE("/:id", productController.DeleteProductImage)
+			}
+
+			// 商品SKU管理路由
+			// 路径: /api/product-skus, /api/product-skus/:id
+			skus := protected.Group("/product-skus")
+			{
+				skus.POST("", productController.AddProductSKU)
+				skus.PUT("/:id", productController.UpdateProductSKU)
+				skus.DELETE("/:id", productController.DeleteProductSKU)
 			}
 		}
 	}

@@ -93,4 +93,38 @@ export const authApi = {
   removeMerchantUser: (merchantId, userId) => api.delete(`/merchants/${merchantId}/users/${userId}`)
 };
 
+// 商品相关API
+export const productApi = {
+  // 获取商品列表
+  getProducts: () => api.get('/products'),
+  // 获取商品详情
+  getProduct: (id) => api.get(`/products/${id}`),
+  // 创建商品
+  createProduct: (data) => api.post('/products', data),
+  // 更新商品
+  updateProduct: (id, data) => api.put(`/products/${id}`, data),
+  // 删除商品
+  deleteProduct: (id) => api.delete(`/products/${id}`),
+  // 获取商品分类列表
+  getCategories: () => api.get('/product-categories'),
+  // 获取商品分类详情
+  getCategory: (id) => api.get(`/product-categories/${id}`),
+  // 创建商品分类
+  createCategory: (data) => api.post('/product-categories', data),
+  // 更新商品分类
+  updateCategory: (id, data) => api.put(`/product-categories/${id}`, data),
+  // 删除商品分类
+  deleteCategory: (id) => api.delete(`/product-categories/${id}`),
+  // 添加商品图片
+  addProductImage: (data) => api.post('/product-images', data),
+  // 删除商品图片
+  deleteProductImage: (id) => api.delete(`/product-images/${id}`),
+  // 添加商品SKU
+  addProductSKU: (data) => api.post('/product-skus', data),
+  // 更新商品SKU
+  updateProductSKU: (id, data) => api.put(`/product-skus/${id}`, data),
+  // 删除商品SKU
+  deleteProductSKU: (id) => api.delete(`/product-skus/${id}`)
+};
+
 export default api;
