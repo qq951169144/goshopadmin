@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"errors"
+	"goshopadmin/constants"
 	"goshopadmin/models"
 	"goshopadmin/utils"
 	"time"
@@ -60,8 +61,8 @@ func (s *MerchantService) CreateMerchant(name, contactName, contactPhone, email,
 		Address:         address,
 		BusinessLicense: businessLicense,
 		TaxNumber:       taxNumber,
-		AuditStatus:     "pending",
-		Status:          "inactive",
+		AuditStatus:     constants.AuditStatusPending,
+		Status:          constants.StatusInactive,
 	}
 
 	// 开始事务
@@ -101,7 +102,7 @@ func (s *MerchantService) CreateMerchant(name, contactName, contactPhone, email,
 		AuditType:  "registration",
 		OldData:    "{}",
 		NewData:    string(newDataJSON),
-		Status:     "pending",
+		Status:     constants.AuditStatusPending,
 		CreatedBy:  createdBy,
 	}
 
@@ -211,7 +212,7 @@ func (s *MerchantService) UpdateMerchant(id int, name, contactName, contactPhone
 		AuditType:  "update",
 		OldData:    string(oldDataJSON),
 		NewData:    string(newDataJSON),
-		Status:     "pending",
+		Status:     constants.AuditStatusPending,
 		CreatedBy:  updatedBy,
 	}
 
@@ -247,13 +248,13 @@ func (s *MerchantService) AuditMerchant(id int, status, remark string, auditedBy
 
 	// 更新商户状态
 	merchant.AuditStatus = status
-	if status == "approved" {
-		merchant.Status = "active"
+	if status == constants.AuditStatusApproved {
+		merchant.Status = constants.StatusActive
 		now := time.Now()
 		merchant.ApprovedAt = &now
 		merchant.ApprovedBy = &auditedBy
-	} else if status == "rejected" {
-		merchant.Status = "inactive"
+	} else if status == constants.AuditStatusRejected {
+		merchant.Status = constants.StatusInactive
 	}
 
 	if err := tx.Save(&merchant).Error; err != nil {
@@ -263,7 +264,7 @@ func (s *MerchantService) AuditMerchant(id int, status, remark string, auditedBy
 
 	// 更新审核记录
 	var audit models.MerchantAudit
-	result = tx.Where("merchant_id = ? AND status = ?", id, "pending").Order("created_at DESC").First(&audit)
+	result = tx.Where("merchant_id = ? AND status = ?", id, constants.AuditStatusPending).Order("created_at DESC").First(&audit)
 	if result.Error == nil {
 		audit.Status = status
 		audit.Remark = remark

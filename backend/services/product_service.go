@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"goshopadmin/constants"
 	"goshopadmin/models"
 
 	"gorm.io/gorm"
@@ -63,12 +64,12 @@ func (s *ProductService) UpdateProduct(product *models.Product, merchantID int) 
 		return errors.New("商品不存在或不属于该商户")
 	}
 
-	// 更新商品信息
-	result = s.DB.Save(product)
+	// 使用Updates方法更新，只更新非零值字段，避免覆盖时间戳
+	result = s.DB.Model(&existingProduct).Updates(product)
 	return result.Error
 }
 
-// DeleteProduct 删除商品
+// DeleteProduct 禁用商品
 func (s *ProductService) DeleteProduct(id int, merchantID int) error {
 	// 检查商品是否属于该商户
 	var existingProduct models.Product
@@ -77,8 +78,8 @@ func (s *ProductService) DeleteProduct(id int, merchantID int) error {
 		return errors.New("商品不存在或不属于该商户")
 	}
 
-	// 删除商品
-	result = s.DB.Delete(&existingProduct)
+	// 更新商品状态为禁用
+	result = s.DB.Model(&existingProduct).Update("status", constants.StatusInactive)
 	return result.Error
 }
 
@@ -118,12 +119,12 @@ func (s *ProductService) UpdateCategory(category *models.ProductCategory, mercha
 		return errors.New("分类不存在或不属于该商户")
 	}
 
-	// 更新分类信息
-	result = s.DB.Save(category)
+	// 使用Updates方法更新，只更新非零值字段，避免覆盖时间戳
+	result = s.DB.Model(&existingCategory).Updates(category)
 	return result.Error
 }
 
-// DeleteCategory 删除商品分类
+// DeleteCategory 禁用商品分类
 func (s *ProductService) DeleteCategory(id int, merchantID int) error {
 	// 检查分类是否属于该商户
 	var existingCategory models.ProductCategory
@@ -136,11 +137,11 @@ func (s *ProductService) DeleteCategory(id int, merchantID int) error {
 	var productCount int64
 	s.DB.Model(&models.Product{}).Where("category_id = ?", id).Count(&productCount)
 	if productCount > 0 {
-		return errors.New("分类下存在商品，无法删除")
+		return errors.New("分类下存在商品，无法禁用")
 	}
 
-	// 删除分类
-	result = s.DB.Delete(&existingCategory)
+	// 更新分类状态为禁用
+	result = s.DB.Model(&existingCategory).Update("status", constants.StatusInactive)
 	return result.Error
 }
 
@@ -214,11 +215,11 @@ func (s *ProductService) UpdateProductSKU(sku *models.ProductSKU, merchantID int
 	}
 
 	// 更新SKU
-	result = s.DB.Save(sku)
+	result = s.DB.Model(&existingSKU).Updates(sku)
 	return result.Error
 }
 
-// DeleteProductSKU 删除商品SKU
+// DeleteProductSKU 禁用商品SKU
 func (s *ProductService) DeleteProductSKU(id int, merchantID int) error {
 	// 检查SKU所属的商品是否属于该商户
 	var sku models.ProductSKU
@@ -233,7 +234,7 @@ func (s *ProductService) DeleteProductSKU(id int, merchantID int) error {
 		return errors.New("商品不存在或不属于该商户")
 	}
 
-	// 删除SKU
-	result = s.DB.Delete(&sku)
+	// 更新SKU状态为禁用
+	result = s.DB.Model(&sku).Update("status", constants.StatusInactive)
 	return result.Error
 }

@@ -42,7 +42,7 @@
         </el-form-item>
         <el-form-item label="父分类" prop="parent_id">
           <el-select v-model="categoryForm.parent_id" placeholder="请选择父分类">
-            <el-option label="顶级分类" value="0" />
+            <el-option label="顶级分类" :value="0" />
             <el-option
               v-for="category in categories"
               :key="category.id"
@@ -87,7 +87,6 @@ export default {
       categoryDialogVisible: false,
       categoryDialogTitle: '添加分类',
       categoryForm: {
-        id: '',
         name: '',
         parent_id: 0,
         level: 1,
@@ -115,7 +114,6 @@ export default {
     handleCreateCategory() {
       this.categoryDialogTitle = '添加分类'
       this.categoryForm = {
-        id: '',
         name: '',
         parent_id: 0,
         level: 1,

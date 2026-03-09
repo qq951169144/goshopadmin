@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS products (
     description TEXT,
     price DECIMAL(10,2) NOT NULL,
     stock INT NOT NULL,
-    category VARCHAR(50),
+    category_id INT NOT NULL,
     merchant_id INT NOT NULL,
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"net/http"
-	"strconv"
-
 	"goshopadmin/models"
 	"goshopadmin/services"
+	"goshopadmin/utils"
+	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -14,6 +14,79 @@ import (
 // ProductController 商品控制器
 type ProductController struct {
 	productService *services.ProductService
+}
+
+// CreateProductRequest 创建商品请求
+
+type CreateProductRequest struct {
+	Name        string  `json:"name" binding:"required"`
+	Description string  `json:"description"`
+	Price       float64 `json:"price" binding:"required"`
+	Stock       int     `json:"stock" binding:"required"`
+	CategoryID  int     `json:"category_id" binding:"required"`
+	Status      string  `json:"status"`
+}
+
+// UpdateProductRequest 更新商品请求
+
+type UpdateProductRequest struct {
+	Name        string  `json:"name" binding:"required"`
+	Description string  `json:"description"`
+	Price       float64 `json:"price" binding:"required"`
+	Stock       int     `json:"stock" binding:"required"`
+	CategoryID  int     `json:"category_id" binding:"required"`
+	Status      string  `json:"status"`
+}
+
+// CreateCategoryRequest 创建分类请求
+
+type CreateCategoryRequest struct {
+	Name     string `json:"name" binding:"required"`
+	ParentID int    `json:"parent_id"`
+	Level    int    `json:"level"`
+	Sort     int    `json:"sort"`
+	Status   string `json:"status"`
+}
+
+// UpdateCategoryRequest 更新分类请求
+
+type UpdateCategoryRequest struct {
+	Name     string `json:"name" binding:"required"`
+	ParentID int    `json:"parent_id"`
+	Level    int    `json:"level"`
+	Sort     int    `json:"sort"`
+	Status   string `json:"status"`
+}
+
+// AddProductImageRequest 添加商品图片请求
+
+type AddProductImageRequest struct {
+	ProductID int    `json:"product_id" binding:"required"`
+	ImageURL  string `json:"image_url" binding:"required"`
+	IsMain    bool   `json:"is_main"`
+	Sort      int    `json:"sort"`
+}
+
+// AddProductSKURequest 添加商品SKU请求
+
+type AddProductSKURequest struct {
+	ProductID  int     `json:"product_id" binding:"required"`
+	SKUCode    string  `json:"sku_code" binding:"required"`
+	Attributes string  `json:"attributes" binding:"required"`
+	Price      float64 `json:"price" binding:"required"`
+	Stock      int     `json:"stock" binding:"required"`
+	Status     string  `json:"status"`
+}
+
+// UpdateProductSKURequest 更新商品SKU请求
+
+type UpdateProductSKURequest struct {
+	ProductID  int     `json:"product_id" binding:"required"`
+	SKUCode    string  `json:"sku_code" binding:"required"`
+	Attributes string  `json:"attributes" binding:"required"`
+	Price      float64 `json:"price" binding:"required"`
+	Stock      int     `json:"stock" binding:"required"`
+	Status     string  `json:"status"`
 }
 
 // NewProductController 创建商品控制器实例
@@ -104,7 +177,7 @@ func (c *ProductController) GetProduct(ctx *gin.Context) {
 // @Tags 商品管理
 // @Accept json
 // @Produce json
-// @Param product body models.Product true "商品信息"
+// @Param product body CreateProductRequest true "商品信息"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/products [post]
 func (c *ProductController) CreateProduct(ctx *gin.Context) {
@@ -123,14 +196,26 @@ func (c *ProductController) CreateProduct(ctx *gin.Context) {
 	}
 
 	// 绑定请求体
-	var product models.Product
-	if err := ctx.ShouldBindJSON(&product); err != nil {
+	var req CreateProductRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
 		return
 	}
 
+	// 预处理数据
+	product := models.Product{
+		MerchantID:  merchantID,
+		Name:        req.Name,
+		Description: req.Description,
+		Price:       req.Price,
+		Stock:       req.Stock,
+		CategoryID:  req.CategoryID,
+		Status:      req.Status,
+	}
+
 	// 创建商品
 	if err := c.productService.CreateProduct(&product, merchantID); err != nil {
+		utils.Info("创建商品失败: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建商品失败"})
 		return
 	}
@@ -145,7 +230,7 @@ func (c *ProductController) CreateProduct(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "商品ID"
-// @Param product body models.Product true "商品信息"
+// @Param product body UpdateProductRequest true "商品信息"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/products/{id} [put]
 func (c *ProductController) UpdateProduct(ctx *gin.Context) {
@@ -172,14 +257,23 @@ func (c *ProductController) UpdateProduct(ctx *gin.Context) {
 	}
 
 	// 绑定请求体
-	var product models.Product
-	if err := ctx.ShouldBindJSON(&product); err != nil {
+	var req UpdateProductRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
 		return
 	}
 
-	// 设置商品ID
-	product.ID = id
+	// 预处理数据
+	product := models.Product{
+		ID:          id,
+		MerchantID:  merchantID,
+		Name:        req.Name,
+		Description: req.Description,
+		Price:       req.Price,
+		Stock:       req.Stock,
+		CategoryID:  req.CategoryID,
+		Status:      req.Status,
+	}
 
 	// 更新商品
 	if err := c.productService.UpdateProduct(&product, merchantID); err != nil {
@@ -312,7 +406,7 @@ func (c *ProductController) GetCategory(ctx *gin.Context) {
 // @Tags 商品管理
 // @Accept json
 // @Produce json
-// @Param category body models.ProductCategory true "分类信息"
+// @Param category body CreateCategoryRequest true "分类信息"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-categories [post]
 func (c *ProductController) CreateCategory(ctx *gin.Context) {
@@ -331,10 +425,21 @@ func (c *ProductController) CreateCategory(ctx *gin.Context) {
 	}
 
 	// 绑定请求体
-	var category models.ProductCategory
-	if err := ctx.ShouldBindJSON(&category); err != nil {
+	var req CreateCategoryRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		utils.Info("创建分类请求失败: %v", err)
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
 		return
+	}
+
+	// 预处理数据
+	category := models.ProductCategory{
+		MerchantID: merchantID,
+		Name:       req.Name,
+		ParentID:   req.ParentID,
+		Level:      req.Level,
+		Sort:       req.Sort,
+		Status:     req.Status,
 	}
 
 	// 创建分类
@@ -353,7 +458,7 @@ func (c *ProductController) CreateCategory(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "分类ID"
-// @Param category body models.ProductCategory true "分类信息"
+// @Param category body UpdateCategoryRequest true "分类信息"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-categories/{id} [put]
 func (c *ProductController) UpdateCategory(ctx *gin.Context) {
@@ -380,14 +485,22 @@ func (c *ProductController) UpdateCategory(ctx *gin.Context) {
 	}
 
 	// 绑定请求体
-	var category models.ProductCategory
-	if err := ctx.ShouldBindJSON(&category); err != nil {
+	var req UpdateCategoryRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
 		return
 	}
 
-	// 设置分类ID
-	category.ID = id
+	// 预处理数据
+	category := models.ProductCategory{
+		ID:         id,
+		MerchantID: merchantID,
+		Name:       req.Name,
+		ParentID:   req.ParentID,
+		Level:      req.Level,
+		Sort:       req.Sort,
+		Status:     req.Status,
+	}
 
 	// 更新分类
 	if err := c.productService.UpdateCategory(&category, merchantID); err != nil {
@@ -445,7 +558,7 @@ func (c *ProductController) DeleteCategory(ctx *gin.Context) {
 // @Tags 商品管理
 // @Accept json
 // @Produce json
-// @Param image body models.ProductImage true "图片信息"
+// @Param image body AddProductImageRequest true "图片信息"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-images [post]
 func (c *ProductController) AddProductImage(ctx *gin.Context) {
@@ -464,10 +577,18 @@ func (c *ProductController) AddProductImage(ctx *gin.Context) {
 	}
 
 	// 绑定请求体
-	var image models.ProductImage
-	if err := ctx.ShouldBindJSON(&image); err != nil {
+	var req AddProductImageRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
 		return
+	}
+
+	// 预处理数据
+	image := models.ProductImage{
+		ProductID: req.ProductID,
+		ImageURL:  req.ImageURL,
+		IsMain:    req.IsMain,
+		Sort:      req.Sort,
 	}
 
 	// 添加图片
@@ -526,7 +647,7 @@ func (c *ProductController) DeleteProductImage(ctx *gin.Context) {
 // @Tags 商品管理
 // @Accept json
 // @Produce json
-// @Param sku body models.ProductSKU true "SKU信息"
+// @Param sku body AddProductSKURequest true "SKU信息"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-skus [post]
 func (c *ProductController) AddProductSKU(ctx *gin.Context) {
@@ -545,10 +666,21 @@ func (c *ProductController) AddProductSKU(ctx *gin.Context) {
 	}
 
 	// 绑定请求体
-	var sku models.ProductSKU
-	if err := ctx.ShouldBindJSON(&sku); err != nil {
+	var req AddProductSKURequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
 		return
+	}
+
+	// 预处理数据
+	sku := models.ProductSKU{
+		MerchantID: merchantID,
+		ProductID:  req.ProductID,
+		SKUCode:    req.SKUCode,
+		Attributes: req.Attributes,
+		Price:      req.Price,
+		Stock:      req.Stock,
+		Status:     req.Status,
 	}
 
 	// 添加SKU
@@ -567,7 +699,7 @@ func (c *ProductController) AddProductSKU(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "SKU ID"
-// @Param sku body models.ProductSKU true "SKU信息"
+// @Param sku body UpdateProductSKURequest true "SKU信息"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-skus/{id} [put]
 func (c *ProductController) UpdateProductSKU(ctx *gin.Context) {
@@ -594,14 +726,23 @@ func (c *ProductController) UpdateProductSKU(ctx *gin.Context) {
 	}
 
 	// 绑定请求体
-	var sku models.ProductSKU
-	if err := ctx.ShouldBindJSON(&sku); err != nil {
+	var req UpdateProductSKURequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
 		return
 	}
 
-	// 设置SKU ID
-	sku.ID = id
+	// 预处理数据
+	sku := models.ProductSKU{
+		ID:         id,
+		MerchantID: merchantID,
+		ProductID:  req.ProductID,
+		SKUCode:    req.SKUCode,
+		Attributes: req.Attributes,
+		Price:      req.Price,
+		Stock:      req.Stock,
+		Status:     req.Status,
+	}
 
 	// 更新SKU
 	if err := c.productService.UpdateProductSKU(&sku, merchantID); err != nil {

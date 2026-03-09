@@ -238,21 +238,21 @@ func (c *MerchantController) AddMerchantUser(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	merchantID, err := strconv.Atoi(idStr)
 	if err != nil {
-		utils.Info("参数错误1 = %v, idStr = %v, merchantID = %v", err, idStr, merchantID)
+		utils.Info("解析商户ID失败: %v", err)
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
 	var req AddMerchantUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		utils.Info("参数错误2 = %v", err)
+		utils.Info("解析请求体失败: %v", err)
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
 	err = c.merchantService.AddMerchantUser(merchantID, req.UserID, req.Role)
 	if err != nil {
-		utils.Info("参数错误3 = %v", err)
+		utils.Info("添加商户用户失败: %v", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "添加商户用户失败"})
 		return
 	}

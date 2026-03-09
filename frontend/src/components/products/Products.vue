@@ -207,12 +207,11 @@ export default {
       productDialogVisible: false,
       productDialogTitle: '添加商品',
       productForm: {
-        id: '',
         name: '',
         description: '',
         price: 0,
         stock: 0,
-        category_id: '',
+        category_id: 0,
         status: 'active'
       },
       productRules: {
@@ -254,12 +253,11 @@ export default {
     handleCreateProduct() {
       this.productDialogTitle = '添加商品'
       this.productForm = {
-        id: '',
         name: '',
         description: '',
         price: 0,
         stock: 0,
-        category_id: '',
+        category_id: 0,
         status: 'active'
       }
       this.productDialogVisible = true

@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"goshopadmin/config"
+	"goshopadmin/constants"
 	"goshopadmin/models"
 	"goshopadmin/utils"
 	"time"
@@ -39,9 +40,8 @@ func (s *AuthService) Login(username, password string) (string, *models.User, er
 	}
 
 	utils.Info("用户查询成功: id=%d, username=%s, status=%s", user.ID, user.Username, user.Status)
-
 	// 检查用户状态
-	if user.Status == "inactive" {
+	if user.Status == constants.StatusInactive {
 		utils.Info("账号已被禁用: username=%s", username)
 		return "", nil, errors.New("账号已被禁用")
 	}
@@ -231,7 +231,7 @@ func (s *AuthService) UpdateUser(id int, password string, roleID int, status str
 
 // DeleteUser 删除用户（修改状态为不可用）
 func (s *AuthService) DeleteUser(id int) error {
-	result := s.DB.Model(&models.User{}).Where("id = ?", id).Update("status", "inactive")
+	result := s.DB.Model(&models.User{}).Where("id = ?", id).Update("status", constants.StatusInactive)
 	return result.Error
 }
 
@@ -323,9 +323,8 @@ func (s *AuthService) DeleteRole(id int) error {
 	if userCount > 0 {
 		return errors.New("该角色已被用户使用，无法删除")
 	}
-
 	// 修改角色状态为不可用
-	result := s.DB.Model(&models.Role{}).Where("id = ?", id).Update("status", "inactive")
+	result := s.DB.Model(&models.Role{}).Where("id = ?", id).Update("status", constants.StatusInactive)
 	return result.Error
 }
 
@@ -469,8 +468,7 @@ func (s *AuthService) UpdatePermission(id int, name, code, description, status s
 func (s *AuthService) DeletePermission(id int) error {
 	// 检查是否有角色使用该权限
 	// 由于不设外键约束，这里可以直接修改状态
-
 	// 修改权限状态为不可用
-	result := s.DB.Model(&models.Permission{}).Where("id = ?", id).Update("status", "inactive")
+	result := s.DB.Model(&models.Permission{}).Where("id = ?", id).Update("status", constants.StatusInactive)
 	return result.Error
 }
