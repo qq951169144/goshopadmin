@@ -114,15 +114,18 @@ services:
       - "3000:3000"  # Vite开发服务器端口
     volumes:
       - ../frontend:/app  # 开发环境挂载本地代码
+      - frontend-build:/app/dist  # 生产环境挂载构建产物到卷
     working_dir: /app
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}  # 默认开发环境
     networks:
       - goshopadmin-network
     restart: always
     depends_on:
       - backend
-    command: sh -c "npm install && npm run dev -- --host"  # 开发环境使用Vite开发服务器
+    command: sh -c "npm install && if [ \"$NODE_ENV\" = \"production\" ]; then npm run build; else npm run dev -- --host; fi"  # 根据环境变量选择命令
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ["CMD", "if [ \"$NODE_ENV\" = \"production\" ]; then ls -la /app/dist || exit 1; else curl -f http://localhost:3000; fi"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -139,7 +142,7 @@ services:
       - frontend-build:/usr/share/nginx/html
     networks:
       - goshopadmin-network
-    restart: always
+    restart: ${RESTART_POLICY:-unless-stopped}  # 生产环境使用always，开发环境使用unless-stopped
     depends_on:
       - backend
       - frontend
@@ -172,7 +175,7 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: ./data/frontend-build
+      device: ../frontend/dist
       o: bind
 
 networks:
