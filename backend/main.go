@@ -7,6 +7,7 @@ import (
 	"goshopadmin/config"
 	"goshopadmin/middleware"
 	"goshopadmin/routes"
+	"goshopadmin/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
@@ -14,6 +15,9 @@ import (
 )
 
 func main() {
+	// 确保在程序退出时关闭日志记录器
+	defer utils.CloseLogger()
+
 	// 加载配置
 	if err := config.LoadConfig(); err != nil {
 		log.Fatalf("Failed to load config: %v", err)

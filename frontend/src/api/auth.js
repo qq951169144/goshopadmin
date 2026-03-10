@@ -124,7 +124,10 @@ export const productApi = {
   // 更新商品SKU
   updateProductSKU: (id, data) => api.put(`/product-skus/${id}`, data),
   // 删除商品SKU
-  deleteProductSKU: (id) => api.delete(`/product-skus/${id}`)
+  deleteProductSKU: (id) => api.delete(`/product-skus/${id}`),
+  
+  // 更新商品图片
+  updateProductImage: (id, data) => api.put(`/product-images/${id}`, data)
 };
 
 export default api;

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"goshopadmin/constants"
 	"goshopadmin/models"
+	"strconv"
 
 	"gorm.io/gorm"
 )
@@ -50,9 +51,39 @@ func (s *ProductService) GetProductByID(id int, merchantID int) (models.Product,
 
 // CreateProduct 创建商品
 func (s *ProductService) CreateProduct(product *models.Product, merchantID int) error {
+	// 开启事务
+	tx := s.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	product.MerchantID = merchantID
-	result := s.DB.Create(product)
-	return result.Error
+	// 创建商品
+	if err := tx.Create(product).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 自动创建默认SKU
+	defaultSKU := models.ProductSKU{
+		MerchantID: merchantID,
+		ProductID:  product.ID,
+		SKUCode:    "PROD-" + strconv.Itoa(product.ID) + "-DEFAULT",
+		Attributes: "{\"type\": \"default\"}",
+		Price:      product.Price,
+		Stock:      product.Stock,
+		Status:     "active",
+	}
+
+	if err := tx.Create(&defaultSKU).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 提交事务
+	return tx.Commit().Error
 }
 
 // UpdateProduct 更新商品
@@ -184,6 +215,47 @@ func (s *ProductService) DeleteProductImage(id int, merchantID int) error {
 	return result.Error
 }
 
+// UpdateProductImage 更新商品图片
+func (s *ProductService) UpdateProductImage(image *models.ProductImage, merchantID int) error {
+	// 检查图片所属的商品是否属于该商户
+	var existingImage models.ProductImage
+	result := s.DB.First(&existingImage, image.ID)
+	if result.Error != nil {
+		return errors.New("图片不存在")
+	}
+
+	var product models.Product
+	result = s.DB.Where("id = ? AND merchant_id = ?", existingImage.ProductID, merchantID).First(&product)
+	if result.Error != nil {
+		return errors.New("商品不存在或不属于该商户")
+	}
+
+	// 开启事务
+	tx := s.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 如果设置为主图，将其他图片设置为非主图
+	if image.IsMain {
+		if err := tx.Model(&models.ProductImage{}).Where("product_id = ? AND id != ?", existingImage.ProductID, image.ID).Update("is_main", false).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// 更新图片信息
+	if err := tx.Model(&existingImage).Updates(image).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 提交事务
+	return tx.Commit().Error
+}
+
 // AddProductSKU 添加商品SKU
 func (s *ProductService) AddProductSKU(sku *models.ProductSKU, merchantID int) error {
 	// 检查商品是否属于该商户
@@ -194,9 +266,36 @@ func (s *ProductService) AddProductSKU(sku *models.ProductSKU, merchantID int) e
 	}
 
 	sku.MerchantID = merchantID
+
+	// 开启事务
+	tx := s.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// 添加SKU
-	result = s.DB.Create(sku)
-	return result.Error
+	if err := tx.Create(sku).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 重新计算商品总库存
+	var totalStock int
+	if err := tx.Model(&models.ProductSKU{}).Where("product_id = ? AND status = ?", sku.ProductID, "active").Select("COALESCE(SUM(stock), 0)").Scan(&totalStock).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 更新商品总库存
+	if err := tx.Model(&product).Update("stock", totalStock).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 提交事务
+	return tx.Commit().Error
 }
 
 // UpdateProductSKU 更新商品SKU
@@ -214,9 +313,35 @@ func (s *ProductService) UpdateProductSKU(sku *models.ProductSKU, merchantID int
 		return errors.New("商品不存在或不属于该商户")
 	}
 
+	// 开启事务
+	tx := s.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// 更新SKU
-	result = s.DB.Model(&existingSKU).Updates(sku)
-	return result.Error
+	if err := tx.Model(&existingSKU).Updates(sku).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 重新计算商品总库存
+	var totalStock int
+	if err := tx.Model(&models.ProductSKU{}).Where("product_id = ? AND status = ?", existingSKU.ProductID, "active").Select("COALESCE(SUM(stock), 0)").Scan(&totalStock).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 更新商品总库存
+	if err := tx.Model(&product).Update("stock", totalStock).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 提交事务
+	return tx.Commit().Error
 }
 
 // DeleteProductSKU 禁用商品SKU
@@ -234,7 +359,40 @@ func (s *ProductService) DeleteProductSKU(id int, merchantID int) error {
 		return errors.New("商品不存在或不属于该商户")
 	}
 
+	// 检查是否是最后一个SKU
+	var activeSKUCount int64
+	s.DB.Model(&models.ProductSKU{}).Where("product_id = ? AND status = ?", sku.ProductID, "active").Count(&activeSKUCount)
+	if activeSKUCount <= 1 {
+		return errors.New("不能删除最后一个SKU")
+	}
+
+	// 开启事务
+	tx := s.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// 更新SKU状态为禁用
-	result = s.DB.Model(&sku).Update("status", constants.StatusInactive)
-	return result.Error
+	if err := tx.Model(&sku).Update("status", constants.StatusInactive).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 重新计算商品总库存
+	var totalStock int
+	if err := tx.Model(&models.ProductSKU{}).Where("product_id = ? AND status = ?", sku.ProductID, "active").Select("COALESCE(SUM(stock), 0)").Scan(&totalStock).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 更新商品总库存
+	if err := tx.Model(&product).Update("stock", totalStock).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 提交事务
+	return tx.Commit().Error
 }

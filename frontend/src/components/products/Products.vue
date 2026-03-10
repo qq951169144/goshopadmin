@@ -21,11 +21,13 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200">
+        <el-table-column label="操作" width="300">
           <template #default="scope">
             <el-button size="small" @click="handleEditProduct(scope.row)">编辑</el-button>
             <el-button size="small" type="danger" @click="handleDeleteProduct(scope.row.id)">删除</el-button>
             <el-button size="small" @click="handleViewProduct(scope.row)">预览</el-button>
+            <el-button size="small" @click="handleManageImages(scope.row)">图片管理</el-button>
+            <el-button size="small" @click="handleManageSKUs(scope.row)">SKU管理</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -81,6 +83,11 @@
             <el-option label="禁用" value="inactive" />
           </el-select>
         </el-form-item>
+        <el-form-item label="商品详情" prop="detail">
+          <div class="quill-editor">
+            <div ref="quillEditor" style="height: 300px;"></div>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -115,8 +122,18 @@
         >
           <img :src="image.image_url" alt="商品图片" class="image-preview" />
           <div class="image-actions">
-            <el-checkbox v-model="image.is_main">主图</el-checkbox>
-            <el-button size="small" type="danger" @click="handleDeleteImage(image.id)">删除</el-button>
+            <el-checkbox v-model="image.is_main" @change="handleSetMainImage(image)">
+              主图
+            </el-checkbox>
+            <el-input-number
+              v-model="image.sort"
+              :min="0"
+              @change="handleUpdateImageSort(image)"
+              style="width: 80px; margin: 5px 0"
+            />
+            <el-button size="small" type="danger" @click="handleDeleteImage(image.id)">
+              删除
+            </el-button>
           </div>
         </div>
       </div>
@@ -162,6 +179,50 @@
       </template>
     </el-dialog>
 
+    <!-- SKU编辑对话框 -->
+    <el-dialog
+      v-model="skuEditDialogVisible"
+      :title="skuForm.id ? '编辑SKU' : '添加SKU'"
+      width="500px"
+    >
+      <el-form :model="skuForm" ref="skuFormRef">
+        <el-form-item label="SKU编码" prop="sku_code">
+          <el-input v-model="skuForm.sku_code" placeholder="请输入SKU编码" />
+        </el-form-item>
+        <el-form-item label="属性" prop="attributes">
+          <el-input v-model="skuForm.attributes" placeholder='请输入SKU属性，如{"color": "red", "size": "M"}' />
+        </el-form-item>
+        <el-form-item label="价格" prop="price">
+          <el-input-number
+            v-model="skuForm.price"
+            :min="0"
+            :step="0.01"
+            :precision="2"
+            placeholder="请输入价格"
+          />
+        </el-form-item>
+        <el-form-item label="库存" prop="stock">
+          <el-input-number
+            v-model="skuForm.stock"
+            :min="0"
+            placeholder="请输入库存"
+          />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="skuForm.status" placeholder="请选择状态">
+            <el-option label="激活" value="active" />
+            <el-option label="禁用" value="inactive" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="skuEditDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleSaveSKU">保存</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 商品预览对话框 -->
     <el-dialog
       v-model="previewDialogVisible"
@@ -184,6 +245,7 @@
           <div class="preview-stock">库存：{{ previewProduct.stock }}</div>
           <div class="preview-category">分类：{{ previewProduct.category?.name }}</div>
           <div class="preview-description" v-html="previewProduct.description"></div>
+          <div class="preview-detail" v-if="previewProduct.detail" v-html="previewProduct.detail"></div>
         </div>
       </div>
       <template #footer>
@@ -197,6 +259,8 @@
 
 <script>
 import { productApi } from '@/api/auth'
+import Quill from 'quill'
+import 'quill/dist/quill.snow.css'
 
 export default {
   name: 'Products',
@@ -209,11 +273,13 @@ export default {
       productForm: {
         name: '',
         description: '',
+        detail: '',
         price: 0,
         stock: 0,
         category_id: 0,
         status: 'active'
       },
+      quillEditor: null,
       productRules: {
         name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
         price: [{ required: true, message: '请输入商品价格', trigger: 'blur' }],
@@ -224,6 +290,16 @@ export default {
       productImages: [],
       skuDialogVisible: false,
       productSKUs: [],
+      skuForm: {
+        id: 0,
+        product_id: 0,
+        sku_code: '',
+        attributes: '',
+        price: 0,
+        stock: 0,
+        status: 'active'
+      },
+      skuEditDialogVisible: false,
       previewDialogVisible: false,
       previewProduct: {}
     }
@@ -232,7 +308,58 @@ export default {
     this.getProducts()
     this.getCategories()
   },
+  watch: {
+    productDialogVisible(val) {
+      if (val) {
+        this.$nextTick(() => {
+          this.initQuillEditor()
+        })
+      }
+    }
+  },
   methods: {
+    // 初始化Quill编辑器
+    initQuillEditor() {
+      if (!this.quillEditor) {
+        this.quillEditor = new Quill(this.$refs.quillEditor, {
+          theme: 'snow',
+          modules: {
+            toolbar: [
+              ['bold', 'italic', 'underline', 'strike'],
+              ['blockquote', 'code-block'],
+              [{ 'header': 1 }, { 'header': 2 }],
+              [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+              [{ 'script': 'sub' }, { 'script': 'super' }],
+              [{ 'indent': '-1' }, { 'indent': '+1' }],
+              [{ 'direction': 'rtl' }],
+              [{ 'size': ['small', false, 'large', 'huge'] }],
+              [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+              [{ 'color': [] }, { 'background': [] }],
+              [{ 'font': [] }],
+              [{ 'align': [] }],
+              ['clean']
+            ]
+          }
+        })
+        
+        // 设置编辑器内容
+        if (this.productForm.detail) {
+          this.quillEditor.root.innerHTML = this.productForm.detail
+        }
+        
+        // 监听内容变化
+        this.quillEditor.on('text-change', () => {
+          this.productForm.detail = this.quillEditor.root.innerHTML
+        })
+      } else {
+        // 更新编辑器内容
+        if (this.productForm.detail) {
+          this.quillEditor.root.innerHTML = this.productForm.detail
+        } else {
+          this.quillEditor.root.innerHTML = ''
+        }
+      }
+    },
     // 获取商品列表
     getProducts() {
       productApi.getProducts().then(res => {
@@ -255,6 +382,7 @@ export default {
       this.productForm = {
         name: '',
         description: '',
+        detail: '',
         price: 0,
         stock: 0,
         category_id: 0,
@@ -269,6 +397,7 @@ export default {
         id: product.id,
         name: product.name,
         description: product.description,
+        detail: product.detail || '',
         price: product.price,
         stock: product.stock,
         category_id: product.category_id,
@@ -327,8 +456,31 @@ export default {
     },
     // 处理查看商品
     handleViewProduct(product) {
-      this.previewProduct = product
-      this.previewDialogVisible = true
+      // 获取商品详情，包括SKU和图片
+      productApi.getProduct(product.id).then(res => {
+        if (res.code === 200) {
+          this.previewProduct = res.data
+          this.previewDialogVisible = true
+        }
+      })
+    },
+    // 打开图片管理对话框
+    handleManageImages(product) {
+      this.productForm.id = product.id
+      // 获取商品图片列表
+      productApi.getProduct(product.id).then(res => {
+        if (res.code === 200) {
+          this.productImages = res.data.images || []
+          this.imageDialogVisible = true
+        }
+      })
+    },
+    // 打开SKU管理对话框
+    handleManageSKUs(product) {
+      this.productForm.id = product.id
+      // 获取商品SKU列表
+      this.getProductSKUs(product.id)
+      this.skuDialogVisible = true
     },
     // 处理图片上传
     handleImageUpload(file) {
@@ -361,11 +513,43 @@ export default {
         }
       })
     },
+    // 处理设置主图
+    handleSetMainImage(image) {
+      productApi.updateProductImage(image.id, {
+        product_id: image.product_id,
+        is_main: image.is_main,
+        sort: image.sort
+      }).then(res => {
+        if (res.code === 200) {
+          this.$message.success('设置主图成功')
+          // 更新其他图片为非主图
+          this.productImages.forEach(img => {
+            if (img.id !== image.id) {
+              img.is_main = false
+            }
+          })
+        } else {
+          this.$message.error(res.message)
+          image.is_main = !image.is_main
+        }
+      })
+    },
+    // 处理更新图片排序
+    handleUpdateImageSort(image) {
+      productApi.updateProductImage(image.id, {
+        product_id: image.product_id,
+        is_main: image.is_main,
+        sort: image.sort
+      }).then(res => {
+        if (res.code !== 200) {
+          this.$message.error(res.message)
+        }
+      })
+    },
     // 处理添加SKU
     handleAddSKU() {
-      // 这里应该实现添加SKU的逻辑
-      const newSKU = {
-        id: Date.now(),
+      this.skuForm = {
+        id: 0,
         product_id: this.productForm.id,
         sku_code: `SKU${Date.now()}`,
         attributes: '{"color": "red", "size": "M"}',
@@ -373,29 +557,71 @@ export default {
         stock: 0,
         status: 'active'
       }
-      this.productSKUs.push(newSKU)
-      // 调用API添加SKU
-      productApi.addProductSKU({
-        product_id: this.productForm.id,
-        sku_code: newSKU.sku_code,
-        attributes: newSKU.attributes,
-        price: newSKU.price,
-        stock: newSKU.stock
-      })
+      this.skuEditDialogVisible = true
     },
     // 处理编辑SKU
     handleEditSKU(sku) {
-      // 这里应该实现编辑SKU的逻辑
-      console.log('编辑SKU', sku)
+      this.skuForm = {
+        id: sku.id,
+        product_id: sku.product_id,
+        sku_code: sku.sku_code,
+        attributes: sku.attributes,
+        price: sku.price,
+        stock: sku.stock,
+        status: sku.status
+      }
+      this.skuEditDialogVisible = true
+    },
+    // 处理保存SKU
+    handleSaveSKU() {
+      if (this.skuForm.id) {
+        // 更新SKU
+        productApi.updateProductSKU(this.skuForm.id, this.skuForm).then(res => {
+          if (res.code === 200) {
+            this.$message.success('更新SKU成功')
+            this.skuEditDialogVisible = false
+            this.getProductSKUs(this.skuForm.product_id)
+          } else {
+            this.$message.error(res.message)
+          }
+        })
+      } else {
+        // 创建SKU
+        productApi.addProductSKU(this.skuForm).then(res => {
+          if (res.code === 200) {
+            this.$message.success('添加SKU成功')
+            this.skuEditDialogVisible = false
+            this.getProductSKUs(this.skuForm.product_id)
+          } else {
+            this.$message.error(res.message)
+          }
+        })
+      }
     },
     // 处理删除SKU
     handleDeleteSKU(id) {
-      productApi.deleteProductSKU(id).then(res => {
+      this.$confirm('确定要删除这个SKU吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        productApi.deleteProductSKU(id).then(res => {
+          if (res.code === 200) {
+            this.$message.success('删除SKU成功')
+            this.productSKUs = this.productSKUs.filter(sku => sku.id !== id)
+          } else {
+            this.$message.error(res.message)
+          }
+        })
+      }).catch(() => {
+        // 取消删除
+      })
+    },
+    // 获取商品SKU列表
+    getProductSKUs(productId) {
+      productApi.getProduct(productId).then(res => {
         if (res.code === 200) {
-          this.$message.success('删除SKU成功')
-          this.productSKUs = this.productSKUs.filter(sku => sku.id !== id)
-        } else {
-          this.$message.error(res.message)
+          this.productSKUs = res.data.skus || []
         }
       })
     }
@@ -485,6 +711,19 @@ export default {
 .preview-description {
   margin-top: 20px;
   line-height: 1.5;
+}
+
+.preview-detail {
+  margin-top: 20px;
+  line-height: 1.5;
+  padding: 10px;
+  border-top: 1px solid #e4e7ed;
+}
+
+.quill-editor {
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  padding: 5px;
 }
 
 .dialog-footer {

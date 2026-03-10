@@ -21,6 +21,7 @@ type ProductController struct {
 type CreateProductRequest struct {
 	Name        string  `json:"name" binding:"required"`
 	Description string  `json:"description"`
+	Detail      string  `json:"detail"`
 	Price       float64 `json:"price" binding:"required"`
 	Stock       int     `json:"stock" binding:"required"`
 	CategoryID  int     `json:"category_id" binding:"required"`
@@ -32,6 +33,7 @@ type CreateProductRequest struct {
 type UpdateProductRequest struct {
 	Name        string  `json:"name" binding:"required"`
 	Description string  `json:"description"`
+	Detail      string  `json:"detail"`
 	Price       float64 `json:"price" binding:"required"`
 	Stock       int     `json:"stock" binding:"required"`
 	CategoryID  int     `json:"category_id" binding:"required"`
@@ -63,6 +65,15 @@ type UpdateCategoryRequest struct {
 type AddProductImageRequest struct {
 	ProductID int    `json:"product_id" binding:"required"`
 	ImageURL  string `json:"image_url" binding:"required"`
+	IsMain    bool   `json:"is_main"`
+	Sort      int    `json:"sort"`
+}
+
+// UpdateProductImageRequest 更新商品图片请求
+
+type UpdateProductImageRequest struct {
+	ProductID int    `json:"product_id" binding:"required"`
+	ImageURL  string `json:"image_url"`
 	IsMain    bool   `json:"is_main"`
 	Sort      int    `json:"sort"`
 }
@@ -207,6 +218,7 @@ func (c *ProductController) CreateProduct(ctx *gin.Context) {
 		MerchantID:  merchantID,
 		Name:        req.Name,
 		Description: req.Description,
+		Detail:      req.Detail,
 		Price:       req.Price,
 		Stock:       req.Stock,
 		CategoryID:  req.CategoryID,
@@ -269,6 +281,7 @@ func (c *ProductController) UpdateProduct(ctx *gin.Context) {
 		MerchantID:  merchantID,
 		Name:        req.Name,
 		Description: req.Description,
+		Detail:      req.Detail,
 		Price:       req.Price,
 		Stock:       req.Stock,
 		CategoryID:  req.CategoryID,
@@ -639,6 +652,64 @@ func (c *ProductController) DeleteProductImage(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除图片成功"})
+}
+
+// UpdateProductImage 更新商品图片
+// @Summary 更新商品图片
+// @Description 更新商品图片信息（排序、主图设置）
+// @Tags 商品管理
+// @Accept json
+// @Produce json
+// @Param id path int true "图片ID"
+// @Param image body UpdateProductImageRequest true "图片信息"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/product-images/{id} [put]
+func (c *ProductController) UpdateProductImage(ctx *gin.Context) {
+	// 从上下文获取用户ID
+	userID, exists := ctx.Get("userID")
+	if !exists {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
+		return
+	}
+
+	// 获取商户ID
+	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	// 获取图片ID
+	idStr := ctx.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的图片ID"})
+		return
+	}
+
+	// 绑定请求体
+	var req UpdateProductImageRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
+		return
+	}
+
+	// 预处理数据
+	image := models.ProductImage{
+		ID:        id,
+		ProductID: req.ProductID,
+		ImageURL:  req.ImageURL,
+		IsMain:    req.IsMain,
+		Sort:      req.Sort,
+	}
+
+	// 更新图片
+	if err := c.productService.UpdateProductImage(&image, merchantID); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "更新图片成功", "data": image})
 }
 
 // AddProductSKU 添加商品SKU
