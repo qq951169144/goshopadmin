@@ -11,6 +11,7 @@ import (
 
 // AuthController 认证控制器
 type AuthController struct {
+	BaseController
 	authService    *services.AuthService
 	captchaService *services.CaptchaService
 }
@@ -100,13 +101,12 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 
 // GetCurrentUser 获取当前用户信息
 func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未认证"})
+	userID, ok := c.GetUserID(ctx)
+	if !ok {
 		return
 	}
 
-	user, err := c.authService.GetUserByID(userID.(int))
+	user, err := c.authService.GetUserByID(userID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取用户信息失败"})
 		return

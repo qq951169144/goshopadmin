@@ -74,4 +74,6 @@ temp/
 
 # Docker数据目录
 docker/data/
-docker/docker/data/
+
+# 上传文件目录
+backend/uploads/

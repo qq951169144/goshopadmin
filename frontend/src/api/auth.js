@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { ElMessage } from 'element-plus';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -34,6 +35,10 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
+    } else {
+      // 其他错误：优先显示后端返回的 message，否则显示通用提示
+      const msg = error.response?.data?.message || error.message || '网络请求失败，请稍后重试';
+      ElMessage.error(msg);
     }
     return Promise.reject(error);
   }

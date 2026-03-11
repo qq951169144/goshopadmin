@@ -49,13 +49,13 @@
               <el-icon><shop /></el-icon>
               <span>商户管理</span>
             </el-menu-item>
-            <el-menu-item index="products" v-if="hasPermission('product:manage')">
-              <el-icon><goods /></el-icon>
-              <span>商品管理</span>
-            </el-menu-item>
             <el-menu-item index="product-categories" v-if="hasPermission('product:category')">
               <el-icon><grid /></el-icon>
               <span>商品分类</span>
+            </el-menu-item>
+            <el-menu-item index="products" v-if="hasPermission('product:manage')">
+              <el-icon><goods /></el-icon>
+              <span>商品管理</span>
             </el-menu-item>
           </el-menu>
         </el-aside>
@@ -170,9 +170,11 @@ watch(() => userInfo.value, async (newUser) => {
         if (response.code === 200) {
           // 保存权限信息到localStorage
           localStorage.setItem('permissions', JSON.stringify(response.data.permissions || []));
+        } else {
+          ElMessage.warning('权限信息加载失败，部分功能可能受限');
         }
       } catch (error) {
-        console.error('获取用户权限失败', error);
+        ElMessage.warning('权限信息加载失败，部分功能可能受限');
       }
     }
   }

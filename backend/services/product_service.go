@@ -176,6 +176,24 @@ func (s *ProductService) DeleteCategory(id int, merchantID int) error {
 	return result.Error
 }
 
+// GetProductImageByID 根据ID获取商品图片
+func (s *ProductService) GetProductImageByID(id int, merchantID int) (*models.ProductImage, error) {
+	var image models.ProductImage
+	result := s.DB.First(&image, id)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	// 检查图片所属的商品是否属于该商户
+	var product models.Product
+	result = s.DB.Where("id = ? AND merchant_id = ?", image.ProductID, merchantID).First(&product)
+	if result.Error != nil {
+		return nil, errors.New("商品不存在或不属于该商户")
+	}
+
+	return &image, nil
+}
+
 // AddProductImage 添加商品图片
 func (s *ProductService) AddProductImage(image *models.ProductImage, merchantID int) error {
 	// 检查商品是否属于该商户

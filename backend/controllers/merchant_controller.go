@@ -12,6 +12,7 @@ import (
 
 // MerchantController 商户控制器
 type MerchantController struct {
+	BaseController
 	merchantService *services.MerchantService
 }
 
@@ -79,9 +80,8 @@ func (c *MerchantController) CreateMerchant(ctx *gin.Context) {
 	}
 
 	// 获取当前用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未认证"})
+	userID, ok := c.GetUserID(ctx)
+	if !ok {
 		return
 	}
 
@@ -93,7 +93,7 @@ func (c *MerchantController) CreateMerchant(ctx *gin.Context) {
 		req.Address,
 		req.BusinessLicense,
 		req.TaxNumber,
-		userID.(int),
+		userID,
 	)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建商户失败"})
@@ -135,9 +135,8 @@ func (c *MerchantController) UpdateMerchant(ctx *gin.Context) {
 	}
 
 	// 获取当前用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未认证"})
+	userID, ok := c.GetUserID(ctx)
+	if !ok {
 		return
 	}
 
@@ -151,7 +150,7 @@ func (c *MerchantController) UpdateMerchant(ctx *gin.Context) {
 		req.BusinessLicense,
 		req.TaxNumber,
 		req.Status,
-		userID.(int),
+		userID,
 	)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新商户失败"})
@@ -187,13 +186,12 @@ func (c *MerchantController) AuditMerchant(ctx *gin.Context) {
 	}
 
 	// 获取当前用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未认证"})
+	userID, ok := c.GetUserID(ctx)
+	if !ok {
 		return
 	}
 
-	err = c.merchantService.AuditMerchant(id, req.AuditStatus, req.AuditNote, userID.(int))
+	err = c.merchantService.AuditMerchant(id, req.AuditStatus, req.AuditNote, userID)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "审核商户失败"})
 		return

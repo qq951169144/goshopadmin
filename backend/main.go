@@ -42,6 +42,9 @@ func main() {
 	// 应用CORS中间件
 	r.Use(middleware.CORSMiddleware())
 
+	// 配置静态文件服务
+	r.Static("/uploads", "./uploads")
+
 	// 设置路由
 	routes.SetupRoutes(r, db)
 

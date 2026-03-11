@@ -132,6 +132,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB) {
 			{
 				images.POST("", productController.AddProductImage)
 				images.DELETE("/:id", productController.DeleteProductImage)
+				images.PUT("/:id", productController.UpdateProductImage)
 			}
 
 			// 商品SKU管理路由

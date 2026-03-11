@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"goshopadmin/models"
 	"goshopadmin/services"
 	"goshopadmin/utils"
@@ -13,7 +14,25 @@ import (
 
 // ProductController 商品控制器
 type ProductController struct {
+	BaseController
 	productService *services.ProductService
+}
+
+// getMerchantIDFromContext 从上下文获取商户ID（私有方法）
+func (c *ProductController) getMerchantIDFromContext(ctx *gin.Context) (int, error) {
+	// 从上下文获取用户ID
+	userID, ok := c.GetUserID(ctx)
+	if !ok {
+		return 0, errors.New("未授权")
+	}
+
+	// 获取商户ID
+	merchantID, err := c.productService.GetMerchantIDByUserID(userID)
+	if err != nil {
+		return 0, err
+	}
+
+	return merchantID, nil
 }
 
 // CreateProductRequest 创建商品请求
@@ -116,15 +135,8 @@ func NewProductController(db *gorm.DB) *ProductController {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/products [get]
 func (c *ProductController) GetProducts(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -150,15 +162,8 @@ func (c *ProductController) GetProducts(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/products/{id} [get]
 func (c *ProductController) GetProduct(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -192,15 +197,8 @@ func (c *ProductController) GetProduct(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/products [post]
 func (c *ProductController) CreateProduct(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -246,15 +244,8 @@ func (c *ProductController) CreateProduct(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/products/{id} [put]
 func (c *ProductController) UpdateProduct(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -307,15 +298,8 @@ func (c *ProductController) UpdateProduct(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/products/{id} [delete]
 func (c *ProductController) DeleteProduct(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -347,15 +331,8 @@ func (c *ProductController) DeleteProduct(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-categories [get]
 func (c *ProductController) GetCategories(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -381,15 +358,8 @@ func (c *ProductController) GetCategories(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-categories/{id} [get]
 func (c *ProductController) GetCategory(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -423,15 +393,8 @@ func (c *ProductController) GetCategory(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-categories [post]
 func (c *ProductController) CreateCategory(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -475,15 +438,8 @@ func (c *ProductController) CreateCategory(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-categories/{id} [put]
 func (c *ProductController) UpdateCategory(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -534,15 +490,8 @@ func (c *ProductController) UpdateCategory(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-categories/{id} [delete]
 func (c *ProductController) DeleteCategory(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -575,15 +524,8 @@ func (c *ProductController) DeleteCategory(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-images [post]
 func (c *ProductController) AddProductImage(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -623,15 +565,8 @@ func (c *ProductController) AddProductImage(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-images/{id} [delete]
 func (c *ProductController) DeleteProductImage(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -665,15 +600,8 @@ func (c *ProductController) DeleteProductImage(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-images/{id} [put]
 func (c *ProductController) UpdateProductImage(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -722,15 +650,8 @@ func (c *ProductController) UpdateProductImage(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-skus [post]
 func (c *ProductController) AddProductSKU(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -774,15 +695,8 @@ func (c *ProductController) AddProductSKU(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-skus/{id} [put]
 func (c *ProductController) UpdateProductSKU(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
@@ -834,15 +748,8 @@ func (c *ProductController) UpdateProductSKU(ctx *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-skus/{id} [delete]
 func (c *ProductController) DeleteProductSKU(ctx *gin.Context) {
-	// 从上下文获取用户ID
-	userID, exists := ctx.Get("userID")
-	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未授权"})
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID.(int))
+	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return

@@ -10,6 +10,7 @@ import (
 type Config struct {
 	// 服务器配置
 	ServerPort int
+	Domain     string
 
 	// 数据库配置
 	DBHost     string
@@ -80,6 +81,7 @@ func LoadConfig() error {
 	AppConfig = Config{
 		// 服务器配置
 		ServerPort: serverPort,
+		Domain:     getEnv("DOMAIN", "http://localhost:8080"),
 
 		// 数据库配置
 		DBHost:     getEnv("DB_HOST", "localhost"),

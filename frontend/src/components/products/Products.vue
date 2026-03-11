@@ -11,8 +11,7 @@
       <el-table :data="products" style="width: 100%">
         <el-table-column prop="id" label="商品ID" width="80" />
         <el-table-column prop="name" label="商品名称" />
-        <el-table-column prop="price" label="价格" width="100" />
-        <el-table-column prop="stock" label="库存" width="80" />
+        <el-table-column prop="stock" label="总库存（SKU汇总）" width="140" />
         <el-table-column prop="category.name" label="分类" width="120" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="scope">
@@ -21,7 +20,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="300">
+        <el-table-column label="操作" width="400">
           <template #default="scope">
             <el-button size="small" @click="handleEditProduct(scope.row)">编辑</el-button>
             <el-button size="small" type="danger" @click="handleDeleteProduct(scope.row.id)">删除</el-button>
@@ -49,22 +48,6 @@
             type="textarea"
             :rows="4"
             placeholder="请输入商品描述"
-          />
-        </el-form-item>
-        <el-form-item label="商品价格" prop="price">
-          <el-input-number
-            v-model="productForm.price"
-            :min="0"
-            :step="0.01"
-            :precision="2"
-            placeholder="请输入商品价格"
-          />
-        </el-form-item>
-        <el-form-item label="商品库存" prop="stock">
-          <el-input-number
-            v-model="productForm.stock"
-            :min="0"
-            placeholder="请输入商品库存"
           />
         </el-form-item>
         <el-form-item label="商品分类" prop="category_id">
@@ -106,10 +89,13 @@
       <div class="image-upload-section">
         <el-upload
           class="image-uploader"
-          action="#"
-          :auto-upload="false"
-          :on-change="handleImageUpload"
+          :action="'/api/product-images'"
+          :headers="uploadHeaders"
+          :data="{ product_id: productForm.id }"
+          :on-success="handleImageUploadSuccess"
+          :on-error="handleImageUploadError"
           :show-file-list="false"
+          :with-credentials="true"
         >
           <el-button type="primary">上传图片</el-button>
         </el-upload>
@@ -120,7 +106,7 @@
           :key="image.id"
           class="image-item"
         >
-          <img :src="image.image_url" alt="商品图片" class="image-preview" />
+          <img :src="getImageUrl(image.image_url)" alt="商品图片" class="image-preview" />
           <div class="image-actions">
             <el-checkbox v-model="image.is_main" @change="handleSetMainImage(image)">
               主图
@@ -128,8 +114,10 @@
             <el-input-number
               v-model="image.sort"
               :min="0"
+              :controls="true"
+              :disabled="sortUpdating[image.id]"
               @change="handleUpdateImageSort(image)"
-              style="width: 80px; margin: 5px 0"
+              style="width: 110px; margin: 5px 0"
             />
             <el-button size="small" type="danger" @click="handleDeleteImage(image.id)">
               删除
@@ -234,7 +222,7 @@
           <img
             v-for="image in previewProduct.images"
             :key="image.id"
-            :src="image.image_url"
+            :src="getImageUrl(image.image_url)"
             alt="商品图片"
             class="preview-image"
           />
@@ -274,20 +262,19 @@ export default {
         name: '',
         description: '',
         detail: '',
-        price: 0,
-        stock: 0,
         category_id: 0,
         status: 'active'
       },
       quillEditor: null,
       productRules: {
         name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
-        price: [{ required: true, message: '请输入商品价格', trigger: 'blur' }],
-        stock: [{ required: true, message: '请输入商品库存', trigger: 'blur' }],
         category_id: [{ required: true, message: '请选择商品分类', trigger: 'blur' }]
       },
       imageDialogVisible: false,
       productImages: [],
+      uploadHeaders: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
       skuDialogVisible: false,
       productSKUs: [],
       skuForm: {
@@ -301,7 +288,9 @@ export default {
       },
       skuEditDialogVisible: false,
       previewDialogVisible: false,
-      previewProduct: {}
+      previewProduct: {},
+      sortUpdating: {},      // 记录正在更新排序的图片ID
+      sortDebounceTimers: {} // 防抖计时器
     }
   },
   mounted() {
@@ -318,6 +307,17 @@ export default {
     }
   },
   methods: {
+    // 获取完整的图片URL
+    getImageUrl(imageUrl) {
+      if (!imageUrl) return ''
+      // 如果是完整的URL，直接返回
+      if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+        return imageUrl
+      }
+      // 否则添加后端地址
+      // 开发环境通过Vite代理，生产环境通过Nginx代理
+      return `/api${imageUrl}`
+    },
     // 初始化Quill编辑器
     initQuillEditor() {
       if (!this.quillEditor) {
@@ -365,16 +365,20 @@ export default {
       productApi.getProducts().then(res => {
         if (res.code === 200) {
           this.products = res.data
+        } else {
+          this.$message.error(res.message || '获取商品列表失败')
         }
-      })
+      }).catch(() => {})
     },
     // 获取商品分类列表
     getCategories() {
       productApi.getCategories().then(res => {
         if (res.code === 200) {
           this.categories = res.data
+        } else {
+          this.$message.error(res.message || '获取分类列表失败')
         }
-      })
+      }).catch(() => {})
     },
     // 处理添加商品
     handleCreateProduct() {
@@ -383,8 +387,6 @@ export default {
         name: '',
         description: '',
         detail: '',
-        price: 0,
-        stock: 0,
         category_id: 0,
         status: 'active'
       }
@@ -398,8 +400,6 @@ export default {
         name: product.name,
         description: product.description,
         detail: product.detail || '',
-        price: product.price,
-        stock: product.stock,
         category_id: product.category_id,
         status: product.status
       }
@@ -461,8 +461,10 @@ export default {
         if (res.code === 200) {
           this.previewProduct = res.data
           this.previewDialogVisible = true
+        } else {
+          this.$message.error(res.message || '获取商品详情失败')
         }
-      })
+      }).catch(() => {})
     },
     // 打开图片管理对话框
     handleManageImages(product) {
@@ -472,8 +474,10 @@ export default {
         if (res.code === 200) {
           this.productImages = res.data.images || []
           this.imageDialogVisible = true
+        } else {
+          this.$message.error(res.message || '获取图片列表失败')
         }
-      })
+      }).catch(() => {})
     },
     // 打开SKU管理对话框
     handleManageSKUs(product) {
@@ -482,25 +486,23 @@ export default {
       this.getProductSKUs(product.id)
       this.skuDialogVisible = true
     },
-    // 处理图片上传
-    handleImageUpload(file) {
-      // 这里应该实现图片上传逻辑，返回图片URL
-      const imageUrl = URL.createObjectURL(file.raw)
-      const newImage = {
-        id: Date.now(),
-        product_id: this.productForm.id,
-        image_url: imageUrl,
-        is_main: false,
-        sort: this.productImages.length
+    // 图片上传成功处理
+    handleImageUploadSuccess(response, file, fileList) {
+      if (response.code === 200) {
+        this.productImages.push(response.data)
+        this.$message.success('上传图片成功')
+        this.getProducts() // 重新获取商品列表
+      } else {
+        this.$message.error(response.message || '上传失败')
       }
-      this.productImages.push(newImage)
-      // 调用API添加图片
-      productApi.addProductImage({
-        product_id: this.productForm.id,
-        image_url: imageUrl,
-        is_main: false,
-        sort: this.productImages.length
-      })
+    },
+    // 图片上传失败处理
+    handleImageUploadError(err, file, fileList) {
+      this.$message.error('上传失败，请重试')
+    },
+    // 处理图片上传（保留旧方法名，防止其他地方调用）
+    handleImageUpload(file) {
+      // 兼容处理，使用新的上传方式
     },
     // 处理删除图片
     handleDeleteImage(id) {
@@ -508,6 +510,7 @@ export default {
         if (res.code === 200) {
           this.$message.success('删除图片成功')
           this.productImages = this.productImages.filter(image => image.id !== id)
+          this.getProducts() // 重新获取商品列表
         } else {
           this.$message.error(res.message)
         }
@@ -528,23 +531,42 @@ export default {
               img.is_main = false
             }
           })
+          this.getProducts() // 重新获取商品列表
         } else {
           this.$message.error(res.message)
           image.is_main = !image.is_main
         }
       })
     },
-    // 处理更新图片排序
+    // 处理更新图片排序（防抖 800ms + 请求锁）
     handleUpdateImageSort(image) {
-      productApi.updateProductImage(image.id, {
-        product_id: image.product_id,
-        is_main: image.is_main,
-        sort: image.sort
-      }).then(res => {
-        if (res.code !== 200) {
-          this.$message.error(res.message)
-        }
-      })
+      // 如果正在请求中，忽略
+      if (this.sortUpdating[image.id]) return
+
+      // 清除旧的防抖计时器
+      if (this.sortDebounceTimers[image.id]) {
+        clearTimeout(this.sortDebounceTimers[image.id])
+      }
+
+      // 800ms 防抖：用户停止操作后再发请求
+      this.sortDebounceTimers[image.id] = setTimeout(() => {
+        // 加锁，禁止重复点击
+        this.sortUpdating = { ...this.sortUpdating, [image.id]: true }
+
+        productApi.updateProductImage(image.id, {
+          product_id: image.product_id,
+          is_main: image.is_main,
+          sort: image.sort
+        }).then(res => {
+          if (res.code !== 200) {
+            this.$message.error(res.message)
+          }
+        }).finally(() => {
+          // 解锁
+          this.sortUpdating = { ...this.sortUpdating, [image.id]: false }
+          delete this.sortDebounceTimers[image.id]
+        })
+      }, 800)
     },
     // 处理添加SKU
     handleAddSKU() {
@@ -581,6 +603,7 @@ export default {
             this.$message.success('更新SKU成功')
             this.skuEditDialogVisible = false
             this.getProductSKUs(this.skuForm.product_id)
+            this.getProducts() // 重新获取商品列表
           } else {
             this.$message.error(res.message)
           }
@@ -592,6 +615,7 @@ export default {
             this.$message.success('添加SKU成功')
             this.skuEditDialogVisible = false
             this.getProductSKUs(this.skuForm.product_id)
+            this.getProducts() // 重新获取商品列表
           } else {
             this.$message.error(res.message)
           }
@@ -609,6 +633,7 @@ export default {
           if (res.code === 200) {
             this.$message.success('删除SKU成功')
             this.productSKUs = this.productSKUs.filter(sku => sku.id !== id)
+            this.getProducts() // 重新获取商品列表
           } else {
             this.$message.error(res.message)
           }
@@ -622,8 +647,10 @@ export default {
       productApi.getProduct(productId).then(res => {
         if (res.code === 200) {
           this.productSKUs = res.data.skus || []
+        } else {
+          this.$message.error(res.message || '获取SKU列表失败')
         }
-      })
+      }).catch(() => {})
     }
   }
 }
@@ -651,7 +678,7 @@ export default {
 }
 
 .image-item {
-  width: 120px;
+  width: 140px;
   border: 1px solid #e4e7ed;
   padding: 10px;
   border-radius: 4px;
