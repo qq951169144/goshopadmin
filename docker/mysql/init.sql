@@ -29,18 +29,23 @@ CREATE TABLE IF NOT EXISTS permissions (
 CREATE TABLE IF NOT EXISTS role_permissions (
     role_id INT NOT NULL,
     permission_id INT NOT NULL,
-    PRIMARY KEY (role_id, permission_id)
+    PRIMARY KEY (role_id, permission_id),
+    INDEX idx_role_permissions_permission_id (permission_id)
 );
 
 -- 创建用户表
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
-    password VARCHAR(100) NOT NULL,
+    username VARCHAR(191) NOT NULL UNIQUE,
+    password longtext NOT NULL,
     role_id INT NOT NULL,
     status enum('active','inactive') DEFAULT 'active',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    created_at datetime(3) DEFAULT NULL,
+    updated_at datetime(3) DEFAULT NULL,
+    email VARCHAR(191) DEFAULT NULL,
+    INDEX idx_users_role_id (role_id),
+    INDEX idx_users_status (status),
+    UNIQUE INDEX email (email)
 );
 
 -- 创建商户表
@@ -58,7 +63,9 @@ CREATE TABLE IF NOT EXISTS merchants (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     approved_at DATETIME DEFAULT NULL,
-    approved_by INT DEFAULT NULL
+    approved_by INT DEFAULT NULL,
+    INDEX idx_merchants_status (status),
+    INDEX idx_merchants_audit_status (audit_status)
 );
 
 -- 创建商户用户关联表
@@ -70,7 +77,9 @@ CREATE TABLE IF NOT EXISTS merchant_users (
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_merchant_user (merchant_id, user_id)
+    UNIQUE KEY unique_merchant_user (merchant_id, user_id),
+    INDEX idx_merchant_users_merchant_id (merchant_id),
+    INDEX idx_merchant_users_user_id (user_id)
 );
 
 -- 创建商户审核表
@@ -85,7 +94,9 @@ CREATE TABLE IF NOT EXISTS merchant_audit (
     created_by INT NOT NULL,
     audited_by INT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    audited_at DATETIME DEFAULT NULL
+    audited_at DATETIME DEFAULT NULL,
+    INDEX idx_merchant_audit_merchant_id (merchant_id),
+    INDEX idx_merchant_audit_status (status)
 );
 
 -- 创建商户银行信息表
@@ -99,7 +110,9 @@ CREATE TABLE IF NOT EXISTS merchant_bank (
     is_default TINYINT(1) DEFAULT 0,
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_merchant_bank_merchant_id (merchant_id),
+    INDEX idx_merchant_bank_is_default (is_default)
 );
 
 -- 创建商户提现记录表
@@ -115,7 +128,9 @@ CREATE TABLE IF NOT EXISTS merchant_withdraw (
     processed_by INT DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     processed_at DATETIME DEFAULT NULL,
-    UNIQUE KEY unique_withdraw_order_no (order_no)
+    UNIQUE KEY unique_withdraw_order_no (order_no),
+    INDEX idx_merchant_withdraw_merchant_id (merchant_id),
+    INDEX idx_merchant_withdraw_status (status)
 );
 
 -- 创建商户对账单表
@@ -130,7 +145,9 @@ CREATE TABLE IF NOT EXISTS merchant_statement (
     status enum('draft','confirmed','settled') DEFAULT 'draft',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_statement_no (statement_no)
+    UNIQUE KEY unique_statement_no (statement_no),
+    INDEX idx_merchant_statement_merchant_id (merchant_id),
+    INDEX idx_merchant_statement_status (status)
 );
 
 -- 创建商品分类表
@@ -143,22 +160,30 @@ CREATE TABLE IF NOT EXISTS product_categories (
     sort INT DEFAULT 0,
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_product_categories_merchant_id (merchant_id),
+    INDEX idx_product_categories_parent_id (parent_id),
+    INDEX idx_product_categories_status (status)
 );
 
 -- 创建商品表
 CREATE TABLE IF NOT EXISTS products (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    description TEXT,
+    description longtext,
     detail TEXT,
     price DECIMAL(10,2) NOT NULL,
-    stock INT NOT NULL,
+    stock INT NOT NULL DEFAULT 0,
     category_id INT NOT NULL,
     merchant_id INT NOT NULL,
     status enum('active','inactive') DEFAULT 'active',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    created_at datetime(3) DEFAULT NULL,
+    updated_at datetime(3) DEFAULT NULL,
+    sku VARCHAR(191) DEFAULT NULL,
+    UNIQUE INDEX sku (sku),
+    INDEX idx_products_merchant_id (merchant_id),
+    INDEX idx_products_category_id (category_id),
+    INDEX idx_products_status (status)
 );
 
 -- 创建商品SKU表
@@ -167,12 +192,17 @@ CREATE TABLE IF NOT EXISTS product_skus (
     product_id INT NOT NULL,
     merchant_id INT NOT NULL,
     sku_code VARCHAR(50) NOT NULL,
+    sku VARCHAR(50) NOT NULL,
     attributes JSON NOT NULL,
     price DECIMAL(10,2) NOT NULL,
     stock INT NOT NULL,
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE INDEX unique_sku_code (sku_code),
+    INDEX idx_product_skus_product_id (product_id),
+    INDEX idx_product_skus_merchant_id (merchant_id),
+    INDEX idx_product_skus_status (status)
 );
 
 -- 创建商品图片表
@@ -183,7 +213,9 @@ CREATE TABLE IF NOT EXISTS product_images (
     is_main TINYINT(1) DEFAULT 0,
     sort INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_product_images_product_id (product_id),
+    INDEX idx_product_images_is_main (is_main)
 );
 
 -- 创建C端用户表
@@ -195,7 +227,12 @@ CREATE TABLE IF NOT EXISTS customers (
     email VARCHAR(100) UNIQUE,
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    nickname VARCHAR(50) DEFAULT NULL,
+    avatar VARCHAR(255) DEFAULT NULL,
+    last_login_at DATETIME DEFAULT NULL,
+    last_login_ip VARCHAR(50) DEFAULT NULL,
+    INDEX idx_customers_phone (phone)
 );
 
 -- 创建地址表
@@ -211,25 +248,37 @@ CREATE TABLE IF NOT EXISTS addresses (
     is_default TINYINT(1) DEFAULT 0,
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_addresses_customer_id (customer_id),
+    INDEX idx_addresses_is_default (is_default)
 );
 
 -- 创建订单表
 CREATE TABLE IF NOT EXISTS orders (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     order_no VARCHAR(32) NOT NULL UNIQUE,
     customer_id INT NOT NULL,
     merchant_id INT NOT NULL,
     total_amount DECIMAL(10,2) NOT NULL,
-    status VARCHAR(20) NOT NULL,
+    status VARCHAR(191) NOT NULL DEFAULT 'pending',
     address_id INT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    created_at datetime(3) DEFAULT NULL,
+    updated_at datetime(3) DEFAULT NULL,
+    payment_method longtext,
+    transaction_id longtext,
+    paid_at DATETIME DEFAULT NULL,
+    shipped_at DATETIME DEFAULT NULL,
+    delivered_at DATETIME DEFAULT NULL,
+    cancelled_at DATETIME DEFAULT NULL,
+    INDEX idx_orders_customer_id (customer_id),
+    INDEX idx_orders_merchant_id (merchant_id),
+    INDEX idx_orders_address_id (address_id),
+    INDEX idx_orders_status (status)
 );
 
 -- 创建订单明细表
 CREATE TABLE IF NOT EXISTS order_items (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     product_id INT NOT NULL,
     sku_id INT DEFAULT NULL,
@@ -238,8 +287,10 @@ CREATE TABLE IF NOT EXISTS order_items (
     price DECIMAL(10,2) NOT NULL,
     quantity INT NOT NULL,
     total_amount DECIMAL(10,2) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    created_at datetime(3) DEFAULT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_order_items_order_id (order_id),
+    INDEX idx_order_items_product_id (product_id)
 );
 
 -- 创建支付记录表
@@ -254,7 +305,9 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     paid_at DATETIME DEFAULT NULL,
-    UNIQUE KEY unique_payment_no (payment_no)
+    UNIQUE KEY unique_payment_no (payment_no),
+    INDEX idx_payments_order_id (order_id),
+    INDEX idx_payments_status (status)
 );
 
 -- 创建活动表
@@ -268,7 +321,9 @@ CREATE TABLE IF NOT EXISTS activities (
     status enum('active','inactive') DEFAULT 'active',
     created_by INT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_activities_merchant_id (merchant_id),
+    INDEX idx_activities_created_by (created_by)
 );
 
 -- 创建活动规则表
@@ -278,7 +333,8 @@ CREATE TABLE IF NOT EXISTS activity_rules (
     rule_type VARCHAR(20) NOT NULL,
     rule_value JSON NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_activity_rules_activity_id (activity_id)
 );
 
 -- 创建活动商品表
@@ -293,7 +349,10 @@ CREATE TABLE IF NOT EXISTS activity_products (
     stock INT NOT NULL,
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_activity_products_activity_id (activity_id),
+    INDEX idx_activity_products_product_id (product_id),
+    INDEX idx_activity_products_merchant_id (merchant_id)
 );
 
 -- 创建活动效果统计表
@@ -303,9 +362,10 @@ CREATE TABLE IF NOT EXISTS activity_stats (
     view_count INT DEFAULT 0,
     participant_count INT DEFAULT 0,
     order_count INT DEFAULT 0,
-    total_amount DECIMAL(10,2) DEFAULT 0,
+    total_amount DECIMAL(10,2) DEFAULT 0.00,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_activity_stats_activity_id (activity_id)
 );
 
 -- 创建物流表
@@ -315,8 +375,63 @@ CREATE TABLE IF NOT EXISTS shipping (
     tracking_no VARCHAR(50),
     status VARCHAR(20) NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_shipping_order_id (order_id)
 );
+
+-- 创建购物车表
+CREATE TABLE IF NOT EXISTS carts (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id INT NOT NULL DEFAULT 0,
+    session_id VARCHAR(255) DEFAULT NULL,
+    created_at datetime(3) DEFAULT NULL,
+    updated_at datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3),
+    PRIMARY KEY (`id`),
+    INDEX `idx_carts_user_id` (`user_id`),
+    INDEX `idx_carts_session_id` (`session_id`),
+    INDEX `idx_carts_user_session` (`user_id`, `session_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 创建购物车项表
+CREATE TABLE IF NOT EXISTS cart_items (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    cart_id INT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT NOT NULL DEFAULT '1',
+    price decimal(10,2) NOT NULL,
+    sku VARCHAR(255) DEFAULT NULL,
+    created_at datetime(3) DEFAULT NULL,
+    updated_at datetime(3) DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    INDEX `idx_cart_items_cart_id` (`cart_id`),
+    INDEX `idx_cart_items_product_id` (`product_id`),
+    INDEX `idx_cart_items_cart_product` (`cart_id`, `product_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 创建支付方式表
+CREATE TABLE IF NOT EXISTS payment_methods (
+    id INT NOT NULL AUTO_INCREMENT,
+    name VARCHAR(50) NOT NULL,
+    code VARCHAR(20) NOT NULL,
+    status enum('active','inactive') DEFAULT 'active',
+    created_at datetime(0) DEFAULT CURRENT_TIMESTAMP(0),
+    updated_at datetime(0) DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `unique_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 创建物流方式表
+CREATE TABLE IF NOT EXISTS shipping_methods (
+    id INT NOT NULL AUTO_INCREMENT,
+    name VARCHAR(50) NOT NULL,
+    code VARCHAR(20) NOT NULL,
+    price decimal(10,2) NOT NULL,
+    status enum('active','inactive') DEFAULT 'active',
+    created_at datetime(0) DEFAULT CURRENT_TIMESTAMP(0),
+    updated_at datetime(0) DEFAULT CURRENT_TIMESTAMP(0) ON UPDATE CURRENT_TIMESTAMP(0),
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `unique_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 插入默认角色
 INSERT INTO roles (name, description) VALUES
@@ -357,59 +472,47 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 (3, 10), (3, 11), (3, 12), (3, 13);
 
 -- 插入默认超级管理员账号（密码：123456）
-INSERT INTO users (username, password, role_id, status) VALUES
-('admin', '$2a$10$ppQSNCrBWqi5Xde1BSc1weysPKc8bfo2bZsvEtwoHrNxzWAD7kWge', 1, 'active');
+INSERT INTO users (username, password, role_id, status, created_at, updated_at) VALUES
+('admin', '$2a$10$ppQSNCrBWqi5Xde1BSc1weysPKc8bfo2bZsvEtwoHrNxzWAD7kWge', 1, 'active', '2026-03-12 11:00:10.000', '2026-03-12 11:00:10.000');
 
 -- 插入默认平台管理员账号（密码：123456）
-INSERT INTO users (username, password, role_id, status) VALUES
-('platform', '$2a$10$ppQSNCrBWqi5Xde1BSc1weysPKc8bfo2bZsvEtwoHrNxzWAD7kWge', 2, 'active');
+INSERT INTO users (username, password, role_id, status, created_at, updated_at) VALUES
+('platform', '$2a$10$ppQSNCrBWqi5Xde1BSc1weysPKc8bfo2bZsvEtwoHrNxzWAD7kWge', 2, 'active', '2026-03-12 11:00:10.000', '2026-03-12 11:00:10.000');
 
 -- 插入默认商户账号（密码：123456）
-INSERT INTO users (username, password, role_id, status) VALUES
-('merchant', '$2a$10$ppQSNCrBWqi5Xde1BSc1weysPKc8bfo2bZsvEtwoHrNxzWAD7kWge', 3, 'active');
+INSERT INTO users (username, password, role_id, status, created_at, updated_at) VALUES
+('merchant', '$2a$10$ppQSNCrBWqi5Xde1BSc1weysPKc8bfo2bZsvEtwoHrNxzWAD7kWge', 3, 'active', '2026-03-12 11:00:10.000', '2026-03-12 11:00:10.000');
 
--- 创建索引
-CREATE INDEX idx_users_role_id ON users(role_id);
-CREATE INDEX idx_products_merchant_id ON products(merchant_id);
-CREATE INDEX idx_orders_customer_id ON orders(customer_id);
-CREATE INDEX idx_orders_merchant_id ON orders(merchant_id);
-CREATE INDEX idx_orders_address_id ON orders(address_id);
-CREATE INDEX idx_shipping_order_id ON shipping(order_id);
-CREATE INDEX idx_role_permissions_permission_id ON role_permissions(permission_id);
-CREATE INDEX idx_merchants_status ON merchants(status);
-CREATE INDEX idx_merchants_audit_status ON merchants(audit_status);
-CREATE INDEX idx_merchant_users_merchant_id ON merchant_users(merchant_id);
-CREATE INDEX idx_merchant_users_user_id ON merchant_users(user_id);
-CREATE INDEX idx_merchant_audit_merchant_id ON merchant_audit(merchant_id);
-CREATE INDEX idx_merchant_audit_status ON merchant_audit(status);
-CREATE INDEX idx_merchant_bank_merchant_id ON merchant_bank(merchant_id);
-CREATE INDEX idx_merchant_bank_is_default ON merchant_bank(is_default);
-CREATE INDEX idx_merchant_withdraw_merchant_id ON merchant_withdraw(merchant_id);
-CREATE INDEX idx_merchant_withdraw_status ON merchant_withdraw(status);
-CREATE INDEX idx_merchant_statement_merchant_id ON merchant_statement(merchant_id);
-CREATE INDEX idx_merchant_statement_status ON merchant_statement(status);
-CREATE INDEX idx_product_categories_merchant_id ON product_categories(merchant_id);
-CREATE INDEX idx_product_categories_parent_id ON product_categories(parent_id);
-CREATE INDEX idx_product_categories_status ON product_categories(status);
-CREATE INDEX idx_product_skus_product_id ON product_skus(product_id);
-CREATE INDEX idx_product_skus_merchant_id ON product_skus(merchant_id);
-CREATE INDEX idx_product_skus_status ON product_skus(status);
-CREATE INDEX idx_product_images_product_id ON product_images(product_id);
-CREATE INDEX idx_product_images_is_main ON product_images(is_main);
-CREATE INDEX idx_customers_phone ON customers(phone);
-CREATE INDEX idx_addresses_customer_id ON addresses(customer_id);
-CREATE INDEX idx_addresses_is_default ON addresses(is_default);
-CREATE INDEX idx_order_items_order_id ON order_items(order_id);
-CREATE INDEX idx_order_items_product_id ON order_items(product_id);
-CREATE INDEX idx_payments_order_id ON payments(order_id);
-CREATE INDEX idx_payments_status ON payments(status);
-CREATE INDEX idx_activities_merchant_id ON activities(merchant_id);
-CREATE INDEX idx_activities_created_by ON activities(created_by);
-CREATE INDEX idx_activity_rules_activity_id ON activity_rules(activity_id);
-CREATE INDEX idx_activity_products_activity_id ON activity_products(activity_id);
-CREATE INDEX idx_activity_products_product_id ON activity_products(product_id);
-CREATE INDEX idx_activity_products_merchant_id ON activity_products(merchant_id);
-CREATE INDEX idx_activity_stats_activity_id ON activity_stats(activity_id);
+-- 插入测试商户用户
+INSERT INTO users (username, password, role_id, status, created_at, updated_at) VALUES
+('pxj', '$2a$10$NSDs.5eM0j1d2BfE.kw0UuDxak8.eVF.AdAl.yXnhjxypEzJ5XvDG', 3, 'active', '2026-03-12 11:00:58.797', '2026-03-12 11:00:58.797');
+
+-- 插入测试商户
+INSERT INTO merchants (id, name, contact_name, contact_phone, email, address, business_license, tax_number, audit_status, status, created_at, updated_at, approved_at, approved_by) VALUES
+(1, '小商店', '法人', '18819279587', '951169144@qq.com', '广州', 'jaskdhasjk', '123456789', 'approved', 'active', '2026-03-12 11:02:32', '2026-03-12 11:02:50', '2026-03-12 11:02:50', 1);
+
+-- 插入商户用户关联
+INSERT INTO merchant_users (id, merchant_id, user_id, `role`, status, created_at, updated_at) VALUES
+(1, 1, 4, 'owner', 'active', '2026-03-12 11:02:39', '2026-03-12 11:02:39');
+
+-- 插入商户审核记录
+INSERT INTO merchant_audit (id, merchant_id, audit_type, old_data, new_data, status, remark, created_by, audited_by, created_at, audited_at) VALUES
+(1, 1, 'registration', '{}', '{"name": "小商店", "email": "951169144@qq.com", "address": "广州", "tax_number": "123456789", "contact_name": "法人", "contact_phone": "18819279587", "business_license": "jaskdhasjk"}', 'approved', '1', 1, 1, '2026-03-12 11:02:32', '2026-03-12 11:02:50');
+
+-- 插入商品分类
+INSERT INTO product_categories (id, merchant_id, name, parent_id, level, sort, status, created_at, updated_at) VALUES
+(1, 1, '日用品', 0, 1, 1, 'active', '2026-03-12 11:03:13', '2026-03-12 11:03:13'),
+(2, 1, '小玩具', 0, 1, 2, 'active', '2026-03-12 11:03:19', '2026-03-12 11:03:19'),
+(3, 1, '食物', 0, 1, 0, 'active', '2026-03-12 11:03:27', '2026-03-12 11:03:27'),
+(4, 1, '虚拟商品', 0, 1, 0, 'active', '2026-03-12 11:03:32', '2026-03-12 11:03:32');
+
+-- 插入商品
+INSERT INTO products (id, name, description, detail, price, stock, category_id, merchant_id, status, created_at, updated_at, sku) VALUES
+(1, '衣架', '衣架衣架衣架衣架衣架', '<h1><strong style="color: rgb(240, 102, 102);">啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架</strong></h1>', 0.00, 100, 1, 1, 'active', '2026-03-12 11:08:50.598', '2026-03-12 11:09:05.474', NULL);
+
+-- 插入商品SKU
+INSERT INTO product_skus (id, product_id, merchant_id, sku_code, sku, attributes, price, stock, status, created_at, updated_at) VALUES
+(1, 1, 1, 'PROD-1-DEFAULT', '', '{"type": "default"}', 10.00, 100, 'active', '2026-03-12 11:08:51', '2026-03-12 11:09:05');
 
 -- 提交事务
 COMMIT;

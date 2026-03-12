@@ -2,7 +2,7 @@
 
 ## 一、后端API接口实现
 
-### 1. 用户管理API
+### 1. 后台用户管理API
 
 | 接口路径             | 方法       | 功能描述     | 请求参数                                                                                                   | 成功响应                                                  |
 | :--------------- | :------- | :------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
@@ -212,14 +212,311 @@
 - ✅ 商户管理页面：所有功能正常，审核流程顺畅
 - ✅ 页面交互：响应及时，操作流畅
 
+## 6. C端商城API
+
+### 6.1 认证API
+
+| 接口路径                 | 方法       | 功能描述     | 请求参数                                                                                                   | 成功响应                                                  |
+| :------------------- | :------- | :------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+| `/api/auth/register` | `POST`   | 注册     | `{"username": "string", "password": "string", "captcha_id": "string", "captcha": "string"}` | `{"message": "Register success", "token": "...", "user_id": 1}` |
+| `/api/auth/login`    | `POST`   | 登录     | `{"username": "string", "password": "string", "captcha_id": "string", "captcha": "string"}` | `{"token": "...", "user_id": 1}` |
+| `/api/auth/logout`   | `POST`   | 登出     | 无                                                                                                          | `{"message": "Logout success"}`                  |
+
+### 6.2 验证码API
+
+| 接口路径                 | 方法       | 功能描述     | 请求参数 | 成功响应                                                  |
+| :------------------- | :------- | :------- | :--- | :---------------------------------------------------- |
+| `/api/captcha`       | `GET`    | 生成验证码   | 无    | 返回验证码图片（PNG格式），响应头包含X-Captcha-ID |
+| `/api/captcha/verify` | `POST`   | 验证验证码   | `{"captcha_id": "string", "value": "string"}` | `{"valid": true}` |
+
+### 6.3 用户API
+
+| 接口路径                 | 方法       | 功能描述     | 请求参数 | 成功响应                                                  |
+| :------------------- | :------- | :------- | :--- | :---------------------------------------------------- |
+| `/api/user/profile`  | `GET`    | 获取个人信息  | 无    | `{"id": 1, "username": "testuser", "email": "test@example.com", "created_at": "..."}` |
+| `/api/user/profile`  | `PUT`    | 更新个人信息  | `{"username": "string", "email": "string"}` | `{"message": "Profile updated", "username": "...", "email": "..."}` |
+| `/api/user/orders`   | `GET`    | 获取订单列表  | `page`, `limit` | `{"orders": [...], "total": 2}` |
+
+### 6.4 商品API
+
+| 接口路径                 | 方法       | 功能描述     | 请求参数 | 成功响应                                                  |
+| :------------------- | :------- | :------- | :--- | :---------------------------------------------------- |
+| `/api/products`      | `GET`    | 获取商品列表  | `page`, `limit`, `category`, `keyword` | `{"products": [...], "total": 2}` |
+| `/api/products/:id`  | `GET`    | 获取商品详情  | 无    | `{"id": 1, "name": "iPhone 13", "description": "...", "price": 5999.99, "sku": "...", "stock": 100, "image": "..."}` |
+
+### 6.5 购物车API
+
+| 接口路径                 | 方法       | 功能描述     | 请求参数                                                                                                   | 成功响应                                                  |
+| :------------------- | :------- | :------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+| `/api/cart`          | `GET`    | 获取购物车   | 无                                                                                                          | `{"items": [...]}` |
+| `/api/cart/items`    | `POST`   | 添加商品到购物车 | `{"product_id": 1, "quantity": 2, "price": 99.99, "sku": "red-medium"}` | `{"message": "Item added to cart", "item": {...}}` |
+| `/api/cart/items/:id` | `PUT`    | 更新购物车项  | `{"quantity": 3}`                                                                                      | `{"message": "Cart item updated", "item_id": "...", "quantity": 3}` |
+| `/api/cart/items/:id` | `DELETE` | 移除购物车项  | 无                                                                                                          | `{"message": "Cart item removed", "item_id": "..."}` |
+| `/api/cart/sync`     | `POST`   | 同步购物车   | `{"items": [...]}`                                                                                        | `{"message": "Cart synced", "items": [...]}` |
+
+### 6.6 订单API
+
+| 接口路径                 | 方法       | 功能描述     | 请求参数                                                                                                   | 成功响应                                                  |
+| :------------------- | :------- | :------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+| `/api/orders`        | `POST`   | 创建订单     | `{"items": [{"product_id": 1, "quantity": 2, "price": 99.99, "sku": "red-medium"}]}` | `{"order_id": "ORD202603120001", "amount": 199.98, "payment_url": "...", "status": "pending", "created_at": "..."}` |
+| `/api/orders/:id`    | `GET`    | 获取订单详情  | 无                                                                                                          | `{"order_id": "...", "amount": 199.98, "status": "paid", "items": [...], "created_at": "...", "paid_at": "..."}` |
+
+### 6.7 支付API
+
+| 接口路径                 | 方法       | 功能描述     | 请求参数                                                                                                   | 成功响应                                                  |
+| :------------------- | :------- | :------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+| `/api/payment/fake-pay` | `GET`    | 伪支付页面   | `order_id`                                                                                               | 返回支付成功页面（HTML）                                      |
+| `/api/payment/callback` | `POST`   | 支付回调     | `{"order_id": "ORD202603120001", "transaction_id": "TRX1234567890", "status": "success", "amount": 199.98}` | `{"message": "Payment callback received", "order_id": "...", "transaction_id": "...", "status": "..."}` |
+
+## 二、前端页面功能实现
+
+### 1. 后台用户管理页面
+
+- **功能**：
+  - 显示用户列表，包括ID、用户名、角色、状态等信息
+  - 支持创建新用户，填写用户名、密码、角色、状态
+  - 支持编辑现有用户，修改密码、角色、状态
+  - 支持删除用户，带确认对话框
+  - 状态显示为标签，活跃为绿色，禁用为红色
+- **实现**：
+  - 使用Element Plus的Table组件展示用户列表
+  - 使用Dialog组件实现创建和编辑用户的表单
+  - 使用Select组件选择角色和状态
+  - 使用MessageBox组件实现删除确认
+  - 调用后端API接口实现数据交互
+
+### 2. 角色管理页面
+
+- **功能**：
+  - 显示角色列表，包括ID、角色名称、描述等信息
+  - 支持创建新角色，填写角色名称、描述
+  - 支持编辑现有角色，修改角色名称、描述
+  - 支持删除角色，带确认对话框
+  - 支持为角色分配权限，选择多个权限
+- **实现**：
+  - 使用Element Plus的Table组件展示角色列表
+  - 使用Dialog组件实现创建和编辑角色的表单
+  - 使用CheckboxGroup组件选择权限
+  - 使用MessageBox组件实现删除确认
+  - 调用后端API接口实现数据交互
+
+### 3. 权限管理页面
+
+- **功能**：
+  - 显示权限列表，包括ID、权限名称、权限代码、描述等信息
+  - 支持创建新权限，填写权限名称、权限代码、描述
+  - 支持编辑现有权限，修改权限名称、权限代码、描述
+  - 支持删除权限，带确认对话框
+- **实现**：
+  - 使用Element Plus的Table组件展示权限列表
+  - 使用Dialog组件实现创建和编辑权限的表单
+  - 使用MessageBox组件实现删除确认
+  - 调用后端API接口实现数据交互
+
+### 4. 商户管理页面
+
+- **功能**：
+  - 显示商户列表，包括ID、商户名称、联系人、联系电话、审核状态、状态等信息
+  - 支持创建新商户，填写商户名称、联系人、联系电话、地址
+  - 支持编辑现有商户，修改商户信息和状态
+  - 支持审核商户，设置审核状态和审核备注
+  - 支持禁用商户，带确认对话框
+  - 支持管理商户用户，查看、添加和移除商户用户
+- **实现**：
+  - 使用Element Plus的Table组件展示商户列表
+  - 使用Dialog组件实现创建和编辑商户的表单
+  - 使用Dialog组件实现商户审核功能
+  - 使用Dialog组件实现商户用户管理功能
+  - 使用MessageBox组件实现禁用确认
+  - 调用后端API接口实现数据交互
+
+### 5. 商品管理页面
+
+- **功能**：
+  - 显示商品列表，包括ID、商品名称、价格、库存、分类、状态等信息
+  - 支持创建新商品，填写商品名称、描述、价格、库存、分类等信息
+  - 支持编辑现有商品，修改商品信息和状态
+  - 支持删除商品，带确认对话框
+  - 支持管理商品图片，添加和删除图片
+  - 支持管理商品SKU，添加、编辑和删除SKU
+  - 支持预览C端商品展示页面
+- **实现**：
+  - 使用Element Plus的Table组件展示商品列表
+  - 使用Dialog组件实现创建和编辑商品的表单
+  - 使用富文本编辑器编辑商品详情
+  - 使用Dialog组件实现商品图片管理功能
+  - 使用Dialog组件实现商品SKU管理功能
+  - 使用MessageBox组件实现删除确认
+  - 调用后端API接口实现数据交互
+
+### 6. 商品分类管理页面
+
+- **功能**：
+  - 显示商品分类列表，包括ID、分类名称、父分类、排序等信息
+  - 支持创建新分类，填写分类名称、父分类、排序等信息
+  - 支持编辑现有分类，修改分类信息和状态
+  - 支持删除分类，带确认对话框
+- **实现**：
+  - 使用Element Plus的Table组件展示分类列表
+  - 使用Dialog组件实现创建和编辑分类的表单
+  - 使用Tree组件展示分类层级关系
+  - 使用MessageBox组件实现删除确认
+  - 调用后端API接口实现数据交互
+
+### 7. C端商城页面
+
+#### 7.1 首页
+- **功能**：
+  - ✅ 展示热门商品
+  - ✅ 展示活动信息
+  - ✅ 导航到商品列表和详情页
+- **实现**：
+  - ✅ 使用Vue 3的组件系统
+  - ✅ 调用商品API获取商品列表
+
+#### 7.2 商品列表页
+- **功能**：
+  - ✅ 展示商品列表
+  - ✅ 支持分类筛选
+  - ✅ 支持关键词搜索
+  - ✅ 支持分页
+- **实现**：
+  - ✅ 使用Vue 3的组件系统
+  - ✅ 调用商品API获取商品列表
+
+#### 7.3 商品详情页
+- **功能**：
+  - ✅ 展示商品详情
+  - ✅ 展示商品图片
+  - ✅ 选择商品SKU
+  - ✅ 添加商品到购物车
+- **实现**：
+  - ✅ 使用Vue 3的组件系统
+  - ✅ 调用商品API获取商品详情
+  - ✅ 调用购物车API添加商品
+
+#### 7.4 购物车页面
+- **功能**：
+  - ✅ 展示购物车商品
+  - ✅ 调整商品数量
+  - ✅ 移除商品
+  - ✅ 结算下单
+- **实现**：
+  - ✅ 使用Vue 3的组件系统
+  - ✅ 使用Pinia进行状态管理
+  - ✅ 调用购物车API获取和更新购物车
+
+#### 7.5 登录/注册页面
+- **功能**：
+  - ✅ 用户登录
+  - ✅ 用户注册
+  - ✅ 验证码验证
+- **实现**：
+  - ✅ 使用Vue 3的组件系统
+  - ✅ 调用认证API进行登录和注册
+  - ✅ 调用验证码API获取和验证验证码
+
+#### 7.6 个人中心页面
+- **功能**：
+  - ✅ 查看个人信息
+  - ✅ 编辑个人信息
+  - ✅ 查看订单列表
+- **实现**：
+  - ✅ 使用Vue 3的组件系统
+  - ✅ 调用用户API获取和更新个人信息
+  - ✅ 调用订单API获取订单列表
+
+## 三、技术实现细节
+
+### 1. 后端技术栈
+
+- **语言**：Go 1.20+
+- **Web框架**：Gin
+- **ORM**：GORM
+- **数据库**：MySQL
+- **认证**：JWT
+- **密码加密**：bcrypt
+
+### 2. 前端技术栈
+
+- **框架**：Vue 3
+- **构建工具**：Vite
+- **UI库**：Element Plus
+- **HTTP客户端**：Axios
+- **状态管理**：Vue的ref和reactive（后台），Pinia（C端）
+
+### 3. 数据结构
+
+- **用户表** (`users`)：id, username, password, role_id, status, created_at, updated_at
+- **角色表** (`roles`)：id, name, description, created_at, updated_at
+- **权限表** (`permissions`)：id, name, code, description, created_at, updated_at
+- **角色权限关联表** (`role_permissions`)：role_id, permission_id
+- **商户表** (`merchants`)：id, name, contact_person, contact_phone, address, audit_status, status, created_at, updated_at
+- **商户用户关联表** (`merchant_users`)：merchant_id, user_id, created_at
+- **商户审核表** (`merchant_audits`)：id, merchant_id, audit_status, audit_note, audited_by, audited_at
+- **商户银行信息表** (`merchant_banks`)：id, merchant_id, bank_name, account_name, account_number, status, created_at, updated_at
+- **商户提现表** (`merchant_withdraws`)：id, merchant_id, amount, status, bank_id, created_at, updated_at
+- **商户对账单表** (`merchant_statements`)：id, merchant_id, type, amount, balance, description, created_at
+- **C端用户表** (`customers`)：id, username, password, phone, email, status, created_at, updated_at
+- **地址表** (`addresses`)：id, customer_id, name, phone, province, city, district, detail_address, is_default, status, created_at, updated_at
+- **订单表** (`orders`)：id, order_no, customer_id, merchant_id, total_amount, status, address_id, created_at, updated_at
+- **订单明细表** (`order_items`)：id, order_id, product_id, sku_id, product_name, sku_attributes, price, quantity, total_amount, created_at, updated_at
+- **支付记录表** (`payments`)：id, order_id, payment_no, amount, payment_method, transaction_id, status, created_at, updated_at, paid_at
+- **购物车表** (`carts`)：id, user_id, session_id, created_at, updated_at
+- **购物车项表** (`cart_items`)：id, cart_id, product_id, quantity, price, sku, created_at, updated_at
+
+## 四、测试结果
+
+### 1. 后端API测试
+
+- ✅ 后台用户管理API：所有接口正常工作
+- ✅ 角色管理API：所有接口正常工作
+- ✅ 权限管理API：所有接口正常工作
+- ✅ 商户管理API：所有接口正常工作
+- ✅ C端认证API：所有接口正常工作
+- ✅ C端购物车API：所有接口正常工作
+- ✅ C端订单API：所有接口正常工作
+- ✅ C端支付API：所有接口正常工作
+- ✅ 认证中间件：正确保护需要认证的接口
+
+### 2. 前端页面测试
+
+- ✅ 后台用户管理页面：所有功能正常，数据显示正确
+- ✅ 角色管理页面：所有功能正常，权限分配功能正常
+- ✅ 权限管理页面：所有功能正常，数据显示正确
+- ✅ 商户管理页面：所有功能正常，审核流程顺畅
+- ✅ C端首页：商品展示正常，导航功能正常
+- ✅ C端商品列表页：筛选和搜索功能正常
+- ✅ C端商品详情页：商品信息展示完整，添加购物车功能正常
+- ✅ C端购物车页面：商品管理功能正常，结算功能正常
+- ✅ C端登录/注册页面：认证功能正常，验证码功能正常
+- ✅ C端个人中心页面：个人信息管理和订单查看功能正常
+- ✅ 页面交互：响应及时，操作流畅
+
 ## 五、总结
 
-本次实现完成了商城后台管理系统的用户管理、角色管理、权限管理和商户管理功能，包括：
+本次实现完成了商城后台管理系统和C端商城系统的功能，包括：
 
-1. **后端API接口**：实现了完整的CRUD操作，支持用户、角色、权限和商户的管理
-2. **前端页面**：实现了直观易用的管理界面，支持各种操作功能
-3. **数据交互**：前后端对接正常，数据流转顺畅
-4. **安全性**：使用JWT认证，密码加密存储，权限控制严格
-5. **商户管理**：实现了商户注册、审核、信息管理和用户关联等功能
+1. **后端API接口**：
+   - 后台管理API：实现了用户、角色、权限、商户、商品等管理功能
+   - C端商城API：实现了认证、购物车、订单、支付等核心功能
 
-系统已经具备了完整的用户-角色-权限管理体系和商户管理功能，可以满足商城后台的管理需求。
+2. **前端页面**：
+   - 后台管理页面：直观易用的管理界面，支持各种操作功能
+   - C端商城页面：用户友好的购物界面，支持完整的购物流程
+
+3. **数据交互**：
+   - 前后端对接正常，数据流转顺畅
+   - 支持无登录购物车功能
+
+4. **安全性**：
+   - 使用JWT认证，密码加密存储
+   - 权限控制严格，保护敏感接口
+
+5. **商户管理**：
+   - 实现了商户注册、审核、信息管理和用户关联等功能
+
+6. **C端功能**：
+   - 实现了完整的购物流程，包括商品浏览、购物车管理、订单创建、支付等功能
+
+系统已经具备了完整的商城后台管理和C端购物功能，可以满足商城的日常运营需求。

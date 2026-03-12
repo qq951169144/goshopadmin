@@ -41,8 +41,8 @@ type CreateProductRequest struct {
 	Name        string  `json:"name" binding:"required"`
 	Description string  `json:"description"`
 	Detail      string  `json:"detail"`
-	Price       float64 `json:"price" binding:"required"`
-	Stock       int     `json:"stock" binding:"required"`
+	Price       float64 `json:"price"`
+	Stock       int     `json:"stock"`
 	CategoryID  int     `json:"category_id" binding:"required"`
 	Status      string  `json:"status"`
 }
@@ -207,6 +207,7 @@ func (c *ProductController) CreateProduct(ctx *gin.Context) {
 	// 绑定请求体
 	var req CreateProductRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		utils.Info("输出错误信息：%s", err)
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
 		return
 	}

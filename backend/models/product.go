@@ -8,15 +8,16 @@ import (
 type Product struct {
 	ID          int       `json:"id" gorm:"primaryKey"`
 	Name        string    `json:"name" gorm:"size:100;not null"`
-	Description string    `json:"description" gorm:"type:text"`
+	Description string    `json:"description" gorm:"type:longtext"`
 	Detail      string    `json:"detail" gorm:"type:text"`
 	Price       float64   `json:"price" gorm:"type:decimal(10,2);not null"`
-	Stock       int       `json:"stock" gorm:"not null"`
+	Stock       int       `json:"stock" gorm:"not null;default:0"`
 	CategoryID  int       `json:"category_id" gorm:"not null"`
 	MerchantID  int       `json:"merchant_id" gorm:"not null"`
 	Status      string    `json:"status" gorm:"type:enum('active','inactive');default:'active'"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	CreatedAt   time.Time `json:"created_at" gorm:"type:datetime(3)"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"type:datetime(3)"`
+	SKU         string    `json:"sku" gorm:"size:191;uniqueIndex"`
 
 	// 关联
 	Category ProductCategory `json:"category" gorm:"foreignKey:CategoryID"`
@@ -45,7 +46,8 @@ type ProductSKU struct {
 	ID         int       `json:"id" gorm:"primaryKey"`
 	ProductID  int       `json:"product_id" gorm:"not null"`
 	MerchantID int       `json:"merchant_id" gorm:"not null"`
-	SKUCode    string    `json:"sku_code" gorm:"size:50;not null"`
+	SKUCode    string    `json:"sku_code" gorm:"size:50;not null;uniqueIndex"`
+	SKU        string    `json:"sku" gorm:"size:50;not null"`
 	Attributes string    `json:"attributes" gorm:"type:json;not null"` // JSON格式存储SKU属性
 	Price      float64   `json:"price" gorm:"type:decimal(10,2);not null"`
 	Stock      int       `json:"stock" gorm:"not null"`
