@@ -1,10 +1,10 @@
 package controllers
 
 import (
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"shop-backend/errors"
 	"shop-backend/services"
 )
 
@@ -32,14 +32,14 @@ func (c *CustomerController) GetProfile(ctx *gin.Context) {
 	// 从上下文中获取用户ID
 	customerID, exists := ctx.Get("user_id")
 	if !exists {
-		c.ResponseError(ctx, http.StatusUnauthorized, "User not logged in")
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
 	}
 
 	// 从服务层获取客户信息
 	customer, err := c.customerService.GetProfile(customerID.(uint))
 	if err != nil {
-		c.ResponseError(ctx, http.StatusNotFound, err.Error())
+		c.ResponseError(ctx, errors.CodeUserNotFound, err)
 		return
 	}
 
@@ -50,14 +50,14 @@ func (c *CustomerController) GetProfile(ctx *gin.Context) {
 func (c *CustomerController) UpdateProfile(ctx *gin.Context) {
 	var req UpdateProfileRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 从上下文中获取用户ID
 	customerID, exists := ctx.Get("user_id")
 	if !exists {
-		c.ResponseError(ctx, http.StatusUnauthorized, "User not logged in")
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (c *CustomerController) UpdateProfile(ctx *gin.Context) {
 		Email:    req.Email,
 	})
 	if err != nil {
-		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
@@ -83,7 +83,7 @@ func (c *CustomerController) GetOrders(ctx *gin.Context) {
 	// 从上下文中获取用户ID
 	customerID, exists := ctx.Get("user_id")
 	if !exists {
-		c.ResponseError(ctx, http.StatusUnauthorized, "User not logged in")
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
 	}
 
@@ -94,7 +94,7 @@ func (c *CustomerController) GetOrders(ctx *gin.Context) {
 	// 从服务层获取订单列表
 	orders, total, err := c.customerService.GetOrders(customerID.(uint), page, limit)
 	if err != nil {
-		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 

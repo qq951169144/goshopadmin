@@ -1,9 +1,8 @@
 package controllers
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"shop-backend/errors"
 	"shop-backend/services"
 )
 
@@ -32,7 +31,7 @@ type RegisterRequest struct {
 func (c *AuthController) Register(ctx *gin.Context) {
 	var req RegisterRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -43,7 +42,7 @@ func (c *AuthController) Register(ctx *gin.Context) {
 		Captcha:   req.Captcha,
 	})
 	if err != nil {
-		c.ResponseError(ctx, http.StatusBadRequest, err.Error())
+		c.ResponseError(ctx, errors.CodeDuplicate, err)
 		return
 	}
 
@@ -66,7 +65,7 @@ type LoginRequest struct {
 func (c *AuthController) Login(ctx *gin.Context) {
 	var req LoginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -77,7 +76,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 		Captcha:   req.Captcha,
 	})
 	if err != nil {
-		c.ResponseError(ctx, http.StatusUnauthorized, err.Error())
+		c.ResponseError(ctx, errors.CodeLoginFailed, err)
 		return
 	}
 

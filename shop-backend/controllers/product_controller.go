@@ -1,10 +1,10 @@
 package controllers
 
 import (
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"shop-backend/errors"
 	"shop-backend/services"
 )
 
@@ -35,7 +35,7 @@ func (c *ProductController) GetProducts(ctx *gin.Context) {
 		Keyword: keyword,
 	})
 	if err != nil {
-		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
@@ -50,18 +50,18 @@ func (c *ProductController) GetProductDetail(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		c.ResponseError(ctx, http.StatusBadRequest, "Invalid product ID")
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 从服务层获取商品详情
 	product, err := c.productService.GetProductDetail(uint(id))
 	if err != nil {
-		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 	if product == nil {
-		c.ResponseError(ctx, http.StatusNotFound, "Product not found")
+		c.ResponseError(ctx, errors.CodeProductNotFound, nil)
 		return
 	}
 

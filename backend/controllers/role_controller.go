@@ -1,8 +1,8 @@
 package controllers
 
 import (
+	"goshopadmin/errors"
 	"goshopadmin/services"
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +11,7 @@ import (
 
 // RoleController 角色控制器
 type RoleController struct {
+	BaseController
 	authService *services.AuthService
 }
 
@@ -25,15 +26,11 @@ func NewRoleController(db *gorm.DB, jwtSecret string, jwtExpireHour int) *RoleCo
 func (c *RoleController) GetRoles(ctx *gin.Context) {
 	roles, err := c.authService.GetRoles()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取角色列表失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "获取角色列表成功",
-		"data":    roles,
-	})
+	c.ResponseSuccess(ctx, roles)
 }
 
 // GetRole 获取单个角色信息
@@ -41,21 +38,17 @@ func (c *RoleController) GetRole(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	role, err := c.authService.GetRoleByID(id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "角色不存在"})
+		c.ResponseError(ctx, errors.CodeNotFound, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "获取角色信息成功",
-		"data":    role,
-	})
+	c.ResponseSuccess(ctx, role)
 }
 
 // CreateRole 创建角色
@@ -67,21 +60,17 @@ func (c *RoleController) CreateRole(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	role, err := c.authService.CreateRole(req.Name, req.Description, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDuplicate, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "创建角色成功",
-		"data":    role,
-	})
+	c.ResponseSuccess(ctx, role)
 }
 
 // UpdateRole 更新角色
@@ -89,7 +78,7 @@ func (c *RoleController) UpdateRole(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -100,21 +89,17 @@ func (c *RoleController) UpdateRole(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	role, err := c.authService.UpdateRole(id, req.Name, req.Description, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "更新角色成功",
-		"data":    role,
-	})
+	c.ResponseSuccess(ctx, role)
 }
 
 // DeleteRole 删除角色
@@ -122,19 +107,16 @@ func (c *RoleController) DeleteRole(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	if err := c.authService.DeleteRole(id); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "删除角色成功",
-	})
+	c.ResponseSuccess(ctx, nil)
 }
 
 // AssignPermissions 为角色分配权限
@@ -142,7 +124,7 @@ func (c *RoleController) AssignPermissions(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -151,17 +133,14 @@ func (c *RoleController) AssignPermissions(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	if err := c.authService.AssignPermissions(id, req.PermissionIDs); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "分配权限成功",
-	})
+	c.ResponseSuccess(ctx, nil)
 }

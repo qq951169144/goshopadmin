@@ -1,9 +1,8 @@
 package controllers
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"shop-backend/errors"
 	"shop-backend/services"
 )
 
@@ -29,14 +28,14 @@ type CreateOrderRequest struct {
 func (c *OrderController) CreateOrder(ctx *gin.Context) {
 	var req CreateOrderRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 从上下文中获取用户ID
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		c.ResponseError(ctx, http.StatusUnauthorized, "User not logged in")
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
 	}
 
@@ -46,7 +45,7 @@ func (c *OrderController) CreateOrder(ctx *gin.Context) {
 		Items:  req.Items,
 	})
 	if err != nil {
-		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
@@ -60,14 +59,14 @@ func (c *OrderController) GetOrderDetail(ctx *gin.Context) {
 	// 从上下文中获取用户ID
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		c.ResponseError(ctx, http.StatusUnauthorized, "User not logged in")
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
 	}
 
 	// 从服务层获取订单详情
 	order, err := c.orderService.GetOrderDetail(orderID, userID.(uint))
 	if err != nil {
-		c.ResponseError(ctx, http.StatusNotFound, err.Error())
+		c.ResponseError(ctx, errors.CodeOrderNotFound, err)
 		return
 	}
 

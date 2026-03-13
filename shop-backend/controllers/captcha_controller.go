@@ -10,12 +10,12 @@ import (
 	"image/draw"
 	"image/png"
 	"math/big"
-	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"shop-backend/errors"
 )
 
 // CaptchaController 验证码控制器
@@ -45,7 +45,7 @@ func (c *CaptchaController) GenerateCaptcha(ctx *gin.Context) {
 	// 生成唯一的验证码ID
 	captchaID, err := generateRandomID(16)
 	if err != nil {
-		c.ResponseError(ctx, http.StatusInternalServerError, "Failed to generate captcha ID")
+		c.ResponseError(ctx, errors.CodeInternalError, err)
 		return
 	}
 
@@ -53,7 +53,7 @@ func (c *CaptchaController) GenerateCaptcha(ctx *gin.Context) {
 	rctx := context.Background()
 	err = c.redis.Set(rctx, "captcha:"+captchaID, captcha, 5*time.Minute).Err()
 	if err != nil {
-		c.ResponseError(ctx, http.StatusInternalServerError, "Failed to store captcha")
+		c.ResponseError(ctx, errors.CodeCacheError, err)
 		return
 	}
 
@@ -106,7 +106,7 @@ func (c *CaptchaController) GenerateCaptcha(ctx *gin.Context) {
 	var buf bytes.Buffer
 	err = png.Encode(&buf, img)
 	if err != nil {
-		c.ResponseError(ctx, http.StatusInternalServerError, "Failed to encode captcha image")
+		c.ResponseError(ctx, errors.CodeInternalError, err)
 		return
 	}
 	ctx.Writer.Write(buf.Bytes())
@@ -122,7 +122,7 @@ type VerifyCaptchaRequest struct {
 func (c *CaptchaController) VerifyCaptcha(ctx *gin.Context) {
 	var req VerifyCaptchaRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 

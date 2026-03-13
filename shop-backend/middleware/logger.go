@@ -6,14 +6,24 @@ import (
 	"io"
 	"time"
 
+	"shop-backend/controllers"
 	"shop-backend/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // RequestLogger 记录请求和响应的日志中间件
 func RequestLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 【单体应用】每次请求生成新的 RequestID
+		// 不需要从 header 获取，因为不需要透传
+		requestID := uuid.New().String()
+		c.Set(controllers.RequestIDKey, requestID)
+
+		// 返回给客户端（方便问题排查时提供）
+		c.Header("X-Request-ID", requestID)
+
 		// 记录开始时间
 		start := time.Now()
 
@@ -21,7 +31,6 @@ func RequestLogger() gin.HandlerFunc {
 		var requestBody []byte
 		if c.Request.Body != nil {
 			requestBody, _ = io.ReadAll(c.Request.Body)
-			// 重置请求体，否则后续处理会读不到
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 		}
 
@@ -35,40 +44,69 @@ func RequestLogger() gin.HandlerFunc {
 		// 计算处理时间
 		latency := time.Since(start)
 
-		// 记录请求信息
-		method := c.Request.Method
-		path := c.Request.URL.Path
-		query := c.Request.URL.RawQuery
-		if query != "" {
-			path = path + "?" + query
+		// 构建日志字段
+		logFields := map[string]interface{}{
+			"request_id": requestID,
+			"method":     c.Request.Method,
+			"path":       c.Request.URL.Path,
+			"query":      c.Request.URL.RawQuery,
+			"status":     c.Writer.Status(),
+			"latency_ms": latency.Milliseconds(),
+			"client_ip":  c.ClientIP(),
+			"user_agent": c.Request.UserAgent(),
 		}
 
-		// 解析请求体（如果是 JSON）
-		var requestData interface{}
+		// 解析请求体
 		if len(requestBody) > 0 {
-			json.Unmarshal(requestBody, &requestData)
+			var requestData interface{}
+			if err := json.Unmarshal(requestBody, &requestData); err == nil {
+				logFields["request_body"] = requestData
+			} else {
+				logFields["request_body_raw"] = string(requestBody)
+			}
 		}
 
-		// 解析响应体（如果是 JSON）
-		var responseData interface{}
+		// 解析响应体
 		if len(blw.body.Bytes()) > 0 {
-			json.Unmarshal(blw.body.Bytes(), &responseData)
+			var responseData interface{}
+			if err := json.Unmarshal(blw.body.Bytes(), &responseData); err == nil {
+				logFields["response_body"] = responseData
+			} else {
+				logFields["response_body_raw"] = blw.body.String()
+			}
 		}
 
-		// 格式化请求体为JSON字符串
-		requestJSON, _ := json.MarshalIndent(requestData, "", "  ")
-		// 格式化响应体为JSON字符串
-		responseJSON, _ := json.MarshalIndent(responseData, "", "  ")
+		// 如果有错误详情，添加到日志
+		if errorDetail, exists := controllers.GetErrorDetail(c); exists {
+			logFields["error"] = map[string]interface{}{
+				"code":    errorDetail.Code,
+				"message": errorDetail.Message,
+				"detail":  errorDetail.Detail,
+			}
+		}
 
-		// 记录日志
-		utils.Info("API请求:\n"+
-			"  方法: %s\n"+
-			"  路径: %s\n"+
-			"  状态码: %d\n"+
-			"  耗时: %v\n"+
-			"  请求体:\n%s\n"+
-			"  响应体:\n%s",
-			method, path, c.Writer.Status(), latency, string(requestJSON), string(responseJSON))
+		// 记录日志（根据响应 body 中的 code 决定日志级别）
+		logJSON, _ := json.Marshal(logFields)
+
+		// 从响应体中获取业务码
+		var bizCode int
+		if responseData, ok := logFields["response_body"].(map[string]interface{}); ok {
+			if code, exists := responseData["code"]; exists {
+				bizCode = int(code.(float64))
+			}
+		}
+
+		switch {
+		case bizCode >= 5000:
+			// 服务器错误 - Error 级别
+			utils.Error("API请求错误: %s", string(logJSON))
+		case bizCode >= 4000:
+			// 客户端错误 - Warn 级别
+			utils.Warn("API请求警告: %s", string(logJSON))
+		default:
+			// 正常请求 - Info 级别
+			utils.Info("API请求: %s", string(logJSON))
+		}
 	}
 }
 
@@ -82,4 +120,10 @@ type bodyLogWriter struct {
 func (w *bodyLogWriter) Write(b []byte) (int, error) {
 	w.body.Write(b)
 	return w.ResponseWriter.Write(b)
+}
+
+// WriteString 重写 WriteString 方法
+func (w *bodyLogWriter) WriteString(s string) (int, error) {
+	w.body.WriteString(s)
+	return w.ResponseWriter.WriteString(s)
 }

@@ -1,8 +1,8 @@
 package controllers
 
 import (
+	"goshopadmin/errors"
 	"goshopadmin/services"
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +11,7 @@ import (
 
 // UserController 用户控制器
 type UserController struct {
+	BaseController
 	authService *services.AuthService
 }
 
@@ -26,15 +27,11 @@ func (c *UserController) GetUsers(ctx *gin.Context) {
 	// 这里可以添加分页和筛选逻辑
 	users, err := c.authService.GetUsers()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取用户列表失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "获取用户列表成功",
-		"data":    users,
-	})
+	c.ResponseSuccess(ctx, users)
 }
 
 // GetUser 获取单个用户信息
@@ -42,21 +39,17 @@ func (c *UserController) GetUser(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	user, err := c.authService.GetUserByID(id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "用户不存在"})
+		c.ResponseError(ctx, errors.CodeUserNotFound, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "获取用户信息成功",
-		"data":    user,
-	})
+	c.ResponseSuccess(ctx, user)
 }
 
 // CreateUser 创建用户
@@ -69,21 +62,17 @@ func (c *UserController) CreateUser(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	user, err := c.authService.CreateUser(req.Username, req.Password, req.RoleID, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDuplicate, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "创建用户成功",
-		"data":    user,
-	})
+	c.ResponseSuccess(ctx, user)
 }
 
 // UpdateUser 更新用户
@@ -91,7 +80,7 @@ func (c *UserController) UpdateUser(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -102,21 +91,17 @@ func (c *UserController) UpdateUser(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	user, err := c.authService.UpdateUser(id, req.Password, req.RoleID, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "更新用户成功",
-		"data":    user,
-	})
+	c.ResponseSuccess(ctx, user)
 }
 
 // DeleteUser 删除用户
@@ -124,17 +109,14 @@ func (c *UserController) DeleteUser(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	if err := c.authService.DeleteUser(id); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "删除用户成功",
-	})
+	c.ResponseSuccess(ctx, nil)
 }

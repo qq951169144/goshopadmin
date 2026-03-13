@@ -1,11 +1,10 @@
 package controllers
 
 import (
-	"errors"
+	stderrors "errors"
+	"goshopadmin/errors"
 	"goshopadmin/models"
 	"goshopadmin/services"
-	"goshopadmin/utils"
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +22,7 @@ func (c *ProductController) getMerchantIDFromContext(ctx *gin.Context) (int, err
 	// 从上下文获取用户ID
 	userID, ok := c.GetUserID(ctx)
 	if !ok {
-		return 0, errors.New("未授权")
+		return 0, stderrors.New("未授权")
 	}
 
 	// 获取商户ID
@@ -138,18 +137,18 @@ func (c *ProductController) GetProducts(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
 	// 获取商品列表
 	products, err := c.productService.GetProductsByMerchantID(merchantID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取商品列表失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "获取商品列表成功", "data": products})
+	c.ResponseSuccess(ctx, products)
 }
 
 // GetProduct 获取商品详情
@@ -165,7 +164,7 @@ func (c *ProductController) GetProduct(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
@@ -173,18 +172,18 @@ func (c *ProductController) GetProduct(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的商品ID"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 获取商品详情
 	product, err := c.productService.GetProductByID(id, merchantID)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "商品不存在"})
+		c.ResponseError(ctx, errors.CodeProductNotFound, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "获取商品详情成功", "data": product})
+	c.ResponseSuccess(ctx, product)
 }
 
 // CreateProduct 创建商品
@@ -200,15 +199,14 @@ func (c *ProductController) CreateProduct(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
 	// 绑定请求体
 	var req CreateProductRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		utils.Info("输出错误信息：%s", err)
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -226,12 +224,11 @@ func (c *ProductController) CreateProduct(ctx *gin.Context) {
 
 	// 创建商品
 	if err := c.productService.CreateProduct(&product, merchantID); err != nil {
-		utils.Info("创建商品失败: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建商品失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "创建商品成功", "data": product})
+	c.ResponseSuccess(ctx, product)
 }
 
 // UpdateProduct 更新商品
@@ -248,7 +245,7 @@ func (c *ProductController) UpdateProduct(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
@@ -256,14 +253,14 @@ func (c *ProductController) UpdateProduct(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的商品ID"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 绑定请求体
 	var req UpdateProductRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -282,11 +279,11 @@ func (c *ProductController) UpdateProduct(ctx *gin.Context) {
 
 	// 更新商品
 	if err := c.productService.UpdateProduct(&product, merchantID); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "更新商品成功", "data": product})
+	c.ResponseSuccess(ctx, product)
 }
 
 // DeleteProduct 删除商品
@@ -302,7 +299,7 @@ func (c *ProductController) DeleteProduct(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
@@ -310,17 +307,17 @@ func (c *ProductController) DeleteProduct(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的商品ID"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 删除商品
 	if err := c.productService.DeleteProduct(id, merchantID); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除商品成功"})
+	c.ResponseSuccess(ctx, nil)
 }
 
 // GetCategories 获取商品分类列表
@@ -335,18 +332,18 @@ func (c *ProductController) GetCategories(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
 	// 获取分类列表
 	categories, err := c.productService.GetCategoriesByMerchantID(merchantID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取分类列表失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "获取分类列表成功", "data": categories})
+	c.ResponseSuccess(ctx, categories)
 }
 
 // GetCategory 获取商品分类详情
@@ -362,7 +359,7 @@ func (c *ProductController) GetCategory(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
@@ -370,18 +367,18 @@ func (c *ProductController) GetCategory(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的分类ID"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 获取分类详情
 	category, err := c.productService.GetCategoryByID(id, merchantID)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "分类不存在"})
+		c.ResponseError(ctx, errors.CodeNotFound, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "获取分类详情成功", "data": category})
+	c.ResponseSuccess(ctx, category)
 }
 
 // CreateCategory 创建商品分类
@@ -397,15 +394,14 @@ func (c *ProductController) CreateCategory(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
 	// 绑定请求体
 	var req CreateCategoryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		utils.Info("创建分类请求失败: %v", err)
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -421,11 +417,11 @@ func (c *ProductController) CreateCategory(ctx *gin.Context) {
 
 	// 创建分类
 	if err := c.productService.CreateCategory(&category, merchantID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建分类失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "创建分类成功", "data": category})
+	c.ResponseSuccess(ctx, category)
 }
 
 // UpdateCategory 更新商品分类
@@ -442,7 +438,7 @@ func (c *ProductController) UpdateCategory(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
@@ -450,14 +446,14 @@ func (c *ProductController) UpdateCategory(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的分类ID"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 绑定请求体
 	var req UpdateCategoryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -474,11 +470,11 @@ func (c *ProductController) UpdateCategory(ctx *gin.Context) {
 
 	// 更新分类
 	if err := c.productService.UpdateCategory(&category, merchantID); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "更新分类成功", "data": category})
+	c.ResponseSuccess(ctx, category)
 }
 
 // DeleteCategory 删除商品分类
@@ -494,7 +490,7 @@ func (c *ProductController) DeleteCategory(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
@@ -502,17 +498,17 @@ func (c *ProductController) DeleteCategory(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的分类ID"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 删除分类
 	if err := c.productService.DeleteCategory(id, merchantID); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除分类成功"})
+	c.ResponseSuccess(ctx, nil)
 }
 
 // AddProductImage 添加商品图片
@@ -528,14 +524,14 @@ func (c *ProductController) AddProductImage(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
 	// 绑定请求体
 	var req AddProductImageRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -549,11 +545,11 @@ func (c *ProductController) AddProductImage(ctx *gin.Context) {
 
 	// 添加图片
 	if err := c.productService.AddProductImage(&image, merchantID); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "添加图片成功", "data": image})
+	c.ResponseSuccess(ctx, image)
 }
 
 // DeleteProductImage 删除商品图片
@@ -569,7 +565,7 @@ func (c *ProductController) DeleteProductImage(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
@@ -577,17 +573,17 @@ func (c *ProductController) DeleteProductImage(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的图片ID"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 删除图片
 	if err := c.productService.DeleteProductImage(id, merchantID); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除图片成功"})
+	c.ResponseSuccess(ctx, nil)
 }
 
 // UpdateProductImage 更新商品图片
@@ -604,7 +600,7 @@ func (c *ProductController) UpdateProductImage(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
@@ -612,14 +608,14 @@ func (c *ProductController) UpdateProductImage(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的图片ID"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 绑定请求体
 	var req UpdateProductImageRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -634,11 +630,11 @@ func (c *ProductController) UpdateProductImage(ctx *gin.Context) {
 
 	// 更新图片
 	if err := c.productService.UpdateProductImage(&image, merchantID); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "更新图片成功", "data": image})
+	c.ResponseSuccess(ctx, image)
 }
 
 // AddProductSKU 添加商品SKU
@@ -654,14 +650,14 @@ func (c *ProductController) AddProductSKU(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
 	// 绑定请求体
 	var req AddProductSKURequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -678,11 +674,11 @@ func (c *ProductController) AddProductSKU(ctx *gin.Context) {
 
 	// 添加SKU
 	if err := c.productService.AddProductSKU(&sku, merchantID); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "添加SKU成功", "data": sku})
+	c.ResponseSuccess(ctx, sku)
 }
 
 // UpdateProductSKU 更新商品SKU
@@ -699,7 +695,7 @@ func (c *ProductController) UpdateProductSKU(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
@@ -707,14 +703,14 @@ func (c *ProductController) UpdateProductSKU(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的SKU ID"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 绑定请求体
 	var req UpdateProductSKURequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的请求数据"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -732,11 +728,11 @@ func (c *ProductController) UpdateProductSKU(ctx *gin.Context) {
 
 	// 更新SKU
 	if err := c.productService.UpdateProductSKU(&sku, merchantID); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "更新SKU成功", "data": sku})
+	c.ResponseSuccess(ctx, sku)
 }
 
 // DeleteProductSKU 删除商品SKU
@@ -752,7 +748,7 @@ func (c *ProductController) DeleteProductSKU(ctx *gin.Context) {
 	// 获取商户ID
 	merchantID, err := c.getMerchantIDFromContext(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeUnauthorized, err)
 		return
 	}
 
@@ -760,15 +756,15 @@ func (c *ProductController) DeleteProductSKU(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "无效的SKU ID"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 删除SKU
 	if err := c.productService.DeleteProductSKU(id, merchantID); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除SKU成功"})
+	c.ResponseSuccess(ctx, nil)
 }

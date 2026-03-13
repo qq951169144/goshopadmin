@@ -1,9 +1,8 @@
 package controllers
 
 import (
+	"goshopadmin/errors"
 	"goshopadmin/services"
-	"goshopadmin/utils"
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -27,15 +26,11 @@ func NewMerchantController(db *gorm.DB) *MerchantController {
 func (c *MerchantController) GetMerchants(ctx *gin.Context) {
 	merchants, err := c.merchantService.GetMerchants()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取商户列表失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "获取商户列表成功",
-		"data":    merchants,
-	})
+	c.ResponseSuccess(ctx, merchants)
 }
 
 // GetMerchant 获取单个商户信息
@@ -43,21 +38,17 @@ func (c *MerchantController) GetMerchant(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	merchant, err := c.merchantService.GetMerchantByID(id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取商户信息失败"})
+		c.ResponseError(ctx, errors.CodeNotFound, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "获取商户信息成功",
-		"data":    merchant,
-	})
+	c.ResponseSuccess(ctx, merchant)
 }
 
 // CreateMerchantRequest 创建商户请求结构
@@ -75,7 +66,7 @@ type CreateMerchantRequest struct {
 func (c *MerchantController) CreateMerchant(ctx *gin.Context) {
 	var req CreateMerchantRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -96,15 +87,11 @@ func (c *MerchantController) CreateMerchant(ctx *gin.Context) {
 		userID,
 	)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建商户失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "创建商户成功",
-		"data":    merchant,
-	})
+	c.ResponseSuccess(ctx, merchant)
 }
 
 // UpdateMerchantRequest 更新商户请求结构
@@ -124,13 +111,13 @@ func (c *MerchantController) UpdateMerchant(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	var req UpdateMerchantRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -153,15 +140,11 @@ func (c *MerchantController) UpdateMerchant(ctx *gin.Context) {
 		userID,
 	)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新商户失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "更新商户成功",
-		"data":    merchant,
-	})
+	c.ResponseSuccess(ctx, merchant)
 }
 
 // AuditMerchantRequest 审核商户请求结构
@@ -175,13 +158,13 @@ func (c *MerchantController) AuditMerchant(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	var req AuditMerchantRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -193,14 +176,11 @@ func (c *MerchantController) AuditMerchant(ctx *gin.Context) {
 
 	err = c.merchantService.AuditMerchant(id, req.AuditStatus, req.AuditNote, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "审核商户失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "审核商户成功",
-	})
+	c.ResponseSuccess(ctx, nil)
 }
 
 // GetMerchantUsers 获取商户用户列表
@@ -208,21 +188,17 @@ func (c *MerchantController) GetMerchantUsers(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	merchantID, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	merchantUsers, err := c.merchantService.GetMerchantUsers(merchantID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取商户用户列表失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "获取商户用户列表成功",
-		"data":    merchantUsers,
-	})
+	c.ResponseSuccess(ctx, merchantUsers)
 }
 
 // AddMerchantUserRequest 添加商户用户请求结构
@@ -236,29 +212,23 @@ func (c *MerchantController) AddMerchantUser(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	merchantID, err := strconv.Atoi(idStr)
 	if err != nil {
-		utils.Info("解析商户ID失败: %v", err)
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	var req AddMerchantUserRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		utils.Info("解析请求体失败: %v", err)
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	err = c.merchantService.AddMerchantUser(merchantID, req.UserID, req.Role)
 	if err != nil {
-		utils.Info("添加商户用户失败: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "添加商户用户失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "添加商户用户成功",
-	})
+	c.ResponseSuccess(ctx, nil)
 }
 
 // RemoveMerchantUser 移除商户用户
@@ -268,26 +238,23 @@ func (c *MerchantController) RemoveMerchantUser(ctx *gin.Context) {
 
 	merchantID, err := strconv.Atoi(merchantIDStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	err = c.merchantService.RemoveMerchantUser(merchantID, userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "移除商户用户失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "移除商户用户成功",
-	})
+	c.ResponseSuccess(ctx, nil)
 }
 
 // DeleteMerchant 禁用商户
@@ -295,18 +262,15 @@ func (c *MerchantController) DeleteMerchant(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	err = c.merchantService.DeleteMerchant(id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "禁用商户失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "禁用商户成功",
-	})
+	c.ResponseSuccess(ctx, nil)
 }

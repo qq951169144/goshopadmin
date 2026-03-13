@@ -19,10 +19,18 @@ type Dependencies struct {
 
 // SetupRouter 设置路由
 func SetupRouter(deps *Dependencies) *gin.Engine {
-	router := gin.Default()
+	// 创建Gin引擎
+	router := gin.New()
 
-	// 跨域中间件
+	// 注册中间件（注意顺序）
+	// 1. Logger 中间件（最先执行，生成 RequestID）
+	router.Use(middleware.RequestLogger())
+
+	// 2. CORS 中间件
 	router.Use(middleware.CORS())
+
+	// 3. Recovery 中间件
+	router.Use(gin.Recovery())
 
 	// 健康检查
 	router.GET("/health", func(c *gin.Context) {
@@ -33,7 +41,6 @@ func SetupRouter(deps *Dependencies) *gin.Engine {
 
 	// API路由组
 	api := router.Group("/api")
-	api.Use(middleware.RequestLogger())
 	{
 		// 验证码路由
 		api.GET("/captcha", deps.CaptchaController.GenerateCaptcha)

@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"encoding/base64"
+	"goshopadmin/errors"
 	"goshopadmin/services"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -36,7 +36,7 @@ type LoginRequest struct {
 func (c *AuthController) Login(ctx *gin.Context) {
 	var req LoginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -53,21 +53,17 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	// 登录验证
 	token, user, err := c.authService.Login(req.Username, req.Password)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeLoginFailed, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "登录成功",
-		"data": gin.H{
-			"token": token,
-			"user": gin.H{
-				"id":        user.ID,
-				"username":  user.Username,
-				"role_id":   user.RoleID,
-				"role_name": user.Role.Name,
-			},
+	c.ResponseSuccess(ctx, gin.H{
+		"token": token,
+		"user": gin.H{
+			"id":        user.ID,
+			"username":  user.Username,
+			"role_id":   user.RoleID,
+			"role_name": user.Role.Name,
 		},
 	})
 }
@@ -75,28 +71,24 @@ func (c *AuthController) Login(ctx *gin.Context) {
 // Logout 用户登出
 func (c *AuthController) Logout(ctx *gin.Context) {
 	// 由于使用JWT，登出只需客户端删除token即可
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "登出成功"})
+	c.ResponseSuccess(ctx, nil)
 }
 
 // RefreshToken 刷新token
 func (c *AuthController) RefreshToken(ctx *gin.Context) {
 	userID, exists := ctx.Get("userID")
 	if !exists {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "未认证"})
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
 	}
 
 	token, err := c.authService.RefreshToken(userID.(int))
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "刷新token失败"})
+		c.ResponseError(ctx, errors.CodeInternalError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "刷新token成功",
-		"data":    gin.H{"token": token},
-	})
+	c.ResponseSuccess(ctx, gin.H{"token": token})
 }
 
 // GetCurrentUser 获取当前用户信息
@@ -108,20 +100,16 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 
 	user, err := c.authService.GetUserByID(userID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取用户信息失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "获取用户信息成功",
-		"data": gin.H{
-			"id":          user.ID,
-			"username":    user.Username,
-			"role_id":     user.RoleID,
-			"role_name":   user.Role.Name,
-			"permissions": user.Role.Permissions,
-		},
+	c.ResponseSuccess(ctx, gin.H{
+		"id":          user.ID,
+		"username":    user.Username,
+		"role_id":     user.RoleID,
+		"role_name":   user.Role.Name,
+		"permissions": user.Role.Permissions,
 	})
 }
 
@@ -129,21 +117,17 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 func (c *AuthController) GetCaptcha(ctx *gin.Context) {
 	captcha, err := c.captchaService.GenerateCaptcha()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成验证码失败"})
+		c.ResponseError(ctx, errors.CodeInternalError, err)
 		return
 	}
 
 	// 将图片字节转换为base64字符串
 	imageBase64 := base64.StdEncoding.EncodeToString(captcha.Image)
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "生成验证码成功",
-		"data": gin.H{
-			"id":    captcha.ID,
-			"image": imageBase64,
-			"ans":   captcha.Answer,
-		},
+	c.ResponseSuccess(ctx, gin.H{
+		"id":    captcha.ID,
+		"image": imageBase64,
+		"ans":   captcha.Answer,
 	})
 }
 
@@ -157,15 +141,15 @@ type VerifyCaptchaRequest struct {
 func (c *AuthController) VerifyCaptcha(ctx *gin.Context) {
 	var req VerifyCaptchaRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	isValid := c.captchaService.VerifyCaptcha(req.CaptchaID, req.CaptchaAns)
 	if !isValid {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "验证码错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, nil)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "message": "验证码验证成功"})
+	c.ResponseSuccess(ctx, nil)
 }

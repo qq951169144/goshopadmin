@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"shop-backend/errors"
 	"shop-backend/services"
 )
 
@@ -100,27 +101,27 @@ type PaymentCallbackRequest struct {
 func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 	var req PaymentCallbackRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	// 查找订单
 	order, err := c.orderService.GetOrderByID(req.OrderID)
 	if err != nil {
-		c.ResponseError(ctx, http.StatusNotFound, "Order not found")
+		c.ResponseError(ctx, errors.CodeOrderNotFound, err)
 		return
 	}
 
 	// 验证金额
 	if order.TotalAmount != req.Amount {
-		c.ResponseError(ctx, http.StatusBadRequest, "Invalid amount")
+		c.ResponseError(ctx, errors.CodeParamInvalid, nil)
 		return
 	}
 
 	// 更新订单状态
 	err = c.orderService.UpdateOrderStatus(req.OrderID, req.Status, req.TransactionID)
 	if err != nil {
-		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 

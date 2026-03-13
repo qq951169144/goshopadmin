@@ -49,10 +49,17 @@ func main() {
 	)
 
 	// 5. 创建Gin引擎
-	r := gin.Default()
+	r := gin.New()
 
-	// 6. 应用CORS中间件
+	// 6. 注册中间件（注意顺序）
+	// 1. Logger 中间件（最先执行，生成 RequestID）
+	r.Use(middleware.RequestLogger())
+
+	// 2. CORS 中间件
 	r.Use(middleware.CORSMiddleware())
+
+	// 3. Recovery 中间件
+	r.Use(gin.Recovery())
 
 	// 7. 配置静态文件服务
 	r.Static("/uploads", "./uploads")

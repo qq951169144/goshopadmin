@@ -1,8 +1,8 @@
 package controllers
 
 import (
+	"goshopadmin/errors"
 	"goshopadmin/services"
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +11,7 @@ import (
 
 // PermissionController 权限控制器
 type PermissionController struct {
+	BaseController
 	authService *services.AuthService
 }
 
@@ -25,15 +26,11 @@ func NewPermissionController(db *gorm.DB, jwtSecret string, jwtExpireHour int) *
 func (c *PermissionController) GetPermissions(ctx *gin.Context) {
 	permissions, err := c.authService.GetPermissions()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取权限列表失败"})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "获取权限列表成功",
-		"data":    permissions,
-	})
+	c.ResponseSuccess(ctx, permissions)
 }
 
 // GetPermission 获取单个权限信息
@@ -41,21 +38,17 @@ func (c *PermissionController) GetPermission(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	permission, err := c.authService.GetPermissionByID(id)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "权限不存在"})
+		c.ResponseError(ctx, errors.CodeNotFound, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "获取权限信息成功",
-		"data":    permission,
-	})
+	c.ResponseSuccess(ctx, permission)
 }
 
 // CreatePermission 创建权限
@@ -68,21 +61,17 @@ func (c *PermissionController) CreatePermission(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	permission, err := c.authService.CreatePermission(req.Name, req.Code, req.Description, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDuplicate, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "创建权限成功",
-		"data":    permission,
-	})
+	c.ResponseSuccess(ctx, permission)
 }
 
 // UpdatePermission 更新权限
@@ -90,7 +79,7 @@ func (c *PermissionController) UpdatePermission(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
@@ -102,21 +91,17 @@ func (c *PermissionController) UpdatePermission(ctx *gin.Context) {
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	permission, err := c.authService.UpdatePermission(id, req.Name, req.Code, req.Description, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "更新权限成功",
-		"data":    permission,
-	})
+	c.ResponseSuccess(ctx, permission)
 }
 
 // DeletePermission 删除权限
@@ -124,17 +109,14 @@ func (c *PermissionController) DeletePermission(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
 	if err := c.authService.DeletePermission(id); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "删除权限成功",
-	})
+	c.ResponseSuccess(ctx, nil)
 }

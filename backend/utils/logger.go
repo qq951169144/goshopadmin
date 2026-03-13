@@ -13,6 +13,7 @@ import (
 // Logger 日志记录器
 type Logger struct {
 	infoLogger  *log.Logger
+	warnLogger  *log.Logger
 	errorLogger *log.Logger
 	logChan     chan logEntry
 	wg          sync.WaitGroup
@@ -43,10 +44,12 @@ func NewLogger() *Logger {
 
 	// 创建日志记录器
 	infoLogger := log.New(file, "INFO: ", log.Ldate|log.Ltime)
+	warnLogger := log.New(file, "WARN: ", log.Ldate|log.Ltime)
 	errorLogger := log.New(file, "ERROR: ", log.Ldate|log.Ltime)
 
 	logger := &Logger{
 		infoLogger:  infoLogger,
+		warnLogger:  warnLogger,
 		errorLogger: errorLogger,
 		logChan:     make(chan logEntry, 1000), // 带缓冲的通道
 	}
@@ -67,6 +70,8 @@ func (l *Logger) processLogs() {
 		switch entry.level {
 		case "info":
 			l.infoLogger.Printf("[%s] %s", callerInfo, message)
+		case "warn":
+			l.warnLogger.Printf("[%s] %s", callerInfo, message)
 		case "error":
 			l.errorLogger.Printf("[%s] %s", callerInfo, message)
 		}
@@ -88,6 +93,16 @@ func getCallerInfo() string {
 func (l *Logger) Info(format string, v ...interface{}) {
 	l.logChan <- logEntry{
 		level:  "info",
+		format: format,
+		args:   v,
+		caller: getCallerInfo(),
+	}
+}
+
+// Warn 记录警告日志
+func (l *Logger) Warn(format string, v ...interface{}) {
+	l.logChan <- logEntry{
+		level:  "warn",
 		format: format,
 		args:   v,
 		caller: getCallerInfo(),
@@ -121,6 +136,11 @@ func init() {
 // Info 全局信息日志
 func Info(format string, v ...interface{}) {
 	globalLogger.Info(format, v...)
+}
+
+// Warn 全局警告日志
+func Warn(format string, v ...interface{}) {
+	globalLogger.Warn(format, v...)
 }
 
 // Error 全局错误日志
