@@ -1,47 +1,59 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
-	crand "crypto/rand"
+	"crypto/rand"
 	"encoding/hex"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/png"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
 
-	"shop-backend/config"
-
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 )
 
-// 验证码长度
+// CaptchaController 验证码控制器
+type CaptchaController struct {
+	BaseController
+	redis *redis.Client
+}
+
+// NewCaptchaController 创建验证码控制器实例
+func NewCaptchaController(redis *redis.Client) *CaptchaController {
+	return &CaptchaController{
+		redis: redis,
+	}
+}
+
 const captchaLength = 4
 
-// 生成验证码
-func GenerateCaptcha(c *gin.Context) {
+// GenerateCaptcha 生成验证码
+func (c *CaptchaController) GenerateCaptcha(ctx *gin.Context) {
 	// 生成随机验证码
-	rand.Seed(time.Now().UnixNano())
 	captcha := ""
 	for i := 0; i < captchaLength; i++ {
-		captcha += strconv.Itoa(rand.Intn(10))
+		n, _ := rand.Int(rand.Reader, big.NewInt(10))
+		captcha += strconv.Itoa(int(n.Int64()))
 	}
 
 	// 生成唯一的验证码ID
 	captchaID, err := generateRandomID(16)
 	if err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Failed to generate captcha ID")
+		c.ResponseError(ctx, http.StatusInternalServerError, "Failed to generate captcha ID")
 		return
 	}
 
 	// 存储验证码到Redis，设置5分钟过期
-	ctx := context.Background()
-	err = config.Redis.Set(ctx, "captcha:"+captchaID, captcha, 5*time.Minute).Err()
+	rctx := context.Background()
+	err = c.redis.Set(rctx, "captcha:"+captchaID, captcha, 5*time.Minute).Err()
 	if err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Failed to store captcha")
+		c.ResponseError(ctx, http.StatusInternalServerError, "Failed to store captcha")
 		return
 	}
 
@@ -62,7 +74,8 @@ func GenerateCaptcha(c *gin.Context) {
 		// 简单绘制文字
 		for j := 0; j < 5; j++ {
 			for k := 0; k < 10; k++ {
-				if rand.Intn(2) == 0 {
+				n, _ := rand.Int(rand.Reader, big.NewInt(2))
+				if n.Int64() == 0 {
 					img.Set(x+j, y-k, textColor)
 				}
 			}
@@ -71,13 +84,14 @@ func GenerateCaptcha(c *gin.Context) {
 
 	// 绘制干扰线
 	for i := 0; i < 5; i++ {
-		x1 := rand.Intn(width)
-		y1 := rand.Intn(height)
-		x2 := rand.Intn(width)
-		y2 := rand.Intn(height)
-		for x := min(x1, x2); x <= max(x1, x2); x++ {
-			for y := min(y1, y2); y <= max(y1, y2); y++ {
-				if rand.Intn(10) == 0 {
+		x1, _ := rand.Int(rand.Reader, big.NewInt(int64(width)))
+		y1, _ := rand.Int(rand.Reader, big.NewInt(int64(height)))
+		x2, _ := rand.Int(rand.Reader, big.NewInt(int64(width)))
+		y2, _ := rand.Int(rand.Reader, big.NewInt(int64(height)))
+		for x := min(int(x1.Int64()), int(x2.Int64())); x <= max(int(x1.Int64()), int(x2.Int64())); x++ {
+			for y := min(int(y1.Int64()), int(y2.Int64())); y <= max(int(y1.Int64()), int(y2.Int64())); y++ {
+				n, _ := rand.Int(rand.Reader, big.NewInt(10))
+				if n.Int64() == 0 {
 					img.Set(x, y, textColor)
 				}
 			}
@@ -85,38 +99,45 @@ func GenerateCaptcha(c *gin.Context) {
 	}
 
 	// 设置响应头
-	c.Header("Content-Type", "image/png")
-	c.Header("X-Captcha-ID", captchaID)
+	ctx.Header("Content-Type", "image/png")
+	ctx.Header("X-Captcha-ID", captchaID)
 
 	// 输出图片
-	png.Encode(c.Writer, img)
+	var buf bytes.Buffer
+	err = png.Encode(&buf, img)
+	if err != nil {
+		c.ResponseError(ctx, http.StatusInternalServerError, "Failed to encode captcha image")
+		return
+	}
+	ctx.Writer.Write(buf.Bytes())
 }
 
-// 验证验证码
-func VerifyCaptcha(c *gin.Context) {
-	type VerifyRequest struct {
-		CaptchaID string `json:"captcha_id" binding:"required"`
-		Value     string `json:"value" binding:"required"`
-	}
+// VerifyCaptchaRequest 验证验证码请求结构
+type VerifyCaptchaRequest struct {
+	CaptchaID string `json:"captcha_id" binding:"required"`
+	Value     string `json:"value" binding:"required"`
+}
 
-	var req VerifyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ResponseError(c, http.StatusBadRequest, "Invalid request")
+// VerifyCaptcha 验证验证码
+func (c *CaptchaController) VerifyCaptcha(ctx *gin.Context) {
+	var req VerifyCaptchaRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
 	// 从Redis获取验证码并验证
-	ctx := context.Background()
-	storedCaptcha, err := config.Redis.Get(ctx, "captcha:"+req.CaptchaID).Result()
+	rctx := context.Background()
+	storedCaptcha, err := c.redis.Get(rctx, "captcha:"+req.CaptchaID).Result()
 	if err != nil || storedCaptcha != req.Value {
-		ResponseSuccess(c, gin.H{"valid": false})
+		c.ResponseSuccess(ctx, gin.H{"valid": false})
 		return
 	}
 
 	// 验证成功后删除验证码
-	config.Redis.Del(ctx, "captcha:"+req.CaptchaID)
+	c.redis.Del(rctx, "captcha:"+req.CaptchaID)
 
-	ResponseSuccess(c, gin.H{"valid": true})
+	c.ResponseSuccess(ctx, gin.H{"valid": true})
 }
 
 func min(a, b int) int {
@@ -133,10 +154,9 @@ func max(a, b int) int {
 	return b
 }
 
-// 生成随机ID
 func generateRandomID(length int) (string, error) {
 	bytes := make([]byte, length/2)
-	if _, err := crand.Read(bytes); err != nil {
+	if _, err := rand.Read(bytes); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(bytes), nil

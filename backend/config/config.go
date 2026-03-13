@@ -37,48 +37,45 @@ type Config struct {
 	MQVHost    string
 }
 
-// AppConfig 全局配置实例
-var AppConfig Config
-
-// LoadConfig 加载配置
-func LoadConfig() error {
+// LoadConfig 加载配置，返回配置实例
+func LoadConfig() (*Config, error) {
 	// 服务器配置
 	serverPort, err := strconv.Atoi(getEnv("SERVER_PORT", "8080"))
 	if err != nil {
-		return fmt.Errorf("invalid SERVER_PORT: %v", err)
+		return nil, fmt.Errorf("invalid SERVER_PORT: %v", err)
 	}
 
 	// 数据库配置
 	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "3306"))
 	if err != nil {
-		return fmt.Errorf("invalid DB_PORT: %v", err)
+		return nil, fmt.Errorf("invalid DB_PORT: %v", err)
 	}
 
 	// Redis配置
 	redisPort, err := strconv.Atoi(getEnv("REDIS_PORT", "6379"))
 	if err != nil {
-		return fmt.Errorf("invalid REDIS_PORT: %v", err)
+		return nil, fmt.Errorf("invalid REDIS_PORT: %v", err)
 	}
 
 	redisDB, err := strconv.Atoi(getEnv("REDIS_DB", "0"))
 	if err != nil {
-		return fmt.Errorf("invalid REDIS_DB: %v", err)
+		return nil, fmt.Errorf("invalid REDIS_DB: %v", err)
 	}
 
 	// JWT配置
 	jwtExpireHour, err := strconv.Atoi(getEnv("JWT_EXPIRE_HOUR", "24"))
 	if err != nil {
-		return fmt.Errorf("invalid JWT_EXPIRE_HOUR: %v", err)
+		return nil, fmt.Errorf("invalid JWT_EXPIRE_HOUR: %v", err)
 	}
 
 	// RabbitMQ配置
 	mqPort, err := strconv.Atoi(getEnv("MQ_PORT", "5672"))
 	if err != nil {
-		return fmt.Errorf("invalid MQ_PORT: %v", err)
+		return nil, fmt.Errorf("invalid MQ_PORT: %v", err)
 	}
 
-	// 加载配置到全局实例
-	AppConfig = Config{
+	// 返回配置实例
+	return &Config{
 		// 服务器配置
 		ServerPort: serverPort,
 		Domain:     getEnv("DOMAIN", "http://localhost:8080"),
@@ -106,9 +103,7 @@ func LoadConfig() error {
 		MQUser:     getEnv("MQ_USER", "guest"),
 		MQPassword: getEnv("MQ_PASSWORD", "guest"),
 		MQVHost:    getEnv("MQ_VHOST", "/"),
-	}
-
-	return nil
+	}, nil
 }
 
 // getEnv 获取环境变量，如果不存在则返回默认值

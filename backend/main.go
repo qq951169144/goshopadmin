@@ -6,50 +6,62 @@ import (
 
 	"goshopadmin/config"
 	"goshopadmin/middleware"
+	"goshopadmin/models"
 	"goshopadmin/routes"
 	"goshopadmin/utils"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
 )
 
 func main() {
 	// 确保在程序退出时关闭日志记录器
 	defer utils.CloseLogger()
 
-	// 加载配置
-	if err := config.LoadConfig(); err != nil {
+	// 1. 加载配置
+	cfg, err := config.LoadConfig()
+	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// 连接数据库
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		config.AppConfig.DBUser,
-		config.AppConfig.DBPassword,
-		config.AppConfig.DBHost,
-		config.AppConfig.DBPort,
-		config.AppConfig.DBName,
-	)
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	// 2. 初始化数据库连接
+	conn, err := config.InitDB(cfg)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to initialize database: %v", err)
 	}
+	defer conn.Close()
 
-	// 创建Gin引擎
+	// 3. 设置JWT密钥到中间件
+	middleware.SetJWTSecret(cfg.JWTSecret)
+
+	// 4. 自动迁移模型
+	conn.DB.AutoMigrate(
+		&models.User{},
+		&models.Role{},
+		&models.Permission{},
+		&models.Merchant{},
+		&models.MerchantUser{},
+		&models.MerchantAudit{},
+		&models.Product{},
+		&models.ProductCategory{},
+		&models.ProductImage{},
+		&models.ProductSKU{},
+		&models.Activity{},
+	)
+
+	// 5. 创建Gin引擎
 	r := gin.Default()
 
-	// 应用CORS中间件
+	// 6. 应用CORS中间件
 	r.Use(middleware.CORSMiddleware())
 
-	// 配置静态文件服务
+	// 7. 配置静态文件服务
 	r.Static("/uploads", "./uploads")
 
-	// 设置路由
-	routes.SetupRoutes(r, db)
+	// 8. 设置路由
+	routes.SetupRoutes(r, conn.DB, cfg)
 
-	// 启动服务器
-	port := config.AppConfig.ServerPort
+	// 9. 启动服务器
+	port := cfg.ServerPort
 	fmt.Printf("Server starting on port %d...\n", port)
 	if err := r.Run(fmt.Sprintf(":%d", port)); err != nil {
 		log.Fatalf("Failed to start server: %v", err)

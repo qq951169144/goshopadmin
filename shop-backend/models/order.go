@@ -27,7 +27,7 @@ type Order struct {
 // OrderItem 订单项模型
 type OrderItem struct {
 	ID            uint      `json:"id" gorm:"primaryKey;type:int UNSIGNED"`
-	OrderID       int       `json:"order_id" gorm:"not null;index"`
+	OrderID       uint      `json:"order_id" gorm:"not null;index;type:int UNSIGNED"`
 	ProductID     int       `json:"product_id" gorm:"not null;index"`
 	SkuID         int       `json:"sku_id"`
 	ProductName   string    `json:"product_name" gorm:"size:100;not null"`

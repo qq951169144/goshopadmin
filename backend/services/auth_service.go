@@ -2,11 +2,11 @@ package services
 
 import (
 	"errors"
-	"goshopadmin/config"
+	"time"
+
 	"goshopadmin/constants"
 	"goshopadmin/models"
 	"goshopadmin/utils"
-	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -14,12 +14,18 @@ import (
 
 // AuthService 认证服务
 type AuthService struct {
-	DB *gorm.DB
+	db            *gorm.DB
+	jwtSecret     string
+	jwtExpireHour int
 }
 
 // NewAuthService 创建认证服务实例
-func NewAuthService(db *gorm.DB) *AuthService {
-	return &AuthService{DB: db}
+func NewAuthService(db *gorm.DB, jwtSecret string, jwtExpireHour int) *AuthService {
+	return &AuthService{
+		db:            db,
+		jwtSecret:     jwtSecret,
+		jwtExpireHour: jwtExpireHour,
+	}
 }
 
 // Login 用户登录
@@ -29,7 +35,7 @@ func (s *AuthService) Login(username, password string) (string, *models.User, er
 
 	// 查找用户
 	var user models.User
-	result := s.DB.Preload("Role").Where("username = ?", username).First(&user)
+	result := s.db.Preload("Role").Where("username = ?", username).First(&user)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			utils.Info("用户不存在: username=%s", username)
@@ -62,8 +68,8 @@ func (s *AuthService) Login(username, password string) (string, *models.User, er
 		user.ID,
 		user.Username,
 		user.RoleID,
-		config.AppConfig.JWTSecret,
-		config.AppConfig.JWTExpireHour,
+		s.jwtSecret,
+		s.jwtExpireHour,
 	)
 	if err != nil {
 		utils.Error("生成token失败: %v", err)
@@ -77,7 +83,7 @@ func (s *AuthService) Login(username, password string) (string, *models.User, er
 // GetUserByID 根据ID获取用户
 func (s *AuthService) GetUserByID(id int) (*models.User, error) {
 	var user models.User
-	result := s.DB.Preload("Role").Preload("Role.Permissions").First(&user, id)
+	result := s.db.Preload("Role").Preload("Role.Permissions").First(&user, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -97,8 +103,8 @@ func (s *AuthService) RefreshToken(userID int) (string, error) {
 		user.ID,
 		user.Username,
 		user.RoleID,
-		config.AppConfig.JWTSecret,
-		config.AppConfig.JWTExpireHour,
+		s.jwtSecret,
+		s.jwtExpireHour,
 	)
 	if err != nil {
 		return "", err
@@ -111,7 +117,7 @@ func (s *AuthService) RefreshToken(userID int) (string, error) {
 func (s *AuthService) ChangePassword(userID int, oldPassword, newPassword string) error {
 	// 获取用户
 	var user models.User
-	result := s.DB.First(&user, userID)
+	result := s.db.First(&user, userID)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -131,7 +137,7 @@ func (s *AuthService) ChangePassword(userID int, oldPassword, newPassword string
 	// 更新密码
 	user.Password = string(hashedPassword)
 	user.UpdatedAt = time.Now()
-	result = s.DB.Save(&user)
+	result = s.db.Save(&user)
 	return result.Error
 }
 
@@ -139,7 +145,7 @@ func (s *AuthService) ChangePassword(userID int, oldPassword, newPassword string
 func (s *AuthService) GetUsers() ([]*models.User, error) {
 	var users []*models.User
 	// 方法1: 使用Select指定只查询Role表的特定字段
-	result := s.DB.Preload("Role", func(db *gorm.DB) *gorm.DB {
+	result := s.db.Preload("Role", func(db *gorm.DB) *gorm.DB {
 		return db.Select("id, name") // 只查询Role的id和name字段
 	}).Find(&users)
 	if result.Error != nil {
@@ -152,7 +158,7 @@ func (s *AuthService) GetUsers() ([]*models.User, error) {
 func (s *AuthService) CreateUser(username, password string, roleID int, status string) (*models.User, error) {
 	// 检查用户名是否已存在
 	var existingUser models.User
-	result := s.DB.Where("username = ?", username).First(&existingUser)
+	result := s.db.Where("username = ?", username).First(&existingUser)
 	if result.Error == nil {
 		return nil, errors.New("用户名已存在")
 	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -180,13 +186,13 @@ func (s *AuthService) CreateUser(username, password string, roleID int, status s
 		UpdatedAt: time.Now(),
 	}
 
-	result = s.DB.Create(user)
+	result = s.db.Create(user)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
 	// 加载角色信息
-	s.DB.Preload("Role").First(user, user.ID)
+	s.db.Preload("Role").First(user, user.ID)
 	return user, nil
 }
 
@@ -194,7 +200,7 @@ func (s *AuthService) CreateUser(username, password string, roleID int, status s
 func (s *AuthService) UpdateUser(id int, password string, roleID int, status string) (*models.User, error) {
 	// 获取用户
 	var user models.User
-	result := s.DB.First(&user, id)
+	result := s.db.First(&user, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -219,19 +225,19 @@ func (s *AuthService) UpdateUser(id int, password string, roleID int, status str
 	}
 
 	user.UpdatedAt = time.Now()
-	result = s.DB.Save(&user)
+	result = s.db.Save(&user)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
 	// 加载角色信息
-	s.DB.Preload("Role").First(&user, user.ID)
+	s.db.Preload("Role").First(&user, user.ID)
 	return &user, nil
 }
 
 // DeleteUser 删除用户（修改状态为不可用）
 func (s *AuthService) DeleteUser(id int) error {
-	result := s.DB.Model(&models.User{}).Where("id = ?", id).Update("status", constants.StatusInactive)
+	result := s.db.Model(&models.User{}).Where("id = ?", id).Update("status", constants.StatusInactive)
 	return result.Error
 }
 
@@ -239,7 +245,7 @@ func (s *AuthService) DeleteUser(id int) error {
 func (s *AuthService) GetRoles() ([]*models.Role, error) {
 	var roles []*models.Role
 	// 加载角色及其权限信息
-	result := s.DB.Preload("Permissions").Find(&roles)
+	result := s.db.Preload("Permissions").Find(&roles)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -249,7 +255,7 @@ func (s *AuthService) GetRoles() ([]*models.Role, error) {
 // GetRoleByID 根据ID获取角色
 func (s *AuthService) GetRoleByID(id int) (*models.Role, error) {
 	var role models.Role
-	result := s.DB.Preload("Permissions").First(&role, id)
+	result := s.db.Preload("Permissions").First(&role, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -260,7 +266,7 @@ func (s *AuthService) GetRoleByID(id int) (*models.Role, error) {
 func (s *AuthService) CreateRole(name, description, status string) (*models.Role, error) {
 	// 检查角色名是否已存在
 	var existingRole models.Role
-	result := s.DB.Where("name = ?", name).First(&existingRole)
+	result := s.db.Where("name = ?", name).First(&existingRole)
 	if result.Error == nil {
 		return nil, errors.New("角色名已存在")
 	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -276,7 +282,7 @@ func (s *AuthService) CreateRole(name, description, status string) (*models.Role
 		UpdatedAt:   time.Now(),
 	}
 
-	result = s.DB.Create(role)
+	result = s.db.Create(role)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -288,7 +294,7 @@ func (s *AuthService) CreateRole(name, description, status string) (*models.Role
 func (s *AuthService) UpdateRole(id int, name, description, status string) (*models.Role, error) {
 	// 获取角色
 	var role models.Role
-	result := s.DB.First(&role, id)
+	result := s.db.First(&role, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -305,13 +311,13 @@ func (s *AuthService) UpdateRole(id int, name, description, status string) (*mod
 	}
 
 	role.UpdatedAt = time.Now()
-	result = s.DB.Save(&role)
+	result = s.db.Save(&role)
 	if result.Error != nil {
 		return nil, result.Error
 	}
 
 	// 加载权限信息
-	s.DB.Preload("Permissions").First(&role, role.ID)
+	s.db.Preload("Permissions").First(&role, role.ID)
 	return &role, nil
 }
 
@@ -319,19 +325,19 @@ func (s *AuthService) UpdateRole(id int, name, description, status string) (*mod
 func (s *AuthService) DeleteRole(id int) error {
 	// 检查是否有用户使用该角色
 	var userCount int64
-	s.DB.Model(&models.User{}).Where("role_id = ?", id).Count(&userCount)
+	s.db.Model(&models.User{}).Where("role_id = ?", id).Count(&userCount)
 	if userCount > 0 {
 		return errors.New("该角色已被用户使用，无法删除")
 	}
 	// 修改角色状态为不可用
-	result := s.DB.Model(&models.Role{}).Where("id = ?", id).Update("status", constants.StatusInactive)
+	result := s.db.Model(&models.Role{}).Where("id = ?", id).Update("status", constants.StatusInactive)
 	return result.Error
 }
 
 // AssignPermissions 为角色分配权限
 func (s *AuthService) AssignPermissions(roleID int, permissionIDs []int) error {
 	// 开始事务
-	tx := s.DB.Begin()
+	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -358,7 +364,7 @@ func (s *AuthService) AssignPermissions(roleID int, permissionIDs []int) error {
 // GetPermissions 获取权限列表
 func (s *AuthService) GetPermissions() ([]*models.Permission, error) {
 	var permissions []*models.Permission
-	result := s.DB.Find(&permissions)
+	result := s.db.Find(&permissions)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -368,7 +374,7 @@ func (s *AuthService) GetPermissions() ([]*models.Permission, error) {
 // GetPermissionByID 根据ID获取权限
 func (s *AuthService) GetPermissionByID(id int) (*models.Permission, error) {
 	var permission models.Permission
-	result := s.DB.First(&permission, id)
+	result := s.db.First(&permission, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -379,7 +385,7 @@ func (s *AuthService) GetPermissionByID(id int) (*models.Permission, error) {
 func (s *AuthService) CreatePermission(name, code, description, status string) (*models.Permission, error) {
 	// 检查权限名是否已存在
 	var existingPermission models.Permission
-	result := s.DB.Where("name = ?", name).First(&existingPermission)
+	result := s.db.Where("name = ?", name).First(&existingPermission)
 	if result.Error == nil {
 		return nil, errors.New("权限名已存在")
 	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -387,7 +393,7 @@ func (s *AuthService) CreatePermission(name, code, description, status string) (
 	}
 
 	// 检查权限代码是否已存在
-	result = s.DB.Where("code = ?", code).First(&existingPermission)
+	result = s.db.Where("code = ?", code).First(&existingPermission)
 	if result.Error == nil {
 		return nil, errors.New("权限代码已存在")
 	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -404,7 +410,7 @@ func (s *AuthService) CreatePermission(name, code, description, status string) (
 		UpdatedAt:   time.Now(),
 	}
 
-	result = s.DB.Create(permission)
+	result = s.db.Create(permission)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -416,7 +422,7 @@ func (s *AuthService) CreatePermission(name, code, description, status string) (
 func (s *AuthService) UpdatePermission(id int, name, code, description, status string) (*models.Permission, error) {
 	// 获取权限
 	var permission models.Permission
-	result := s.DB.First(&permission, id)
+	result := s.db.First(&permission, id)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -424,7 +430,7 @@ func (s *AuthService) UpdatePermission(id int, name, code, description, status s
 	// 检查权限名是否已存在
 	if name != "" && name != permission.Name {
 		var existingPermission models.Permission
-		result := s.DB.Where("name = ?", name).First(&existingPermission)
+		result := s.db.Where("name = ?", name).First(&existingPermission)
 		if result.Error == nil && existingPermission.ID != id {
 			return nil, errors.New("权限名已存在")
 		} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -436,7 +442,7 @@ func (s *AuthService) UpdatePermission(id int, name, code, description, status s
 	// 检查权限代码是否已存在
 	if code != "" && code != permission.Code {
 		var existingPermission models.Permission
-		result := s.DB.Where("code = ?", code).First(&existingPermission)
+		result := s.db.Where("code = ?", code).First(&existingPermission)
 		if result.Error == nil && existingPermission.ID != id {
 			return nil, errors.New("权限代码已存在")
 		} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -456,7 +462,7 @@ func (s *AuthService) UpdatePermission(id int, name, code, description, status s
 	}
 
 	permission.UpdatedAt = time.Now()
-	result = s.DB.Save(&permission)
+	result = s.db.Save(&permission)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -469,6 +475,6 @@ func (s *AuthService) DeletePermission(id int) error {
 	// 检查是否有角色使用该权限
 	// 由于不设外键约束，这里可以直接修改状态
 	// 修改权限状态为不可用
-	result := s.DB.Model(&models.Permission{}).Where("id = ?", id).Update("status", constants.StatusInactive)
+	result := s.db.Model(&models.Permission{}).Where("id = ?", id).Update("status", constants.StatusInactive)
 	return result.Error
 }

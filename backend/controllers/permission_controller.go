@@ -15,9 +15,9 @@ type PermissionController struct {
 }
 
 // NewPermissionController 创建权限控制器实例
-func NewPermissionController(db *gorm.DB) *PermissionController {
+func NewPermissionController(db *gorm.DB, jwtSecret string, jwtExpireHour int) *PermissionController {
 	return &PermissionController{
-		authService: services.NewAuthService(db),
+		authService: services.NewAuthService(db, jwtSecret, jwtExpireHour),
 	}
 }
 
@@ -47,7 +47,7 @@ func (c *PermissionController) GetPermission(ctx *gin.Context) {
 
 	permission, err := c.authService.GetPermissionByID(id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取权限信息失败"})
+		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "权限不存在"})
 		return
 	}
 
@@ -58,30 +58,23 @@ func (c *PermissionController) GetPermission(ctx *gin.Context) {
 	})
 }
 
-// CreatePermissionRequest 创建权限请求结构
-type CreatePermissionRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Code        string `json:"code" binding:"required"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
-}
-
 // CreatePermission 创建权限
 func (c *PermissionController) CreatePermission(ctx *gin.Context) {
-	var req CreatePermissionRequest
+	var req struct {
+		Name        string `json:"name" binding:"required"`
+		Code        string `json:"code" binding:"required"`
+		Description string `json:"description"`
+		Status      string `json:"status"`
+	}
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
-	// 如果没有提供状态，默认为active
-	status := req.Status
-	if status == "" {
-		status = "active"
-	}
-	permission, err := c.authService.CreatePermission(req.Name, req.Code, req.Description, status)
+	permission, err := c.authService.CreatePermission(req.Name, req.Code, req.Description, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建权限失败"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
@@ -90,14 +83,6 @@ func (c *PermissionController) CreatePermission(ctx *gin.Context) {
 		"message": "创建权限成功",
 		"data":    permission,
 	})
-}
-
-// UpdatePermissionRequest 更新权限请求结构
-type UpdatePermissionRequest struct {
-	Name        string `json:"name"`
-	Code        string `json:"code"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
 }
 
 // UpdatePermission 更新权限
@@ -109,7 +94,13 @@ func (c *PermissionController) UpdatePermission(ctx *gin.Context) {
 		return
 	}
 
-	var req UpdatePermissionRequest
+	var req struct {
+		Name        string `json:"name"`
+		Code        string `json:"code"`
+		Description string `json:"description"`
+		Status      string `json:"status"`
+	}
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
@@ -117,7 +108,7 @@ func (c *PermissionController) UpdatePermission(ctx *gin.Context) {
 
 	permission, err := c.authService.UpdatePermission(id, req.Name, req.Code, req.Description, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新权限失败"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
@@ -137,9 +128,8 @@ func (c *PermissionController) DeletePermission(ctx *gin.Context) {
 		return
 	}
 
-	err = c.authService.DeletePermission(id)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除权限失败"})
+	if err := c.authService.DeletePermission(id); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 

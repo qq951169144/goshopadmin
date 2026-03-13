@@ -10,11 +10,11 @@
     <div v-else>
       <div class="profile-content">
         <div class="profile-sidebar">
-          <div class="user-info">
+          <div class="customer-info">
             <div class="avatar">
-              <img :src="userInfo.avatar || 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=user%20avatar&image_size=square'" alt="用户头像" />
+              <img :src="customerInfo.avatar || 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=customer%20avatar&image_size=square'" alt="客户头像" />
             </div>
-            <h2>{{ userInfo.username || '用户' }}</h2>
+            <h2>{{ customerInfo.username || '客户' }}</h2>
           </div>
           <div class="nav-menu">
             <button :class="{ active: activeTab === 'info' }" @click="activeTab = 'info'">个人信息</button>
@@ -30,15 +30,15 @@
             <form @submit.prevent="updateProfile">
               <div class="form-group">
                 <label>用户名</label>
-                <input type="text" v-model="userInfo.username" required />
+                <input type="text" v-model="customerInfo.username" required />
               </div>
               <div class="form-group">
                 <label>邮箱</label>
-                <input type="email" v-model="userInfo.email" />
+                <input type="email" v-model="customerInfo.email" />
               </div>
               <div class="form-group">
                 <label>手机号</label>
-                <input type="tel" v-model="userInfo.phone" />
+                <input type="tel" v-model="customerInfo.phone" />
               </div>
               <button type="submit" :disabled="loading">{{ loading ? '保存中...' : '保存修改' }}</button>
             </form>
@@ -88,12 +88,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { userAPI, orderAPI } from '../api'
+import { customerAPI, orderAPI } from '../api'
 
 const router = useRouter()
 const activeTab = ref('info')
 const loading = ref(false)
-const userInfo = ref({
+const customerInfo = ref({
   username: '',
   email: '',
   phone: '',
@@ -113,20 +113,20 @@ const goShopping = () => {
   router.push('/')
 }
 
-const loadUserInfo = async () => {
+const loadCustomerInfo = async () => {
   if (!isLoggedIn.value) return
   
   try {
-    const response = await userAPI.getProfile()
-    userInfo.value = response.data || userInfo.value
+    const response = await customerAPI.getProfile()
+    customerInfo.value = response.data || customerInfo.value
   } catch (error) {
     console.error('加载个人信息失败:', error)
     // 使用模拟数据
-    userInfo.value = {
-      username: '测试用户',
+    customerInfo.value = {
+      username: '测试客户',
       email: 'test@example.com',
       phone: '13800138000',
-      avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=user%20avatar&image_size=square'
+      avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=customer%20avatar&image_size=square'
     }
   }
 }
@@ -136,7 +136,7 @@ const loadOrders = async () => {
   
   loading.value = true
   try {
-    const response = await userAPI.getOrders()
+    const response = await customerAPI.getOrders()
     orders.value = response.data || []
   } catch (error) {
     console.error('加载订单失败:', error)
@@ -179,7 +179,7 @@ const loadOrders = async () => {
 const updateProfile = async () => {
   loading.value = true
   try {
-    await userAPI.updateProfile(userInfo.value)
+    await customerAPI.updateProfile(customerInfo.value)
     alert('个人信息更新成功')
   } catch (error) {
     console.error('更新个人信息失败:', error)
@@ -191,7 +191,7 @@ const updateProfile = async () => {
 
 const logout = () => {
   localStorage.removeItem('token')
-  localStorage.removeItem('user_id')
+  localStorage.removeItem('customer_id')
   router.push('/')
 }
 
@@ -212,7 +212,7 @@ const viewOrderDetail = (orderId) => {
 }
 
 onMounted(() => {
-  loadUserInfo()
+  loadCustomerInfo()
   loadOrders()
 })
 </script>
@@ -268,7 +268,7 @@ h1 {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.user-info {
+.customer-info {
   text-align: center;
   margin-bottom: 30px;
 }
@@ -287,7 +287,7 @@ h1 {
   object-fit: cover;
 }
 
-.user-info h2 {
+.customer-info h2 {
   color: #333;
   margin-bottom: 10px;
 }

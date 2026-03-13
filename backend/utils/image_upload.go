@@ -3,7 +3,6 @@ package utils
 import (
 	"errors"
 	"fmt"
-	"goshopadmin/config"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -42,6 +41,7 @@ type ImageUploadConfig struct {
 	MaxSize      int64    // 最大文件大小（字节）
 	AllowedTypes []string // 允许的文件类型
 	StoragePath  string   // 存储路径
+	Domain       string   // 域名
 }
 
 // DefaultImageUploadConfig 默认图片上传配置
@@ -49,6 +49,7 @@ var DefaultImageUploadConfig = ImageUploadConfig{
 	MaxSize:      DefaultMaxFileSize,
 	AllowedTypes: AllowedImageTypes,
 	StoragePath:  DefaultStoragePath,
+	Domain:       "http://localhost:8080",
 }
 
 // UploadImage 上传图片
@@ -116,14 +117,14 @@ func UploadImageWithConfig(file *multipart.FileHeader, merchantID int, imageUplo
 
 	// 生成可访问的URL
 	imagePath := fmt.Sprintf("/uploads/%d/%s", merchantID, fileName)
-	imageURL := fmt.Sprintf("%s%s", config.AppConfig.Domain, imagePath)
+	imageURL := fmt.Sprintf("%s%s", imageUploadConfig.Domain, imagePath)
 
 	// 确保URL长度不超过255个字符（按字符数，对应 MySQL varchar(255)）
 	if !IsRuneLenMax(imageURL, MaxURLLength) {
 		// 生成更短的文件名
 		shortFileName := fmt.Sprintf("%d_%d%s", merchantID, time.Now().UnixNano()/int64(time.Millisecond), ext)
 		shortImagePath := fmt.Sprintf("/uploads/%d/%s", merchantID, shortFileName)
-		imageURL = fmt.Sprintf("%s%s", config.AppConfig.Domain, shortImagePath)
+		imageURL = fmt.Sprintf("%s%s", imageUploadConfig.Domain, shortImagePath)
 
 		// 如果仍然超过长度，返回错误
 		if !IsRuneLenMax(imageURL, MaxURLLength) {

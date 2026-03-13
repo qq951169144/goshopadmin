@@ -15,9 +15,9 @@ type RoleController struct {
 }
 
 // NewRoleController 创建角色控制器实例
-func NewRoleController(db *gorm.DB) *RoleController {
+func NewRoleController(db *gorm.DB, jwtSecret string, jwtExpireHour int) *RoleController {
 	return &RoleController{
-		authService: services.NewAuthService(db),
+		authService: services.NewAuthService(db, jwtSecret, jwtExpireHour),
 	}
 }
 
@@ -47,7 +47,7 @@ func (c *RoleController) GetRole(ctx *gin.Context) {
 
 	role, err := c.authService.GetRoleByID(id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取角色信息失败"})
+		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "角色不存在"})
 		return
 	}
 
@@ -58,29 +58,22 @@ func (c *RoleController) GetRole(ctx *gin.Context) {
 	})
 }
 
-// CreateRoleRequest 创建角色请求结构
-type CreateRoleRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
-}
-
 // CreateRole 创建角色
 func (c *RoleController) CreateRole(ctx *gin.Context) {
-	var req CreateRoleRequest
+	var req struct {
+		Name        string `json:"name" binding:"required"`
+		Description string `json:"description"`
+		Status      string `json:"status"`
+	}
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
-	// 如果没有提供状态，默认为active
-	status := req.Status
-	if status == "" {
-		status = "active"
-	}
-	role, err := c.authService.CreateRole(req.Name, req.Description, status)
+	role, err := c.authService.CreateRole(req.Name, req.Description, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建角色失败"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
@@ -89,13 +82,6 @@ func (c *RoleController) CreateRole(ctx *gin.Context) {
 		"message": "创建角色成功",
 		"data":    role,
 	})
-}
-
-// UpdateRoleRequest 更新角色请求结构
-type UpdateRoleRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
 }
 
 // UpdateRole 更新角色
@@ -107,7 +93,12 @@ func (c *RoleController) UpdateRole(ctx *gin.Context) {
 		return
 	}
 
-	var req UpdateRoleRequest
+	var req struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Status      string `json:"status"`
+	}
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
@@ -115,7 +106,7 @@ func (c *RoleController) UpdateRole(ctx *gin.Context) {
 
 	role, err := c.authService.UpdateRole(id, req.Name, req.Description, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新角色失败"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
@@ -135,9 +126,8 @@ func (c *RoleController) DeleteRole(ctx *gin.Context) {
 		return
 	}
 
-	err = c.authService.DeleteRole(id)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除角色失败"})
+	if err := c.authService.DeleteRole(id); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
@@ -147,29 +137,26 @@ func (c *RoleController) DeleteRole(ctx *gin.Context) {
 	})
 }
 
-// AssignPermissionsRequest 分配权限请求结构
-type AssignPermissionsRequest struct {
-	PermissionIDs []int `json:"permission_ids" binding:"required"`
-}
-
 // AssignPermissions 为角色分配权限
 func (c *RoleController) AssignPermissions(ctx *gin.Context) {
 	idStr := ctx.Param("id")
-	roleID, err := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
-	var req AssignPermissionsRequest
+	var req struct {
+		PermissionIDs []int `json:"permission_ids" binding:"required"`
+	}
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
-	err = c.authService.AssignPermissions(roleID, req.PermissionIDs)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "分配权限失败"})
+	if err := c.authService.AssignPermissions(id, req.PermissionIDs); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 

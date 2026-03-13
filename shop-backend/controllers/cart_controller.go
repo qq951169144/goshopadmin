@@ -4,241 +4,194 @@ import (
 	"net/http"
 	"strconv"
 
-	"shop-backend/config"
-	"shop-backend/models"
-
 	"github.com/gin-gonic/gin"
+	"shop-backend/services"
 )
 
-// 获取购物车
-func GetCart(c *gin.Context) {
-	// 从上下文中获取用户ID
-	userID, exists := c.Get("user_id")
-	if !exists {
-		// 未登录用户，返回空购物车
-		ResponseSuccess(c, gin.H{"items": []CartItem{}})
-		return
-	}
-
-	// 从数据库获取购物车
-	var cart models.Cart
-	result := config.DB.Where("user_id = ?", userID).Preload("Items").First(&cart)
-	if result.RowsAffected == 0 {
-		// 购物车不存在，返回空购物车
-		ResponseSuccess(c, gin.H{"items": []CartItem{}})
-		return
-	}
-
-	// 转换为前端需要的格式
-	var items []CartItem
-	for _, item := range cart.Items {
-		items = append(items, CartItem{
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			Price:     item.Price,
-			SKU:       item.SKU,
-		})
-	}
-
-	ResponseSuccess(c, gin.H{"items": items})
+// CartController 购物车控制器
+type CartController struct {
+	BaseController
+	cartService *services.CartService
 }
 
-// 添加商品到购物车
-func AddToCart(c *gin.Context) {
-	var item CartItem
-	if err := c.ShouldBindJSON(&item); err != nil {
-		ResponseError(c, http.StatusBadRequest, "Invalid request")
+// NewCartController 创建购物车控制器实例
+func NewCartController(cartService *services.CartService) *CartController {
+	return &CartController{
+		cartService: cartService,
+	}
+}
+
+// CartItemRequest 购物车项请求结构
+type CartItemRequest struct {
+	ProductID int     `json:"product_id" binding:"required"`
+	Quantity  int     `json:"quantity" binding:"required"`
+	Price     float64 `json:"price" binding:"required"`
+	SKU       string  `json:"sku"`
+}
+
+// GetCart 获取购物车
+func (c *CartController) GetCart(ctx *gin.Context) {
+	// 从上下文中获取用户ID
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		// 未登录用户，返回空购物车
+		c.ResponseSuccess(ctx, gin.H{"items": []services.CartItemInfo{}})
+		return
+	}
+
+	// 从服务层获取购物车
+	cart, err := c.cartService.GetCart(userID.(uint))
+	if err != nil {
+		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.ResponseSuccess(ctx, gin.H{"items": cart.Items})
+}
+
+// AddToCart 添加商品到购物车
+func (c *CartController) AddToCart(ctx *gin.Context) {
+	var req CartItemRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
 	// 从上下文中获取用户ID
-	userID, exists := c.Get("user_id")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ResponseError(c, http.StatusUnauthorized, "User not logged in")
+		c.ResponseError(ctx, http.StatusUnauthorized, "User not logged in")
 		return
 	}
 
-	// 查找或创建购物车
-	var cart models.Cart
-	result := config.DB.Where("user_id = ?", userID).First(&cart)
-	if result.RowsAffected == 0 {
-		// 创建新购物车
-		cart = models.Cart{
-			UserID: userID.(uint),
-		}
-		if err := config.DB.Create(&cart).Error; err != nil {
-			ResponseError(c, http.StatusInternalServerError, "Failed to create cart")
-			return
-		}
+	// 添加到购物车
+	err := c.cartService.AddToCart(services.AddToCartRequest{
+		UserID:    userID.(uint),
+		ProductID: req.ProductID,
+		Quantity:  req.Quantity,
+		Price:     req.Price,
+		SKU:       req.SKU,
+	})
+	if err != nil {
+		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
+		return
 	}
 
-	// 检查商品是否已在购物车中
-	var existingItem models.CartItem
-	result = config.DB.Where("cart_id = ? AND product_id = ? AND sku = ?", cart.ID, item.ProductID, item.SKU).First(&existingItem)
-	if result.RowsAffected > 0 {
-		// 更新数量
-		existingItem.Quantity += item.Quantity
-		if err := config.DB.Save(&existingItem).Error; err != nil {
-			ResponseError(c, http.StatusInternalServerError, "Failed to update cart item")
-			return
-		}
-	} else {
-		// 添加新商品
-		newItem := models.CartItem{
-			CartID:    cart.ID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			Price:     item.Price,
-			SKU:       item.SKU,
-		}
-		if err := config.DB.Create(&newItem).Error; err != nil {
-			ResponseError(c, http.StatusInternalServerError, "Failed to add item to cart")
-			return
-		}
-	}
-
-	ResponseSuccess(c, gin.H{
+	c.ResponseSuccess(ctx, gin.H{
 		"message": "Item added to cart",
-		"item":    item,
+		"item":    req,
 	})
 }
 
-// 更新购物车项
-func UpdateCartItem(c *gin.Context) {
-	itemID := c.Param("id")
+// UpdateCartItemRequest 更新购物车项请求结构
+type UpdateCartItemRequest struct {
+	Quantity int `json:"quantity" binding:"required"`
+}
+
+// UpdateCartItem 更新购物车项
+func (c *CartController) UpdateCartItem(ctx *gin.Context) {
+	itemID := ctx.Param("id")
 	itemIDUint, err := strconv.ParseUint(itemID, 10, 32)
 	if err != nil {
-		ResponseError(c, http.StatusBadRequest, "Invalid item ID")
+		c.ResponseError(ctx, http.StatusBadRequest, "Invalid item ID")
 		return
 	}
 
-	type UpdateRequest struct {
-		Quantity int `json:"quantity" binding:"required"`
-	}
-
-	var req UpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ResponseError(c, http.StatusBadRequest, "Invalid request")
+	var req UpdateCartItemRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
 	// 从上下文中获取用户ID
-	userID, exists := c.Get("user_id")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ResponseError(c, http.StatusUnauthorized, "User not logged in")
+		c.ResponseError(ctx, http.StatusUnauthorized, "User not logged in")
 		return
 	}
 
-	// 查找购物车项并验证所有权
-	var cartItem models.CartItem
-	result := config.DB.Joins("JOIN carts ON cart_items.cart_id = carts.id").Where("cart_items.id = ? AND carts.user_id = ?", itemIDUint, userID).First(&cartItem)
-	if result.RowsAffected == 0 {
-		ResponseError(c, http.StatusNotFound, "Cart item not found")
+	// 更新购物车项
+	err = c.cartService.UpdateCartItem(services.UpdateCartItemRequest{
+		UserID:   userID.(uint),
+		ItemID:   uint(itemIDUint),
+		Quantity: req.Quantity,
+	})
+	if err != nil {
+		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// 更新数量
-	cartItem.Quantity = req.Quantity
-	if err := config.DB.Save(&cartItem).Error; err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Failed to update cart item")
-		return
-	}
-
-	ResponseSuccess(c, gin.H{
+	c.ResponseSuccess(ctx, gin.H{
 		"message":  "Cart item updated",
 		"item_id":  itemID,
 		"quantity": req.Quantity,
 	})
 }
 
-// 移除购物车项
-func RemoveCartItem(c *gin.Context) {
-	itemID := c.Param("id")
+// RemoveCartItem 移除购物车项
+func (c *CartController) RemoveCartItem(ctx *gin.Context) {
+	itemID := ctx.Param("id")
 	itemIDUint, err := strconv.ParseUint(itemID, 10, 32)
 	if err != nil {
-		ResponseError(c, http.StatusBadRequest, "Invalid item ID")
+		c.ResponseError(ctx, http.StatusBadRequest, "Invalid item ID")
 		return
 	}
 
 	// 从上下文中获取用户ID
-	userID, exists := c.Get("user_id")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ResponseError(c, http.StatusUnauthorized, "User not logged in")
+		c.ResponseError(ctx, http.StatusUnauthorized, "User not logged in")
 		return
 	}
 
-	// 查找购物车项并验证所有权
-	var cartItem models.CartItem
-	result := config.DB.Joins("JOIN carts ON cart_items.cart_id = carts.id").Where("cart_items.id = ? AND carts.user_id = ?", itemIDUint, userID).First(&cartItem)
-	if result.RowsAffected == 0 {
-		ResponseError(c, http.StatusNotFound, "Cart item not found")
+	// 移除购物车项
+	err = c.cartService.RemoveCartItem(services.RemoveCartItemRequest{
+		UserID: userID.(uint),
+		ItemID: uint(itemIDUint),
+	})
+	if err != nil {
+		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// 删除购物车项
-	if err := config.DB.Delete(&cartItem).Error; err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Failed to remove cart item")
-		return
-	}
-
-	ResponseSuccess(c, gin.H{
+	c.ResponseSuccess(ctx, gin.H{
 		"message": "Cart item removed",
 		"item_id": itemID,
 	})
 }
 
-// 同步购物车
-func SyncCart(c *gin.Context) {
-	var cart Cart
-	if err := c.ShouldBindJSON(&cart); err != nil {
-		ResponseError(c, http.StatusBadRequest, "Invalid request")
+// SyncCartRequest 同步购物车请求结构
+type SyncCartRequest struct {
+	Items []services.CartItemInfo `json:"items"`
+}
+
+// SyncCart 同步购物车
+func (c *CartController) SyncCart(ctx *gin.Context) {
+	var req SyncCartRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
 	// 从上下文中获取用户ID
-	userID, exists := c.Get("user_id")
+	userID, exists := ctx.Get("user_id")
 	if !exists {
-		ResponseError(c, http.StatusUnauthorized, "User not logged in")
+		c.ResponseError(ctx, http.StatusUnauthorized, "User not logged in")
 		return
 	}
 
-	// 查找或创建购物车
-	var dbCart models.Cart
-	result := config.DB.Where("user_id = ?", userID).First(&dbCart)
-	if result.RowsAffected == 0 {
-		// 创建新购物车
-		dbCart = models.Cart{
-			UserID: userID.(uint),
-		}
-		if err := config.DB.Create(&dbCart).Error; err != nil {
-			ResponseError(c, http.StatusInternalServerError, "Failed to create cart")
-			return
-		}
-	} else {
-		// 清空现有购物车项
-		if err := config.DB.Where("cart_id = ?", dbCart.ID).Delete(&models.CartItem{}).Error; err != nil {
-			ResponseError(c, http.StatusInternalServerError, "Failed to clear cart")
-			return
-		}
+	// 同步购物车
+	err := c.cartService.SyncCart(services.SyncCartRequest{
+		UserID: userID.(uint),
+		Items:  req.Items,
+	})
+	if err != nil {
+		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
+		return
 	}
 
-	// 添加新购物车项
-	for _, item := range cart.Items {
-		newItem := models.CartItem{
-			CartID:    dbCart.ID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			Price:     item.Price,
-			SKU:       item.SKU,
-		}
-		if err := config.DB.Create(&newItem).Error; err != nil {
-			ResponseError(c, http.StatusInternalServerError, "Failed to add item to cart")
-			return
-		}
-	}
-
-	ResponseSuccess(c, gin.H{
+	c.ResponseSuccess(ctx, gin.H{
 		"message": "Cart synced",
-		"items":   cart.Items,
+		"items":   req.Items,
 	})
 }

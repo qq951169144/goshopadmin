@@ -15,9 +15,9 @@ type UserController struct {
 }
 
 // NewUserController 创建用户控制器实例
-func NewUserController(db *gorm.DB) *UserController {
+func NewUserController(db *gorm.DB, jwtSecret string, jwtExpireHour int) *UserController {
 	return &UserController{
-		authService: services.NewAuthService(db),
+		authService: services.NewAuthService(db, jwtSecret, jwtExpireHour),
 	}
 }
 
@@ -48,68 +48,42 @@ func (c *UserController) GetUser(ctx *gin.Context) {
 
 	user, err := c.authService.GetUserByID(id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取用户信息失败"})
+		ctx.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "用户不存在"})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "获取用户信息成功",
-		"data": gin.H{
-			"id":        user.ID,
-			"username":  user.Username,
-			"role_id":   user.RoleID,
-			"role_name": user.Role.Name,
-			"status":    user.Status,
-		},
+		"data":    user,
 	})
-}
-
-// CreateUserRequest 创建用户请求结构
-type CreateUserRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-	RoleID   int    `json:"role_id" binding:"required"`
-	Status   string `json:"status"`
 }
 
 // CreateUser 创建用户
 func (c *UserController) CreateUser(ctx *gin.Context) {
-	var req CreateUserRequest
+	var req struct {
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password" binding:"required"`
+		RoleID   int    `json:"role_id" binding:"required"`
+		Status   string `json:"status"`
+	}
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
-	// 如果没有提供状态，默认为active
-	status := req.Status
-	if status == "" {
-		status = "active"
-	}
-	user, err := c.authService.CreateUser(req.Username, req.Password, req.RoleID, status)
+	user, err := c.authService.CreateUser(req.Username, req.Password, req.RoleID, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建用户失败"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "创建用户成功",
-		"data": gin.H{
-			"id":        user.ID,
-			"username":  user.Username,
-			"role_id":   user.RoleID,
-			"role_name": user.Role.Name,
-			"status":    user.Status,
-		},
+		"data":    user,
 	})
-}
-
-// UpdateUserRequest 更新用户请求结构
-type UpdateUserRequest struct {
-	Password string `json:"password"`
-	RoleID   int    `json:"role_id"`
-	Status   string `json:"status"`
 }
 
 // UpdateUser 更新用户
@@ -121,7 +95,12 @@ func (c *UserController) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	var req UpdateUserRequest
+	var req struct {
+		Password string `json:"password"`
+		RoleID   int    `json:"role_id"`
+		Status   string `json:"status"`
+	}
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
@@ -129,20 +108,14 @@ func (c *UserController) UpdateUser(ctx *gin.Context) {
 
 	user, err := c.authService.UpdateUser(id, req.Password, req.RoleID, req.Status)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新用户失败"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "更新用户成功",
-		"data": gin.H{
-			"id":        user.ID,
-			"username":  user.Username,
-			"role_id":   user.RoleID,
-			"role_name": user.Role.Name,
-			"status":    user.Status,
-		},
+		"data":    user,
 	})
 }
 
@@ -155,9 +128,8 @@ func (c *UserController) DeleteUser(ctx *gin.Context) {
 		return
 	}
 
-	err = c.authService.DeleteUser(id)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除用户失败"})
+	if err := c.authService.DeleteUser(id); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
 		return
 	}
 

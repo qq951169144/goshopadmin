@@ -2,12 +2,19 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"shop-backend/config"
 )
+
+var jwtSecret string
+
+// SetJWTSecret 设置JWT密钥
+func SetJWTSecret(secret string) {
+	jwtSecret = secret
+}
 
 func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -26,8 +33,18 @@ func Auth() gin.HandlerFunc {
 		}
 
 		tokenString := parts[1]
+
+		// 使用已设置的密钥或环境变量
+		secret := jwtSecret
+		if secret == "" {
+			secret = os.Getenv("JWT_SECRET")
+		}
+		if secret == "" {
+			secret = "your-secret-key"
+		}
+
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte(config.AppConfig.JWTSecret), nil
+			return []byte(secret), nil
 		})
 
 		if err != nil || !token.Valid {

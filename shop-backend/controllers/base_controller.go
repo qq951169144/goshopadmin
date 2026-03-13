@@ -1,26 +1,29 @@
 package controllers
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 )
 
-// 购物车项结构
-type CartItem struct {
-	ProductID uint    `json:"product_id" binding:"required"`
-	Quantity  int     `json:"quantity" binding:"required"`
-	Price     float64 `json:"price" binding:"required"`
-	SKU       string  `json:"sku"`
+// BaseController 基础控制器
+type BaseController struct{}
+
+// ResponseSuccess 返回成功响应
+func (c *BaseController) ResponseSuccess(ctx *gin.Context, data interface{}) {
+	ctx.JSON(http.StatusOK, data)
 }
 
-// 购物车结构
-type Cart struct {
-	Items []CartItem `json:"items"`
+// ResponseError 返回错误响应
+func (c *BaseController) ResponseError(ctx *gin.Context, code int, message string) {
+	ctx.JSON(code, gin.H{"error": message})
 }
 
-func ResponseSuccess(c *gin.Context, data interface{}) {
-	c.JSON(200, data)
-}
-
-func ResponseError(c *gin.Context, code int, message string) {
-	c.JSON(code, gin.H{"error": message})
+// GetUserID 从上下文获取用户ID
+func (c *BaseController) GetUserID(ctx *gin.Context) (uint, bool) {
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		return 0, false
+	}
+	return userID.(uint), true
 }

@@ -59,7 +59,7 @@ const login = async () => {
     
     // 保存token
     localStorage.setItem('token', response.token)
-    localStorage.setItem('user_id', response.user_id)
+    localStorage.setItem('customer_id', response.user_id)
     
     // 跳转到首页
     router.push('/')

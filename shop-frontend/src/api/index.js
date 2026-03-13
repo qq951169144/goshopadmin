@@ -66,14 +66,14 @@ export const cartAPI = {
   syncCart: (data) => api.post('/cart/sync', data)
 }
 
-// 用户相关API
-export const userAPI = {
+// 客户相关API
+export const customerAPI = {
   // 获取个人信息
-  getProfile: () => api.get('/user/profile'),
+  getProfile: () => api.get('/customer/profile'),
   // 更新个人信息
-  updateProfile: (data) => api.put('/user/profile', data),
+  updateProfile: (data) => api.put('/customer/profile', data),
   // 获取订单列表
-  getOrders: (params) => api.get('/user/orders', { params })
+  getOrders: (params) => api.get('/customer/orders', { params })
 }
 
 // 订单相关API

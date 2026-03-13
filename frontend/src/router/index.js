@@ -1,13 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Login from '../components/Login.vue'
-import Home from '../components/Home.vue'
-import Dashboard from '../components/dashboard/Dashboard.vue'
-import Users from '../components/users/Users.vue'
-import Roles from '../components/roles/Roles.vue'
-import Permissions from '../components/permissions/Permissions.vue'
-import Merchants from '../components/merchants/Merchants.vue'
-import Products from '../components/products/Products.vue'
-import ProductCategories from '../components/products/ProductCategories.vue'
+import Login from '../views/Login.vue'
+import Home from '../views/Home.vue'
+import Dashboard from '../views/dashboard/Dashboard.vue'
+import Users from '../views/users/Users.vue'
+import Roles from '../views/roles/Roles.vue'
+import Permissions from '../views/permissions/Permissions.vue'
+import Merchants from '../views/merchants/Merchants.vue'
+import Products from '../views/products/Products.vue'
+import ProductCategories from '../views/products/ProductCategories.vue'
 
 const routes = [
   {

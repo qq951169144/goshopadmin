@@ -1,11 +1,9 @@
 package config
 
 import (
-	"context"
 	"fmt"
 	"log"
 
-	"github.com/go-redis/redis/v8"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -13,8 +11,7 @@ import (
 
 // DBConnection 封装数据库连接（替代全局变量）
 type DBConnection struct {
-	DB    *gorm.DB
-	Redis *redis.Client
+	DB *gorm.DB
 }
 
 // InitDB 初始化数据库连接，返回实例
@@ -29,23 +26,8 @@ func InitDB(cfg *Config) (*DBConnection, error) {
 
 	log.Println("Database connected successfully")
 
-	// 连接 Redis
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     cfg.GetRedisAddr(),
-		Password: cfg.RedisPassword,
-		DB:       cfg.RedisDB,
-	})
-
-	ctx := context.Background()
-	if err := redisClient.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("failed to connect redis: %w", err)
-	}
-
-	log.Println("Redis connected successfully")
-
 	return &DBConnection{
-		DB:    db,
-		Redis: redisClient,
+		DB: db,
 	}, nil
 }
 
@@ -56,4 +38,10 @@ func (conn *DBConnection) Close() error {
 		return err
 	}
 	return sqlDB.Close()
+}
+
+// GetDSN 获取数据库连接字符串
+func (c *Config) GetDSN() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName)
 }

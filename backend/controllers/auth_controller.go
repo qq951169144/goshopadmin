@@ -17,9 +17,9 @@ type AuthController struct {
 }
 
 // NewAuthController 创建认证控制器实例
-func NewAuthController(db *gorm.DB) *AuthController {
+func NewAuthController(db *gorm.DB, jwtSecret string, jwtExpireHour int) *AuthController {
 	return &AuthController{
-		authService:    services.NewAuthService(db),
+		authService:    services.NewAuthService(db, jwtSecret, jwtExpireHour),
 		captchaService: services.NewCaptchaService(),
 	}
 }

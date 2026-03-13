@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"goshopadmin/config"
 	"goshopadmin/controllers"
 	"goshopadmin/middleware"
 
@@ -8,21 +9,34 @@ import (
 	"gorm.io/gorm"
 )
 
+// Dependencies 包含所有依赖
+type Dependencies struct {
+	CommonController     *controllers.CommonController
+	AuthController       *controllers.AuthController
+	UserController       *controllers.UserController
+	RoleController       *controllers.RoleController
+	PermissionController *controllers.PermissionController
+	MerchantController   *controllers.MerchantController
+	ProductController    *controllers.ProductController
+}
+
 // SetupRoutes 设置所有路由
-func SetupRoutes(r *gin.Engine, db *gorm.DB) {
+func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	// 创建控制器实例
-	commonController := controllers.NewCommonController()
-	authController := controllers.NewAuthController(db)
-	userController := controllers.NewUserController(db)
-	roleController := controllers.NewRoleController(db)
-	permissionController := controllers.NewPermissionController(db)
-	merchantController := controllers.NewMerchantController(db)
-	productController := controllers.NewProductController(db)
+	deps := &Dependencies{
+		CommonController:     controllers.NewCommonController(),
+		AuthController:       controllers.NewAuthController(db, cfg.JWTSecret, cfg.JWTExpireHour),
+		UserController:       controllers.NewUserController(db, cfg.JWTSecret, cfg.JWTExpireHour),
+		RoleController:       controllers.NewRoleController(db, cfg.JWTSecret, cfg.JWTExpireHour),
+		PermissionController: controllers.NewPermissionController(db, cfg.JWTSecret, cfg.JWTExpireHour),
+		MerchantController:   controllers.NewMerchantController(db),
+		ProductController:    controllers.NewProductController(db),
+	}
 
 	// 1. 通用路由（无需认证）
 	// 路径: /health, /
-	r.GET("/health", commonController.HealthCheck)
-	r.GET("/", commonController.HelloWorld)
+	r.GET("/health", deps.CommonController.HealthCheck)
+	r.GET("/", deps.CommonController.HelloWorld)
 
 	// 2. API路由组
 	// 路径前缀: /api
@@ -35,18 +49,18 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB) {
 		{
 			// 无需认证的认证路由
 			// 路径: /api/auth/login, /api/auth/captcha, /api/auth/captcha/verify
-			auth.POST("/login", authController.Login)
-			auth.GET("/captcha", authController.GetCaptcha)
-			auth.POST("/captcha/verify", authController.VerifyCaptcha)
+			auth.POST("/login", deps.AuthController.Login)
+			auth.GET("/captcha", deps.AuthController.GetCaptcha)
+			auth.POST("/captcha/verify", deps.AuthController.VerifyCaptcha)
 
 			// 需要认证的认证路由
 			// 路径: /api/auth/logout, /api/auth/refresh, /api/auth/me
 			authProtected := auth.Group("/")
 			authProtected.Use(middleware.AuthMiddleware())
 			{
-				authProtected.POST("/logout", authController.Logout)
-				authProtected.POST("/refresh", authController.RefreshToken)
-				authProtected.GET("/me", authController.GetCurrentUser)
+				authProtected.POST("/logout", deps.AuthController.Logout)
+				authProtected.POST("/refresh", deps.AuthController.RefreshToken)
+				authProtected.GET("/me", deps.AuthController.GetCurrentUser)
 			}
 		}
 
@@ -59,89 +73,89 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB) {
 			// 路径: /api/users, /api/users/:id
 			users := protected.Group("/users")
 			{
-				users.GET("", userController.GetUsers)
-				users.GET("/:id", userController.GetUser)
-				users.POST("", userController.CreateUser)
-				users.PUT("/:id", userController.UpdateUser)
-				users.DELETE("/:id", userController.DeleteUser)
+				users.GET("", deps.UserController.GetUsers)
+				users.GET("/:id", deps.UserController.GetUser)
+				users.POST("", deps.UserController.CreateUser)
+				users.PUT("/:id", deps.UserController.UpdateUser)
+				users.DELETE("/:id", deps.UserController.DeleteUser)
 			}
 
 			// 角色管理路由
 			// 路径: /api/roles, /api/roles/:id
 			roles := protected.Group("/roles")
 			{
-				roles.GET("", roleController.GetRoles)
-				roles.GET("/:id", roleController.GetRole)
-				roles.POST("", roleController.CreateRole)
-				roles.PUT("/:id", roleController.UpdateRole)
-				roles.DELETE("/:id", roleController.DeleteRole)
-				roles.POST("/:id/permissions", roleController.AssignPermissions)
+				roles.GET("", deps.RoleController.GetRoles)
+				roles.GET("/:id", deps.RoleController.GetRole)
+				roles.POST("", deps.RoleController.CreateRole)
+				roles.PUT("/:id", deps.RoleController.UpdateRole)
+				roles.DELETE("/:id", deps.RoleController.DeleteRole)
+				roles.POST("/:id/permissions", deps.RoleController.AssignPermissions)
 			}
 
 			// 权限管理路由
 			// 路径: /api/permissions, /api/permissions/:id
 			permissions := protected.Group("/permissions")
 			{
-				permissions.GET("", permissionController.GetPermissions)
-				permissions.GET("/:id", permissionController.GetPermission)
-				permissions.POST("", permissionController.CreatePermission)
-				permissions.PUT("/:id", permissionController.UpdatePermission)
-				permissions.DELETE("/:id", permissionController.DeletePermission)
+				permissions.GET("", deps.PermissionController.GetPermissions)
+				permissions.GET("/:id", deps.PermissionController.GetPermission)
+				permissions.POST("", deps.PermissionController.CreatePermission)
+				permissions.PUT("/:id", deps.PermissionController.UpdatePermission)
+				permissions.DELETE("/:id", deps.PermissionController.DeletePermission)
 			}
 
 			// 商户管理路由
 			// 路径: /api/merchants, /api/merchants/:id
 			merchants := protected.Group("/merchants")
 			{
-				merchants.GET("", merchantController.GetMerchants)
-				merchants.GET("/:id", merchantController.GetMerchant)
-				merchants.POST("", merchantController.CreateMerchant)
-				merchants.PUT("/:id", merchantController.UpdateMerchant)
-				merchants.DELETE("/:id", merchantController.DeleteMerchant)
-				merchants.PUT("/:id/audit", merchantController.AuditMerchant)
-				merchants.GET("/:id/users", merchantController.GetMerchantUsers)
-				merchants.POST("/:id/users", merchantController.AddMerchantUser)
-				merchants.DELETE("/:id/users/:user_id", merchantController.RemoveMerchantUser)
+				merchants.GET("", deps.MerchantController.GetMerchants)
+				merchants.GET("/:id", deps.MerchantController.GetMerchant)
+				merchants.POST("", deps.MerchantController.CreateMerchant)
+				merchants.PUT("/:id", deps.MerchantController.UpdateMerchant)
+				merchants.DELETE("/:id", deps.MerchantController.DeleteMerchant)
+				merchants.PUT("/:id/audit", deps.MerchantController.AuditMerchant)
+				merchants.GET("/:id/users", deps.MerchantController.GetMerchantUsers)
+				merchants.POST("/:id/users", deps.MerchantController.AddMerchantUser)
+				merchants.DELETE("/:id/users/:user_id", deps.MerchantController.RemoveMerchantUser)
 			}
 
 			// 商品管理路由
 			// 路径: /api/products, /api/products/:id
 			products := protected.Group("/products")
 			{
-				products.GET("", productController.GetProducts)
-				products.GET("/:id", productController.GetProduct)
-				products.POST("", productController.CreateProduct)
-				products.PUT("/:id", productController.UpdateProduct)
-				products.DELETE("/:id", productController.DeleteProduct)
+				products.GET("", deps.ProductController.GetProducts)
+				products.GET("/:id", deps.ProductController.GetProduct)
+				products.POST("", deps.ProductController.CreateProduct)
+				products.PUT("/:id", deps.ProductController.UpdateProduct)
+				products.DELETE("/:id", deps.ProductController.DeleteProduct)
 			}
 
 			// 商品分类管理路由
 			// 路径: /api/product-categories, /api/product-categories/:id
 			categories := protected.Group("/product-categories")
 			{
-				categories.GET("", productController.GetCategories)
-				categories.GET("/:id", productController.GetCategory)
-				categories.POST("", productController.CreateCategory)
-				categories.PUT("/:id", productController.UpdateCategory)
-				categories.DELETE("/:id", productController.DeleteCategory)
+				categories.GET("", deps.ProductController.GetCategories)
+				categories.GET("/:id", deps.ProductController.GetCategory)
+				categories.POST("", deps.ProductController.CreateCategory)
+				categories.PUT("/:id", deps.ProductController.UpdateCategory)
+				categories.DELETE("/:id", deps.ProductController.DeleteCategory)
 			}
 
 			// 商品图片管理路由
 			// 路径: /api/product-images, /api/product-images/:id
 			images := protected.Group("/product-images")
 			{
-				images.POST("", productController.AddProductImage)
-				images.DELETE("/:id", productController.DeleteProductImage)
-				images.PUT("/:id", productController.UpdateProductImage)
+				images.POST("", deps.ProductController.AddProductImage)
+				images.DELETE("/:id", deps.ProductController.DeleteProductImage)
+				images.PUT("/:id", deps.ProductController.UpdateProductImage)
 			}
 
 			// 商品SKU管理路由
 			// 路径: /api/product-skus, /api/product-skus/:id
 			skus := protected.Group("/product-skus")
 			{
-				skus.POST("", productController.AddProductSKU)
-				skus.PUT("/:id", productController.UpdateProductSKU)
-				skus.DELETE("/:id", productController.DeleteProductSKU)
+				skus.POST("", deps.ProductController.AddProductSKU)
+				skus.PUT("/:id", deps.ProductController.UpdateProductSKU)
+				skus.DELETE("/:id", deps.ProductController.DeleteProductSKU)
 			}
 		}
 	}

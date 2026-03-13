@@ -5,30 +5,32 @@ import (
 	"net/http"
 	"time"
 
-	"shop-backend/config"
-	"shop-backend/models"
-
 	"github.com/gin-gonic/gin"
+	"shop-backend/services"
 )
 
-// 支付回调请求结构
-type PaymentCallbackRequest struct {
-	OrderID       string  `json:"order_id" binding:"required"`
-	TransactionID string  `json:"transaction_id" binding:"required"`
-	Status        string  `json:"status" binding:"required"`
-	Amount        float64 `json:"amount" binding:"required"`
+// PaymentController 支付控制器
+type PaymentController struct {
+	BaseController
+	orderService *services.OrderService
 }
 
-// 伪支付页面
-func FakePay(c *gin.Context) {
-	orderID := c.Query("order_id")
+// NewPaymentController 创建支付控制器实例
+func NewPaymentController(orderService *services.OrderService) *PaymentController {
+	return &PaymentController{
+		orderService: orderService,
+	}
+}
+
+// FakePay 伪支付页面
+func (c *PaymentController) FakePay(ctx *gin.Context) {
+	orderID := ctx.Query("order_id")
 
 	// 查找订单
-	var order models.Order
-	result := config.DB.Where("order_id = ?", orderID).First(&order)
-	if result.RowsAffected == 0 {
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(http.StatusNotFound, `
+	order, err := c.orderService.GetOrderByID(orderID)
+	if err != nil {
+		ctx.Header("Content-Type", "text/html; charset=utf-8")
+		ctx.String(http.StatusNotFound, `
 			<!DOCTYPE html>
 			<html>
 			<head>
@@ -52,8 +54,8 @@ func FakePay(c *gin.Context) {
 	}
 
 	// 生成支付成功页面
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.String(http.StatusOK, `
+	ctx.Header("Content-Type", "text/html; charset=utf-8")
+	ctx.String(http.StatusOK, `
 		<!DOCTYPE html>
 		<html>
 		<head>
@@ -81,48 +83,48 @@ func FakePay(c *gin.Context) {
 		// 生成交易ID
 		transactionID := fmt.Sprintf("TRX%s", time.Now().Format("20060102150405"))
 
-		// 调用支付回调接口
-		// 实际项目中应该使用HTTP客户端调用
-		fmt.Printf("模拟支付回调: order_id=%s, transaction_id=%s\n", orderID, transactionID)
-
-		// 直接更新订单状态
-		order.Status = "paid"
-		order.TransactionID = transactionID
-		config.DB.Save(&order)
+		// 更新订单状态
+		c.orderService.UpdateOrderStatus(orderID, "paid", transactionID)
 	}()
 }
 
-// 支付回调
-func PaymentCallback(c *gin.Context) {
+// PaymentCallbackRequest 支付回调请求结构
+type PaymentCallbackRequest struct {
+	OrderID       string  `json:"order_id" binding:"required"`
+	TransactionID string  `json:"transaction_id" binding:"required"`
+	Status        string  `json:"status" binding:"required"`
+	Amount        float64 `json:"amount" binding:"required"`
+}
+
+// PaymentCallback 支付回调
+func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 	var req PaymentCallbackRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ResponseError(c, http.StatusBadRequest, "Invalid request")
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		c.ResponseError(ctx, http.StatusBadRequest, "Invalid request")
 		return
 	}
 
 	// 查找订单
-	var order models.Order
-	result := config.DB.Where("order_id = ?", req.OrderID).First(&order)
-	if result.RowsAffected == 0 {
-		ResponseError(c, http.StatusNotFound, "Order not found")
+	order, err := c.orderService.GetOrderByID(req.OrderID)
+	if err != nil {
+		c.ResponseError(ctx, http.StatusNotFound, "Order not found")
 		return
 	}
 
 	// 验证金额
 	if order.TotalAmount != req.Amount {
-		ResponseError(c, http.StatusBadRequest, "Invalid amount")
+		c.ResponseError(ctx, http.StatusBadRequest, "Invalid amount")
 		return
 	}
 
 	// 更新订单状态
-	order.Status = req.Status
-	order.TransactionID = req.TransactionID
-	if err := config.DB.Save(&order).Error; err != nil {
-		ResponseError(c, http.StatusInternalServerError, "Failed to update order status")
+	err = c.orderService.UpdateOrderStatus(req.OrderID, req.Status, req.TransactionID)
+	if err != nil {
+		c.ResponseError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	ResponseSuccess(c, gin.H{
+	c.ResponseSuccess(ctx, gin.H{
 		"message":        "Payment callback received",
 		"order_id":       req.OrderID,
 		"transaction_id": req.TransactionID,
