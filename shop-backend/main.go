@@ -5,7 +5,6 @@ import (
 	"shop-backend/config"
 	"shop-backend/controllers"
 	"shop-backend/middleware"
-	"shop-backend/models"
 	"shop-backend/routes"
 	"shop-backend/services"
 )
@@ -27,22 +26,13 @@ func main() {
 	// 3. 设置JWT密钥到中间件
 	middleware.SetJWTSecret(cfg.JWTSecret)
 
-	// 4. 自动迁移模型
-	conn.DB.AutoMigrate(
-		&models.Customer{},
-		&models.Product{},
-		&models.Cart{},
-		&models.CartItem{},
-		&models.Order{},
-		&models.OrderItem{},
-	)
-
 	// 5. 创建服务层实例（依赖注入）
 	authService := services.NewAuthService(conn.DB, conn.Redis, cfg.JWTSecret, cfg.JWTExpireHour)
 	customerService := services.NewCustomerService(conn.DB)
 	productService := services.NewProductService(conn.DB)
 	cartService := services.NewCartService(conn.DB)
 	orderService := services.NewOrderService(conn.DB)
+	addressService := services.NewAddressService(conn.DB)
 
 	// 6. 创建控制器实例（依赖注入）
 	deps := &routes.Dependencies{
@@ -53,6 +43,7 @@ func main() {
 		CartController:     controllers.NewCartController(cartService),
 		OrderController:    controllers.NewOrderController(orderService),
 		PaymentController:  controllers.NewPaymentController(orderService),
+		AddressController:  controllers.NewAddressController(addressService),
 	}
 
 	// 7. 设置路由

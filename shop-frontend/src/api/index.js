@@ -288,6 +288,24 @@ export const customerAPI = {
   getOrders: (params) => api.get('/user/orders', { params })
 }
 
+// 地址相关API
+export const addressAPI = {
+  // 获取地址列表
+  getAddresses: () => api.get('/customer/addresses'),
+  // 获取单个地址
+  getAddress: (id) => api.get(`/customer/addresses/${id}`),
+  // 创建地址
+  createAddress: (data) => api.post('/customer/addresses', data),
+  // 更新地址
+  updateAddress: (id, data) => api.put(`/customer/addresses/${id}`, data),
+  // 删除地址
+  deleteAddress: (id) => api.delete(`/customer/addresses/${id}`),
+  // 设置默认地址
+  setDefaultAddress: (id) => api.put(`/customer/addresses/${id}/default`),
+  // 获取默认地址
+  getDefaultAddress: () => api.get('/customer/addresses/default')
+}
+
 // 订单相关API
 export const orderAPI = {
   // 创建订单

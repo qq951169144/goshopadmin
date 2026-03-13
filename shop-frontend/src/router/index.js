@@ -37,6 +37,31 @@ const router = createRouter({
       path: '/customer/profile',
       name: 'customer-profile',
       component: () => import('../views/CustomerProfile.vue')
+    },
+    {
+      path: '/orders',
+      name: 'orders',
+      component: () => import('../views/OrderList.vue')
+    },
+    {
+      path: '/order/:id',
+      name: 'order-detail',
+      component: () => import('../views/OrderDetail.vue')
+    },
+    {
+      path: '/addresses',
+      name: 'addresses',
+      component: () => import('../views/AddressList.vue')
+    },
+    {
+      path: '/address/edit/:id?',
+      name: 'address-edit',
+      component: () => import('../views/AddressEdit.vue')
+    },
+    {
+      path: '/checkout',
+      name: 'checkout',
+      component: () => import('../views/OrderConfirm.vue')
     }
   ]
 })

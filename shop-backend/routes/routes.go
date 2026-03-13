@@ -15,6 +15,7 @@ type Dependencies struct {
 	CartController     *controllers.CartController
 	OrderController    *controllers.OrderController
 	PaymentController  *controllers.PaymentController
+	AddressController  *controllers.AddressController
 }
 
 // SetupRouter 设置路由
@@ -60,6 +61,19 @@ func SetupRouter(deps *Dependencies) *gin.Engine {
 			user.GET("/profile", deps.CustomerController.GetProfile)
 			user.PUT("/profile", deps.CustomerController.UpdateProfile)
 			user.GET("/orders", deps.CustomerController.GetOrders)
+		}
+
+		// 客户相关路由（使用 customer 前缀）
+		customer := api.Group("/customer", middleware.Auth())
+		{
+			// 地址管理
+			customer.GET("/addresses", deps.AddressController.GetAddresses)
+			customer.POST("/addresses", deps.AddressController.CreateAddress)
+			customer.GET("/addresses/:id", deps.AddressController.GetAddress)
+			customer.PUT("/addresses/:id", deps.AddressController.UpdateAddress)
+			customer.DELETE("/addresses/:id", deps.AddressController.DeleteAddress)
+			customer.PUT("/addresses/:id/default", deps.AddressController.SetDefaultAddress)
+			customer.GET("/addresses/default", deps.AddressController.GetDefaultAddress)
 		}
 
 		// 商品路由

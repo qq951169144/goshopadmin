@@ -6,7 +6,6 @@ import (
 
 	"goshopadmin/config"
 	"goshopadmin/middleware"
-	"goshopadmin/models"
 	"goshopadmin/routes"
 	"goshopadmin/utils"
 
@@ -35,21 +34,6 @@ func main() {
 
 	// 3. 设置JWT密钥到中间件
 	middleware.SetJWTSecret(cfg.JWTSecret)
-
-	// 4. 自动迁移模型
-	conn.DB.AutoMigrate(
-		&models.User{},
-		&models.Role{},
-		&models.Permission{},
-		&models.Merchant{},
-		&models.MerchantUser{},
-		&models.MerchantAudit{},
-		&models.Product{},
-		&models.ProductCategory{},
-		&models.ProductImage{},
-		&models.ProductSKU{},
-		&models.Activity{},
-	)
 
 	// 5. 创建Gin引擎
 	r := gin.New()

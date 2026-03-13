@@ -1,284 +1,143 @@
 <template>
-  <div class="profile">
-    <h1>个人中心</h1>
-    
-    <div v-if="!isLoggedIn" class="login-prompt">
-      <p>请先登录</p>
-      <button @click="goLogin">去登录</button>
-    </div>
-    
-    <div v-else>
-      <div class="profile-content">
-        <div class="profile-sidebar">
-          <div class="customer-info">
-            <div class="avatar">
-              <img :src="customerInfo.avatar || 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=customer%20avatar&image_size=square'" alt="客户头像" />
-            </div>
-            <h2>{{ customerInfo.username || '客户' }}</h2>
-          </div>
-          <div class="nav-menu">
-            <button :class="{ active: activeTab === 'info' }" @click="activeTab = 'info'">个人信息</button>
-            <button :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'">我的订单</button>
-            <button @click="logout">退出登录</button>
-          </div>
-        </div>
-        
-        <div class="profile-main">
-          <!-- 个人信息 -->
-          <div v-if="activeTab === 'info'" class="info-section">
-            <h3>个人信息</h3>
-            <form @submit.prevent="updateProfile">
-              <div class="form-group">
-                <label>用户名</label>
-                <input type="text" v-model="customerInfo.username" required />
-              </div>
-              <div class="form-group">
-                <label>邮箱</label>
-                <input type="email" v-model="customerInfo.email" />
-              </div>
-              <div class="form-group">
-                <label>手机号</label>
-                <input type="tel" v-model="customerInfo.phone" />
-              </div>
-              <button type="submit" :disabled="loading">{{ loading ? '保存中...' : '保存修改' }}</button>
-            </form>
-          </div>
-          
-          <!-- 订单列表 -->
-          <div v-if="activeTab === 'orders'" class="orders-section">
-            <h3>我的订单</h3>
-            <div v-if="loading" class="loading">加载中...</div>
-            <div v-else-if="orders.length === 0" class="empty-orders">
-              <p>暂无订单</p>
-              <button @click="goShopping">去购物</button>
-            </div>
-            <div v-else class="order-list">
-              <div v-for="order in orders" :key="order.id" class="order-item">
-                <div class="order-header">
-                  <span class="order-id">订单号：{{ order.id }}</span>
-                  <span class="order-status">{{ order.status }}</span>
-                </div>
-                <div class="order-items">
-                  <div v-for="item in order.items" :key="item.product_id" class="order-item-product">
-                    <img :src="item.image" :alt="item.name" />
-                    <div class="product-info">
-                      <h4>{{ item.name }}</h4>
-                      <p>¥{{ item.price }} x {{ item.quantity }}</p>
-                    </div>
-                  </div>
-                </div>
-                <div class="order-footer">
-                  <span class="order-total">合计：¥{{ order.total }}</span>
-                  <div class="order-actions">
-                    <button v-if="order.status === '待支付'" @click="payOrder(order.id)">去支付</button>
-                    <button v-if="order.status === '待发货'" @click="cancelOrder(order.id)">取消订单</button>
-                    <button v-if="order.status === '待收货'" @click="confirmReceipt(order.id)">确认收货</button>
-                    <button @click="viewOrderDetail(order.id)">查看详情</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+  <div class="customer-profile">
+    <div class="profile-header">
+      <div class="avatar">
+        <img :src="user.avatar || defaultAvatar" alt="头像" />
       </div>
+      <div class="user-info">
+        <h2>{{ user.username || '未登录' }}</h2>
+        <p v-if="user.phone">{{ user.phone }}</p>
+      </div>
+    </div>
+
+    <!-- 订单状态快捷入口 -->
+    <div class="order-status">
+      <div class="status-item" @click="goToOrders('pending')">
+        <span class="icon">⏰</span>
+        <span class="label">待付款</span>
+      </div>
+      <div class="status-item" @click="goToOrders('paid')">
+        <span class="icon">📦</span>
+        <span class="label">待发货</span>
+      </div>
+      <div class="status-item" @click="goToOrders('shipped')">
+        <span class="icon">🚚</span>
+        <span class="label">待收货</span>
+      </div>
+      <div class="status-item" @click="goToOrders('completed')">
+        <span class="icon">✅</span>
+        <span class="label">已完成</span>
+      </div>
+    </div>
+
+    <!-- 功能菜单 -->
+    <div class="menu-list">
+      <div class="menu-item" @click="goToOrders('all')">
+        <span class="menu-icon">📋</span>
+        <span class="menu-text">我的订单</span>
+        <span class="arrow">›</span>
+      </div>
+      <div class="menu-item" @click="goToAddresses">
+        <span class="menu-icon">📍</span>
+        <span class="menu-text">收货地址</span>
+        <span class="arrow">›</span>
+      </div>
+      <div class="menu-item" @click="contactService">
+        <span class="menu-icon">💬</span>
+        <span class="menu-text">联系客服</span>
+        <span class="arrow">›</span>
+      </div>
+      <div class="menu-item" @click="goToSettings">
+        <span class="menu-icon">⚙️</span>
+        <span class="menu-text">设置</span>
+        <span class="arrow">›</span>
+      </div>
+    </div>
+
+    <!-- 退出登录按钮 -->
+    <div class="logout-section">
+      <button class="logout-btn" @click="logout">退出登录</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { customerAPI, orderAPI } from '../api'
+import { customerAPI } from '../api'
 
 const router = useRouter()
-const activeTab = ref('info')
-const loading = ref(false)
-const customerInfo = ref({
-  username: '',
-  email: '',
-  phone: '',
-  avatar: ''
-})
-const orders = ref([])
+const user = ref({})
 
-const isLoggedIn = computed(() => {
-  return !!localStorage.getItem('token')
-})
+const defaultAvatar = 'https://via.placeholder.com/80x80?text=Avatar'
 
-const goLogin = () => {
-  router.push('/login')
-}
-
-const goShopping = () => {
-  router.push('/')
-}
-
-const loadCustomerInfo = async () => {
-  if (!isLoggedIn.value) return
-  
+const loadProfile = async () => {
   try {
     const response = await customerAPI.getProfile()
-    customerInfo.value = response.data || customerInfo.value
+    user.value = response
   } catch (error) {
-    console.error('加载个人信息失败:', error)
+    console.error('加载用户信息失败:', error)
     // 使用模拟数据
-    customerInfo.value = {
-      username: '测试客户',
-      email: 'test@example.com',
-      phone: '13800138000',
-      avatar: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=customer%20avatar&image_size=square'
+    user.value = {
+      username: '张三',
+      phone: '138****8888',
+      avatar: ''
     }
   }
 }
 
-const loadOrders = async () => {
-  if (!isLoggedIn.value) return
-  
-  loading.value = true
-  try {
-    const response = await customerAPI.getOrders()
-    orders.value = response.data || []
-  } catch (error) {
-    console.error('加载订单失败:', error)
-    // 使用模拟数据
-    orders.value = [
-      {
-        id: '202401010001',
-        status: '待支付',
-        total: 299.97,
-        items: [
-          {
-            product_id: 1,
-            name: '商品1',
-            price: 99.99,
-            quantity: 3,
-            image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%201&image_size=square'
-          }
-        ]
-      },
-      {
-        id: '202401010002',
-        status: '已完成',
-        total: 199.99,
-        items: [
-          {
-            product_id: 2,
-            name: '商品2',
-            price: 199.99,
-            quantity: 1,
-            image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%202&image_size=square'
-          }
-        ]
-      }
-    ]
-  } finally {
-    loading.value = false
-  }
+const goToOrders = (status) => {
+  router.push('/orders')
 }
 
-const updateProfile = async () => {
-  loading.value = true
-  try {
-    await customerAPI.updateProfile(customerInfo.value)
-    alert('个人信息更新成功')
-  } catch (error) {
-    console.error('更新个人信息失败:', error)
-    alert('更新个人信息失败，请稍后重试')
-  } finally {
-    loading.value = false
-  }
+const goToAddresses = () => {
+  router.push('/addresses')
+}
+
+const contactService = () => {
+  alert('客服功能开发中...')
+}
+
+const goToSettings = () => {
+  alert('设置功能开发中...')
 }
 
 const logout = () => {
+  if (!confirm('确定要退出登录吗？')) return
+  
   localStorage.removeItem('token')
   localStorage.removeItem('customer_id')
-  router.push('/')
-}
-
-const payOrder = (orderId) => {
-  alert(`支付订单 ${orderId}`)
-}
-
-const cancelOrder = (orderId) => {
-  alert(`取消订单 ${orderId}`)
-}
-
-const confirmReceipt = (orderId) => {
-  alert(`确认收货 ${orderId}`)
-}
-
-const viewOrderDetail = (orderId) => {
-  alert(`查看订单详情 ${orderId}`)
+  router.push('/login')
 }
 
 onMounted(() => {
-  loadCustomerInfo()
-  loadOrders()
+  loadProfile()
 })
 </script>
 
 <style scoped>
-.profile {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
+.customer-profile {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  padding-bottom: 20px;
 }
 
-h1 {
-  margin-bottom: 30px;
-  color: #333;
-  text-align: center;
-}
-
-.login-prompt {
-  text-align: center;
-  padding: 100px 0;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.login-prompt p {
-  margin-bottom: 20px;
-  color: #666;
-  font-size: 18px;
-}
-
-.login-prompt button {
-  padding: 10px 30px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-}
-
-.profile-content {
+/* 用户信息头部 */
+.profile-header {
   display: flex;
-  gap: 40px;
-  flex-wrap: wrap;
-}
-
-.profile-sidebar {
-  width: 250px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.customer-info {
-  text-align: center;
-  margin-bottom: 30px;
+  align-items: center;
+  padding: 24px 16px;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
 }
 
 .avatar {
-  width: 100px;
-  height: 100px;
-  margin: 0 auto 20px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   overflow: hidden;
+  margin-right: 16px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
 }
 
 .avatar img {
@@ -287,216 +146,100 @@ h1 {
   object-fit: cover;
 }
 
-.customer-info h2 {
-  color: #333;
-  margin-bottom: 10px;
+.user-info h2 {
+  font-size: 20px;
+  margin-bottom: 4px;
 }
 
-.nav-menu {
+.user-info p {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* 订单状态快捷入口 */
+.order-status {
+  display: flex;
+  justify-content: space-around;
+  background-color: white;
+  padding: 20px 16px;
+  margin-bottom: 12px;
+}
+
+.status-item {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  cursor: pointer;
 }
 
-.nav-menu button {
-  padding: 12px;
-  border: none;
+.status-item .icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.status-item .label {
+  font-size: 12px;
+  color: #666;
+}
+
+/* 功能菜单 */
+.menu-list {
   background-color: white;
-  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #f5f5f5;
   cursor: pointer;
-  text-align: left;
+  transition: background-color 0.3s ease;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:hover {
+  background-color: #fafafa;
+}
+
+.menu-icon {
+  font-size: 20px;
+  margin-right: 12px;
+}
+
+.menu-text {
+  flex: 1;
+  font-size: 15px;
+  color: #333;
+}
+
+.arrow {
+  color: #999;
+  font-size: 18px;
+}
+
+/* 退出登录 */
+.logout-section {
+  padding: 20px 16px;
+}
+
+.logout-btn {
+  width: 100%;
+  padding: 14px;
+  background-color: white;
+  color: #ff4757;
+  border: 1px solid #ff4757;
+  border-radius: 24px;
+  font-size: 16px;
+  cursor: pointer;
   transition: all 0.3s ease;
 }
 
-.nav-menu button:hover {
-  background-color: #f0f0f0;
-}
-
-.nav-menu button.active {
-  background-color: #4CAF50;
-  color: white;
-}
-
-.nav-menu button:last-child {
-  margin-top: 20px;
+.logout-btn:hover {
   background-color: #ff4757;
   color: white;
-}
-
-.profile-main {
-  flex: 1;
-  min-width: 600px;
-  background-color: white;
-  border-radius: 8px;
-  padding: 30px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.info-section h3,
-.orders-section h3 {
-  margin-bottom: 20px;
-  color: #333;
-  border-bottom: 2px solid #4CAF50;
-  padding-bottom: 10px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
-  margin-bottom: 5px;
-  color: #666;
-  font-size: 14px;
-}
-
-input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
-}
-
-input:focus {
-  outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
-}
-
-.info-section button {
-  padding: 12px 30px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  margin-top: 20px;
-}
-
-.info-section button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.loading,
-.empty-orders {
-  text-align: center;
-  padding: 50px 0;
-  color: #666;
-}
-
-.empty-orders button {
-  margin-top: 20px;
-  padding: 10px 30px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.order-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.order-item {
-  border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 20px;
-}
-
-.order-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 15px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #eee;
-}
-
-.order-id {
-  color: #666;
-}
-
-.order-status {
-  color: #4CAF50;
-  font-weight: bold;
-}
-
-.order-items {
-  margin-bottom: 15px;
-}
-
-.order-item-product {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 10px;
-}
-
-.order-item-product img {
-  width: 80px;
-  height: 80px;
-  object-fit: cover;
-  border-radius: 4px;
-}
-
-.product-info h4 {
-  margin-bottom: 5px;
-  color: #333;
-}
-
-.product-info p {
-  color: #666;
-  font-size: 14px;
-}
-
-.order-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 15px;
-  border-top: 1px solid #eee;
-}
-
-.order-total {
-  font-weight: bold;
-  color: #333;
-}
-
-.order-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.order-actions button {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  background-color: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s ease;
-}
-
-.order-actions button:hover {
-  background-color: #f0f0f0;
-}
-
-@media (max-width: 768px) {
-  .profile-content {
-    flex-direction: column;
-  }
-  
-  .profile-sidebar {
-    width: 100%;
-  }
-  
-  .profile-main {
-    min-width: 100%;
-  }
 }
 </style>

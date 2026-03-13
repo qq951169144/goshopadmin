@@ -8,7 +8,8 @@ import (
 type Product struct {
 	ID          uint      `json:"id" gorm:"primaryKey"`
 	Name        string    `json:"name" gorm:"not null"`
-	Description string    `json:"description"`
+	Description string    `json:"description"`           // 商品简介
+	Detail      string    `json:"detail" gorm:"type:text"` // 商品详情富文本
 	Price       float64   `json:"price" gorm:"not null"`
 	SKU         string    `json:"sku" gorm:"unique"`
 	Stock       int       `json:"stock" gorm:"not null;default:0"`

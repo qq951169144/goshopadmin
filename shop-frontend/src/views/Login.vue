@@ -1,5 +1,8 @@
 <template>
   <div class="login">
+    <div class="header">
+      <button class="back-btn" @click="goHome">← 返回首页</button>
+    </div>
     <h1>登录</h1>
     <form @submit.prevent="login">
       <div class="form-group">
@@ -40,6 +43,10 @@ const captchaUrl = ref('/api/captcha?' + new Date().getTime())
 const refreshCaptcha = () => {
   captchaUrl.value = '/api/captcha?' + new Date().getTime()
   captcha.value = ''
+}
+
+const goHome = () => {
+  router.push('/')
 }
 
 const login = async () => {
@@ -85,31 +92,51 @@ onMounted(() => {
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  margin-top: 50px;
+  margin-top: 20px;
+}
+
+.header {
+  margin-bottom: 20px;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.back-btn:hover {
+  color: #4CAF50;
 }
 
 h1 {
-  margin-bottom: 20px;
+  margin-bottom: 30px;
   color: #333;
   text-align: center;
 }
 
 .form-group {
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 
 label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
   color: #666;
   font-size: 14px;
 }
 
 input {
   width: 100%;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 16px;
 }
 
@@ -131,36 +158,36 @@ input:focus {
 
 .captcha img {
   width: 100px;
-  height: 40px;
+  height: 44px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
-button {
+button[type="submit"] {
   width: 100%;
-  padding: 12px;
+  padding: 14px;
   background-color: #4CAF50;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 24px;
   cursor: pointer;
   margin-top: 20px;
   font-size: 16px;
   transition: all 0.3s ease;
 }
 
-button:hover:not(:disabled) {
+button[type="submit"]:hover:not(:disabled) {
   background-color: #45a049;
 }
 
-button:disabled {
+button[type="submit"]:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
 
 .register-link {
   text-align: center;
-  margin-top: 15px;
+  margin-top: 20px;
   font-size: 14px;
   color: #666;
 }

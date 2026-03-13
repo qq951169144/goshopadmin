@@ -3,9 +3,10 @@ package controllers
 import (
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"shop-backend/errors"
 	"shop-backend/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 // ProductController 商品控制器
@@ -55,7 +56,7 @@ func (c *ProductController) GetProductDetail(ctx *gin.Context) {
 	}
 
 	// 从服务层获取商品详情
-	product, err := c.productService.GetProductDetail(uint(id))
+	product, err := c.productService.GetProductDetail(int(id))
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
