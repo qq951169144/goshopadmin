@@ -2,9 +2,11 @@ package controllers
 
 import (
 	stderrors "errors"
+	"fmt"
 	"goshopadmin/errors"
 	"goshopadmin/models"
 	"goshopadmin/services"
+	"goshopadmin/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -49,12 +51,12 @@ type CreateProductRequest struct {
 // UpdateProductRequest 更新商品请求
 
 type UpdateProductRequest struct {
-	Name        string  `json:"name" binding:"required"`
+	Name        string  `json:"name"`
 	Description string  `json:"description"`
 	Detail      string  `json:"detail"`
-	Price       float64 `json:"price" binding:"required"`
-	Stock       int     `json:"stock" binding:"required"`
-	CategoryID  int     `json:"category_id" binding:"required"`
+	Price       float64 `json:"price"`
+	Stock       int     `json:"stock"`
+	CategoryID  int     `json:"category_id"`
 	Status      string  `json:"status"`
 }
 
@@ -264,26 +266,31 @@ func (c *ProductController) UpdateProduct(ctx *gin.Context) {
 		return
 	}
 
-	// 预处理数据
-	product := models.Product{
-		ID:          id,
-		MerchantID:  merchantID,
-		Name:        req.Name,
-		Description: req.Description,
-		Detail:      req.Detail,
-		Price:       req.Price,
-		Stock:       req.Stock,
-		CategoryID:  req.CategoryID,
-		Status:      req.Status,
+	// 构建更新字段map，只包含请求中传递的字段
+	updateData := make(map[string]interface{})
+	if req.Name != "" {
+		updateData["name"] = req.Name
+	}
+	if req.Description != "" {
+		updateData["description"] = req.Description
+	}
+	if req.Detail != "" {
+		updateData["detail"] = req.Detail
+	}
+	if req.CategoryID > 0 {
+		updateData["category_id"] = req.CategoryID
+	}
+	if req.Status != "" {
+		updateData["status"] = req.Status
 	}
 
 	// 更新商品
-	if err := c.productService.UpdateProduct(&product, merchantID); err != nil {
+	if err := c.productService.UpdateProduct(id, merchantID, updateData); err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
 
-	c.ResponseSuccess(ctx, product)
+	c.ResponseSuccess(ctx, gin.H{"id": id})
 }
 
 // DeleteProduct 删除商品
@@ -515,9 +522,12 @@ func (c *ProductController) DeleteCategory(ctx *gin.Context) {
 // @Summary 添加商品图片
 // @Description 为商品添加图片
 // @Tags 商品管理
-// @Accept json
+// @Accept multipart/form-data
 // @Produce json
-// @Param image body AddProductImageRequest true "图片信息"
+// @Param product_id formData int true "商品ID"
+// @Param image formData file true "图片文件"
+// @Param is_main formData bool false "是否主图"
+// @Param sort formData int false "排序"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/product-images [post]
 func (c *ProductController) AddProductImage(ctx *gin.Context) {
@@ -528,23 +538,43 @@ func (c *ProductController) AddProductImage(ctx *gin.Context) {
 		return
 	}
 
-	// 绑定请求体
-	var req AddProductImageRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	// 获取商品ID
+	productID, err := strconv.Atoi(ctx.PostForm("product_id"))
+	if err != nil {
+		c.ResponseError(ctx, errors.CodeParamInvalid, fmt.Errorf("商品ID格式错误: %w", err))
+		return
+	}
+
+	// 获取上传的文件
+	file, err := ctx.FormFile("image")
+	if err != nil {
+		c.ResponseError(ctx, errors.CodeParamInvalid, fmt.Errorf("获取上传文件失败: %w", err))
+		return
+	}
+
+	// 上传图片到存储
+	imageURL, err := utils.UploadImage(file, merchantID)
+	if err != nil {
 		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
+	// 获取其他参数
+	isMain := ctx.PostForm("is_main") == "true"
+	sort, _ := strconv.Atoi(ctx.PostForm("sort"))
+
 	// 预处理数据
 	image := models.ProductImage{
-		ProductID: req.ProductID,
-		ImageURL:  req.ImageURL,
-		IsMain:    req.IsMain,
-		Sort:      req.Sort,
+		ProductID: productID,
+		ImageURL:  imageURL,
+		IsMain:    isMain,
+		Sort:      sort,
 	}
 
 	// 添加图片
 	if err := c.productService.AddProductImage(&image, merchantID); err != nil {
+		// 如果数据库操作失败，删除已上传的图片
+		utils.DeleteImage(imageURL)
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}

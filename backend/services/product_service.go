@@ -87,16 +87,16 @@ func (s *ProductService) CreateProduct(product *models.Product, merchantID int) 
 }
 
 // UpdateProduct 更新商品
-func (s *ProductService) UpdateProduct(product *models.Product, merchantID int) error {
+func (s *ProductService) UpdateProduct(productID int, merchantID int, updateData map[string]interface{}) error {
 	// 检查商品是否属于该商户
 	var existingProduct models.Product
-	result := s.DB.Where("id = ? AND merchant_id = ?", product.ID, merchantID).First(&existingProduct)
+	result := s.DB.Where("id = ? AND merchant_id = ?", productID, merchantID).First(&existingProduct)
 	if result.Error != nil {
 		return errors.New("商品不存在或不属于该商户")
 	}
 
-	// 使用Updates方法更新，只更新非零值字段，避免覆盖时间戳
-	result = s.DB.Model(&existingProduct).Updates(product)
+	// 使用map更新指定字段
+	result = s.DB.Model(&existingProduct).Updates(updateData)
 	return result.Error
 }
 

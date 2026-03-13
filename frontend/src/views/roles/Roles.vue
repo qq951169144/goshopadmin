@@ -43,6 +43,7 @@
       v-model="showRoleDialog"
       :title="roleDialogTitle"
       width="400px"
+      @closed="resetRoleForm"
     >
       <el-form :model="roleForm" label-width="80px">
         <el-form-item label="角色名称">
@@ -125,10 +126,7 @@ const selectedPermissions = ref([]);
 // 获取角色列表
 const getRoles = async () => {
   try {
-    const response = await authApi.getRoles();
-    if (response.code === 200) {
-      roles.value = response.data;
-    }
+    roles.value = await authApi.getRoles();
   } catch (error) {
     ElMessage.error('获取角色列表失败');
   }
@@ -137,13 +135,27 @@ const getRoles = async () => {
 // 获取权限列表
 const getPermissions = async () => {
   try {
-    const response = await authApi.getPermissions();
-    if (response.code === 200) {
-      permissions.value = response.data;
-    }
+    const data = await authApi.getPermissions();
+    // 按 code 的模块名分组，然后每组内按名称排序
+    permissions.value = data.sort((a, b) => {
+      const moduleA = a.code.split(':')[0];
+      const moduleB = b.code.split(':')[0];
+      // 先按模块名排序
+      if (moduleA !== moduleB) {
+        return moduleA.localeCompare(moduleB, 'zh-CN');
+      }
+      // 同一模块内按权限名称排序
+      return a.name.localeCompare(b.name, 'zh-CN');
+    });
   } catch (error) {
     ElMessage.error('获取权限列表失败');
   }
+};
+
+// 重置角色表单
+const resetRoleForm = () => {
+  roleForm.value = {};
+  roleDialogTitle.value = '创建角色';
 };
 
 // 编辑角色
@@ -161,20 +173,17 @@ const editRole = (role) => {
 // 保存角色
 const saveRole = async () => {
   try {
-    let response;
     if (roleForm.value.id) {
       // 更新角色
-      response = await authApi.updateRole(roleForm.value.id, roleForm.value);
+      await authApi.updateRole(roleForm.value.id, roleForm.value);
     } else {
       // 创建角色
-      response = await authApi.createRole(roleForm.value);
+      await authApi.createRole(roleForm.value);
     }
-    if (response.code === 200) {
-      ElMessage.success(roleForm.value.id ? '更新角色成功' : '创建角色成功');
-      showRoleDialog.value = false;
-      getRoles();
-      emit('refresh');
-    }
+    ElMessage.success(roleForm.value.id ? '更新角色成功' : '创建角色成功');
+    showRoleDialog.value = false;
+    getRoles();
+    emit('refresh');
   } catch (error) {
     ElMessage.error(roleForm.value.id ? '更新角色失败' : '创建角色失败');
   }
@@ -189,12 +198,10 @@ const deleteRole = async (roleId) => {
       type: 'warning'
     });
     
-    const response = await authApi.deleteRole(roleId);
-    if (response.code === 200) {
-      ElMessage.success('禁用角色成功');
-      getRoles();
-      emit('refresh');
-    }
+    await authApi.deleteRole(roleId);
+    ElMessage.success('禁用角色成功');
+    getRoles();
+    emit('refresh');
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('禁用角色失败');
@@ -215,15 +222,13 @@ const assignPermissions = async (role) => {
 // 保存权限
 const savePermissions = async () => {
   try {
-    const response = await authApi.assignPermissions(currentRole.value.id, {
+    await authApi.assignPermissions(currentRole.value.id, {
       permission_ids: selectedPermissions.value
     });
-    if (response.code === 200) {
-      ElMessage.success('分配权限成功');
-      showPermissionAssignDialog.value = false;
-      getRoles();
-      emit('refresh');
-    }
+    ElMessage.success('分配权限成功');
+    showPermissionAssignDialog.value = false;
+    getRoles();
+    emit('refresh');
   } catch (error) {
     ElMessage.error('分配权限失败');
   }

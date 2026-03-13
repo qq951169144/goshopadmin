@@ -166,13 +166,9 @@ watch(() => userInfo.value, async (newUser) => {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const response = await authApi.getCurrentUser();
-        if (response.code === 200) {
-          // 保存权限信息到localStorage
-          localStorage.setItem('permissions', JSON.stringify(response.data.permissions || []));
-        } else {
-          ElMessage.warning('权限信息加载失败，部分功能可能受限');
-        }
+        const data = await authApi.getCurrentUser();
+        // 保存权限信息到localStorage
+        localStorage.setItem('permissions', JSON.stringify(data.permissions || []));
       } catch (error) {
         ElMessage.warning('权限信息加载失败，部分功能可能受限');
       }

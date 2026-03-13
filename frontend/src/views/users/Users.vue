@@ -40,6 +40,7 @@
       v-model="showUserDialog"
       :title="userDialogTitle"
       width="400px"
+      @closed="resetUserForm"
     >
       <el-form :model="userForm" label-width="80px">
         <el-form-item label="用户名">
@@ -99,10 +100,7 @@ const userDialogTitle = ref('创建用户');
 // 获取角色列表
 const getRoles = async () => {
   try {
-    const response = await authApi.getRoles();
-    if (response.code === 200) {
-      roles.value = response.data;
-    }
+    roles.value = await authApi.getRoles();
   } catch (error) {
     ElMessage.error('获取角色列表失败');
   }
@@ -111,17 +109,21 @@ const getRoles = async () => {
 // 获取用户列表
 const getUsers = async () => {
   try {
-    const response = await authApi.getUsers();
-    if (response.code === 200) {
-      // 为每个用户添加role_name字段
-      users.value = response.data.map(user => ({
-        ...user,
-        role_name: user.role ? user.role.name : ''
-      }));
-    }
+    const data = await authApi.getUsers();
+    // 为每个用户添加role_name字段
+    users.value = data.map(user => ({
+      ...user,
+      role_name: user.role ? user.role.name : ''
+    }));
   } catch (error) {
     ElMessage.error('获取用户列表失败');
   }
+};
+
+// 重置用户表单
+const resetUserForm = () => {
+  userForm.value = {};
+  userDialogTitle.value = '创建用户';
 };
 
 // 编辑用户
@@ -130,7 +132,7 @@ const editUser = async (user) => {
   if (roles.value.length === 0) {
     await getRoles();
   }
-  
+
   userForm.value = {
     id: user.id,
     username: user.username,
@@ -144,20 +146,17 @@ const editUser = async (user) => {
 // 保存用户
 const saveUser = async () => {
   try {
-    let response;
     if (userForm.value.id) {
       // 更新用户
-      response = await authApi.updateUser(userForm.value.id, userForm.value);
+      await authApi.updateUser(userForm.value.id, userForm.value);
     } else {
       // 创建用户
-      response = await authApi.createUser(userForm.value);
+      await authApi.createUser(userForm.value);
     }
-    if (response.code === 200) {
-      ElMessage.success(userForm.value.id ? '更新用户成功' : '创建用户成功');
-      showUserDialog.value = false;
-      getUsers();
-      emit('refresh');
-    }
+    ElMessage.success(userForm.value.id ? '更新用户成功' : '创建用户成功');
+    showUserDialog.value = false;
+    getUsers();
+    emit('refresh');
   } catch (error) {
     ElMessage.error(userForm.value.id ? '更新用户失败' : '创建用户失败');
   }
@@ -172,12 +171,10 @@ const deleteUser = async (userId) => {
       type: 'warning'
     });
     
-    const response = await authApi.deleteUser(userId);
-    if (response.code === 200) {
-      ElMessage.success('禁用用户成功');
-      getUsers();
-      emit('refresh');
-    }
+    await authApi.deleteUser(userId);
+    ElMessage.success('禁用用户成功');
+    getUsers();
+    emit('refresh');
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('禁用用户失败');

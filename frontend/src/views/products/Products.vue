@@ -37,6 +37,7 @@
       v-model="productDialogVisible"
       :title="productDialogTitle"
       width="800px"
+      @closed="resetProductForm"
     >
       <el-form :model="productForm" :rules="productRules" ref="productFormRef">
         <el-form-item label="商品名称" prop="name">
@@ -92,6 +93,7 @@
           :action="'/api/product-images'"
           :headers="uploadHeaders"
           :data="{ product_id: productForm.id }"
+          name="image"
           :on-success="handleImageUploadSuccess"
           :on-error="handleImageUploadError"
           :show-file-list="false"
@@ -172,6 +174,7 @@
       v-model="skuEditDialogVisible"
       :title="skuForm.id ? '编辑SKU' : '添加SKU'"
       width="500px"
+      @closed="resetSKUForm"
     >
       <el-form :model="skuForm" ref="skuFormRef">
         <el-form-item label="SKU编码" prop="sku_code">
@@ -362,23 +365,42 @@ export default {
     },
     // 获取商品列表
     getProducts() {
-      productApi.getProducts().then(res => {
-        if (res.code === 200) {
-          this.products = res.data
-        } else {
-          this.$message.error(res.message || '获取商品列表失败')
-        }
+      productApi.getProducts().then(data => {
+        this.products = data
       }).catch(() => {})
     },
     // 获取商品分类列表
     getCategories() {
-      productApi.getCategories().then(res => {
-        if (res.code === 200) {
-          this.categories = res.data
-        } else {
-          this.$message.error(res.message || '获取分类列表失败')
-        }
+      productApi.getCategories().then(data => {
+        this.categories = data
       }).catch(() => {})
+    },
+    // 重置商品表单
+    resetProductForm() {
+      this.productForm = {
+        name: '',
+        description: '',
+        detail: '',
+        category_id: 0,
+        status: 'active'
+      }
+      this.productDialogTitle = '添加商品'
+      // 清空编辑器内容
+      if (this.quillEditor) {
+        this.quillEditor.root.innerHTML = ''
+      }
+    },
+    // 重置SKU表单
+    resetSKUForm() {
+      this.skuForm = {
+        id: 0,
+        product_id: 0,
+        sku_code: '',
+        attributes: '',
+        price: 0,
+        stock: 0,
+        status: 'active'
+      }
     },
     // 处理添加商品
     handleCreateProduct() {
@@ -411,25 +433,17 @@ export default {
         if (valid) {
           if (this.productForm.id) {
             // 更新商品
-            productApi.updateProduct(this.productForm.id, this.productForm).then(res => {
-              if (res.code === 200) {
-                this.$message.success('更新商品成功')
-                this.productDialogVisible = false
-                this.getProducts()
-              } else {
-                this.$message.error(res.message)
-              }
+            productApi.updateProduct(this.productForm.id, this.productForm).then(() => {
+              this.$message.success('更新商品成功')
+              this.productDialogVisible = false
+              this.getProducts()
             })
           } else {
             // 创建商品
-            productApi.createProduct(this.productForm).then(res => {
-              if (res.code === 200) {
-                this.$message.success('创建商品成功')
-                this.productDialogVisible = false
-                this.getProducts()
-              } else {
-                this.$message.error(res.message)
-              }
+            productApi.createProduct(this.productForm).then(() => {
+              this.$message.success('创建商品成功')
+              this.productDialogVisible = false
+              this.getProducts()
             })
           }
         }
@@ -442,13 +456,9 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        productApi.deleteProduct(id).then(res => {
-          if (res.code === 200) {
-            this.$message.success('删除商品成功')
-            this.getProducts()
-          } else {
-            this.$message.error(res.message)
-          }
+        productApi.deleteProduct(id).then(() => {
+          this.$message.success('删除商品成功')
+          this.getProducts()
         })
       }).catch(() => {
         // 取消删除
@@ -457,26 +467,18 @@ export default {
     // 处理查看商品
     handleViewProduct(product) {
       // 获取商品详情，包括SKU和图片
-      productApi.getProduct(product.id).then(res => {
-        if (res.code === 200) {
-          this.previewProduct = res.data
-          this.previewDialogVisible = true
-        } else {
-          this.$message.error(res.message || '获取商品详情失败')
-        }
+      productApi.getProduct(product.id).then(data => {
+        this.previewProduct = data
+        this.previewDialogVisible = true
       }).catch(() => {})
     },
     // 打开图片管理对话框
     handleManageImages(product) {
       this.productForm.id = product.id
       // 获取商品图片列表
-      productApi.getProduct(product.id).then(res => {
-        if (res.code === 200) {
-          this.productImages = res.data.images || []
-          this.imageDialogVisible = true
-        } else {
-          this.$message.error(res.message || '获取图片列表失败')
-        }
+      productApi.getProduct(product.id).then(data => {
+        this.productImages = data.images || []
+        this.imageDialogVisible = true
       }).catch(() => {})
     },
     // 打开SKU管理对话框
@@ -488,13 +490,21 @@ export default {
     },
     // 图片上传成功处理
     handleImageUploadSuccess(response, file, fileList) {
-      if (response.code === 200) {
-        this.productImages.push(response.data)
+      // 后端返回格式: { code: 0, message: "success", data: image对象 }
+      if (response.code === 0) {
         this.$message.success('上传图片成功')
-        this.getProducts() // 重新获取商品列表
+        // 重新获取商品数据，刷新图片列表
+        this.refreshProductImages()
+        this.getProducts()
       } else {
         this.$message.error(response.message || '上传失败')
       }
+    },
+    // 刷新商品图片列表
+    refreshProductImages() {
+      productApi.getProduct(this.productForm.id).then(data => {
+        this.productImages = data.images || []
+      }).catch(() => {})
     },
     // 图片上传失败处理
     handleImageUploadError(err, file, fileList) {
@@ -506,14 +516,10 @@ export default {
     },
     // 处理删除图片
     handleDeleteImage(id) {
-      productApi.deleteProductImage(id).then(res => {
-        if (res.code === 200) {
-          this.$message.success('删除图片成功')
-          this.productImages = this.productImages.filter(image => image.id !== id)
-          this.getProducts() // 重新获取商品列表
-        } else {
-          this.$message.error(res.message)
-        }
+      productApi.deleteProductImage(id).then(() => {
+        this.$message.success('删除图片成功')
+        this.productImages = this.productImages.filter(image => image.id !== id)
+        this.getProducts() // 重新获取商品列表
       })
     },
     // 处理设置主图
@@ -522,20 +528,17 @@ export default {
         product_id: image.product_id,
         is_main: image.is_main,
         sort: image.sort
-      }).then(res => {
-        if (res.code === 200) {
-          this.$message.success('设置主图成功')
-          // 更新其他图片为非主图
-          this.productImages.forEach(img => {
-            if (img.id !== image.id) {
-              img.is_main = false
-            }
-          })
-          this.getProducts() // 重新获取商品列表
-        } else {
-          this.$message.error(res.message)
-          image.is_main = !image.is_main
-        }
+      }).then(() => {
+        this.$message.success('设置主图成功')
+        // 更新其他图片为非主图
+        this.productImages.forEach(img => {
+          if (img.id !== image.id) {
+            img.is_main = false
+          }
+        })
+        this.getProducts() // 重新获取商品列表
+      }).catch(() => {
+        image.is_main = !image.is_main
       })
     },
     // 处理更新图片排序（防抖 800ms + 请求锁）
@@ -557,11 +560,7 @@ export default {
           product_id: image.product_id,
           is_main: image.is_main,
           sort: image.sort
-        }).then(res => {
-          if (res.code !== 200) {
-            this.$message.error(res.message)
-          }
-        }).finally(() => {
+        }).catch(() => {}).finally(() => {
           // 解锁
           this.sortUpdating = { ...this.sortUpdating, [image.id]: false }
           delete this.sortDebounceTimers[image.id]
@@ -598,27 +597,19 @@ export default {
     handleSaveSKU() {
       if (this.skuForm.id) {
         // 更新SKU
-        productApi.updateProductSKU(this.skuForm.id, this.skuForm).then(res => {
-          if (res.code === 200) {
-            this.$message.success('更新SKU成功')
-            this.skuEditDialogVisible = false
-            this.getProductSKUs(this.skuForm.product_id)
-            this.getProducts() // 重新获取商品列表
-          } else {
-            this.$message.error(res.message)
-          }
+        productApi.updateProductSKU(this.skuForm.id, this.skuForm).then(() => {
+          this.$message.success('更新SKU成功')
+          this.skuEditDialogVisible = false
+          this.getProductSKUs(this.skuForm.product_id)
+          this.getProducts() // 重新获取商品列表
         })
       } else {
         // 创建SKU
-        productApi.addProductSKU(this.skuForm).then(res => {
-          if (res.code === 200) {
-            this.$message.success('添加SKU成功')
-            this.skuEditDialogVisible = false
-            this.getProductSKUs(this.skuForm.product_id)
-            this.getProducts() // 重新获取商品列表
-          } else {
-            this.$message.error(res.message)
-          }
+        productApi.addProductSKU(this.skuForm).then(() => {
+          this.$message.success('添加SKU成功')
+          this.skuEditDialogVisible = false
+          this.getProductSKUs(this.skuForm.product_id)
+          this.getProducts() // 重新获取商品列表
         })
       }
     },
@@ -629,14 +620,10 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        productApi.deleteProductSKU(id).then(res => {
-          if (res.code === 200) {
-            this.$message.success('删除SKU成功')
-            this.productSKUs = this.productSKUs.filter(sku => sku.id !== id)
-            this.getProducts() // 重新获取商品列表
-          } else {
-            this.$message.error(res.message)
-          }
+        productApi.deleteProductSKU(id).then(() => {
+          this.$message.success('删除SKU成功')
+          this.productSKUs = this.productSKUs.filter(sku => sku.id !== id)
+          this.getProducts() // 重新获取商品列表
         })
       }).catch(() => {
         // 取消删除
@@ -644,12 +631,8 @@ export default {
     },
     // 获取商品SKU列表
     getProductSKUs(productId) {
-      productApi.getProduct(productId).then(res => {
-        if (res.code === 200) {
-          this.productSKUs = res.data.skus || []
-        } else {
-          this.$message.error(res.message || '获取SKU列表失败')
-        }
+      productApi.getProduct(productId).then(data => {
+        this.productSKUs = data.skus || []
       }).catch(() => {})
     }
   }

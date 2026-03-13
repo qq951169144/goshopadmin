@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -42,10 +44,10 @@ func NewLogger() *Logger {
 		log.Fatalf("打开日志文件失败: %v", err)
 	}
 
-	// 创建日志记录器
-	infoLogger := log.New(file, "INFO: ", log.Ldate|log.Ltime)
-	warnLogger := log.New(file, "WARN: ", log.Ldate|log.Ltime)
-	errorLogger := log.New(file, "ERROR: ", log.Ldate|log.Ltime)
+	// 创建日志记录器 - 不使用前缀，我们自己格式化
+	infoLogger := log.New(file, "", 0)
+	warnLogger := log.New(file, "", 0)
+	errorLogger := log.New(file, "", 0)
 
 	logger := &Logger{
 		infoLogger:  infoLogger,
@@ -65,17 +67,45 @@ func NewLogger() *Logger {
 func (l *Logger) processLogs() {
 	defer l.wg.Done()
 	for entry := range l.logChan {
-		callerInfo := entry.caller
 		message := fmt.Sprintf(entry.format, entry.args...)
+
+		// 尝试格式化 JSON
+		formattedMsg := formatLogMessage(entry.level, entry.caller, message)
+
 		switch entry.level {
-		case "info":
-			l.infoLogger.Printf("[%s] %s", callerInfo, message)
-		case "warn":
-			l.warnLogger.Printf("[%s] %s", callerInfo, message)
-		case "error":
-			l.errorLogger.Printf("[%s] %s", callerInfo, message)
+		case "INFO":
+			l.infoLogger.Println(formattedMsg)
+		case "WARN":
+			l.warnLogger.Println(formattedMsg)
+		case "ERROR":
+			l.errorLogger.Println(formattedMsg)
 		}
 	}
+}
+
+// formatLogMessage 格式化日志消息，如果是 JSON 则格式化输出
+func formatLogMessage(level, caller, message string) string {
+	timestamp := time.Now().Format("2006/01/02 15:04:05")
+
+	// 尝试解析 message 是否为 JSON
+	var jsonData map[string]interface{}
+	if err := json.Unmarshal([]byte(message), &jsonData); err == nil {
+		// 是 JSON，格式化输出
+		var buf bytes.Buffer
+		encoder := json.NewEncoder(&buf)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(jsonData); err == nil {
+			// 移除最后的换行符
+			formattedJSON := buf.String()
+			if len(formattedJSON) > 0 && formattedJSON[len(formattedJSON)-1] == '\n' {
+				formattedJSON = formattedJSON[:len(formattedJSON)-1]
+			}
+			return fmt.Sprintf("%s [%s] [%s]\n%s", timestamp, level, caller, formattedJSON)
+		}
+	}
+
+	// 不是 JSON，普通格式输出
+	return fmt.Sprintf("%s [%s] [%s] %s", timestamp, level, caller, message)
 }
 
 // getCallerInfo 获取调用者信息
@@ -92,7 +122,7 @@ func getCallerInfo() string {
 // Info 记录信息日志
 func (l *Logger) Info(format string, v ...interface{}) {
 	l.logChan <- logEntry{
-		level:  "info",
+		level:  "INFO",
 		format: format,
 		args:   v,
 		caller: getCallerInfo(),
@@ -102,7 +132,7 @@ func (l *Logger) Info(format string, v ...interface{}) {
 // Warn 记录警告日志
 func (l *Logger) Warn(format string, v ...interface{}) {
 	l.logChan <- logEntry{
-		level:  "warn",
+		level:  "WARN",
 		format: format,
 		args:   v,
 		caller: getCallerInfo(),
@@ -112,7 +142,7 @@ func (l *Logger) Warn(format string, v ...interface{}) {
 // Error 记录错误日志
 func (l *Logger) Error(format string, v ...interface{}) {
 	l.logChan <- logEntry{
-		level:  "error",
+		level:  "ERROR",
 		format: format,
 		args:   v,
 		caller: getCallerInfo(),

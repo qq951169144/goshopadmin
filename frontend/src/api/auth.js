@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import router from '../router';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -185,7 +184,8 @@ function handleAuthError(code, message) {
     confirmButtonText: '重新登录',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
+  }).then(async () => {
+    const { default: router } = await import('../router');
     router.push('/login');
   }).catch(() => {
     // 用户取消
@@ -203,7 +203,7 @@ function handleNotFoundError(code, message) {
 }
 
 // 处理 HTTP 错误（网络层）
-function handleHTTPError(error) {
+async function handleHTTPError(error) {
   if (axios.isCancel(error)) {
     console.log('Request canceled:', error.message);
     return;
@@ -235,6 +235,7 @@ function handleHTTPError(error) {
     if (status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      const { default: router } = await import('../router');
       router.push('/login');
     }
   } else if (request) {

@@ -75,21 +75,19 @@ const rules = {
 // 刷新验证码
 const refreshCaptcha = async () => {
   try {
-    const response = await authApi.getCaptcha();
-    if (response.code === 200) {
-      // 后端返回的是base64格式的图片
-      captchaUrl.value = `data:image/png;base64,${response.data.image}`;
-      // 保存captchaId
-      loginForm.captchaId = response.data.id;
-      // 重置滑块位置
-      sliderPosition.value = 0;
-      captchaHint.value = '请拖动滑块完成验证';
-      loginForm.captcha = '';
-      // 移除成功状态样式
-      const sliderBlock = document.querySelector('.slider-block');
-      if (sliderBlock) {
-        sliderBlock.classList.remove('success');
-      }
+    const data = await authApi.getCaptcha();
+    // 后端返回的是base64格式的图片
+    captchaUrl.value = `data:image/png;base64,${data.image}`;
+    // 保存captchaId
+    loginForm.captchaId = data.id;
+    // 重置滑块位置
+    sliderPosition.value = 0;
+    captchaHint.value = '请拖动滑块完成验证';
+    loginForm.captcha = '';
+    // 移除成功状态样式
+    const sliderBlock = document.querySelector('.slider-block');
+    if (sliderBlock) {
+      sliderBlock.classList.remove('success');
     }
   } catch (error) {
     ElMessage.error('获取验证码失败');
@@ -180,36 +178,29 @@ const handleLogin = async () => {
     if (valid) {
       try {
         // 验证码已经在停止拖动时验证过，这里直接登录
-        const loginResponse = await authApi.login({
+        const loginData = await authApi.login({
           username: loginForm.username,
           password: loginForm.password,
           captcha_id: loginForm.captchaId,
           captcha_ans: parseInt(loginForm.captcha)
         });
         
-        if (loginResponse.code === 200) {
-          // 保存 token 和用户信息
-          localStorage.setItem('token', loginResponse.data.token);
-          localStorage.setItem('user', JSON.stringify(loginResponse.data.user));
-          
-          // 获取用户权限信息
-          try {
-            const userInfoResponse = await authApi.getCurrentUser();
-            if (userInfoResponse.code === 200) {
-              // 保存权限信息到localStorage
-              localStorage.setItem('permissions', JSON.stringify(userInfoResponse.data.permissions || []));
-            }
-          } catch (error) {
-            console.error('获取用户权限失败', error);
-          }
-          
-          ElMessage.success('登录成功');
-          // 跳转到首页
-          window.location.href = '/';
-        } else {
-          ElMessage.error(loginResponse.message || '登录失败');
-          refreshCaptcha();
+        // 保存 token 和用户信息
+        localStorage.setItem('token', loginData.token);
+        localStorage.setItem('user', JSON.stringify(loginData.user));
+        
+        // 获取用户权限信息
+        try {
+          const userPermissions = await authApi.getCurrentUser();
+          // 保存权限信息到localStorage
+          localStorage.setItem('permissions', JSON.stringify(userPermissions.permissions || []));
+        } catch (error) {
+          console.error('获取用户权限失败', error);
         }
+        
+        ElMessage.success('登录成功');
+        // 跳转到首页
+        window.location.href = '/';
       } catch (error) {
         ElMessage.error('登录失败，请重试');
         refreshCaptcha();

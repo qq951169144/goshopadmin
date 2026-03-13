@@ -54,6 +54,7 @@
       v-model="showMerchantDialog"
       :title="merchantDialogTitle"
       width="500px"
+      @closed="resetMerchantForm"
     >
       <el-form :model="merchantForm" label-width="100px">
         <el-form-item label="商户名称">
@@ -97,6 +98,7 @@
       v-model="showMerchantAuditDialog"
       title="审核商户"
       width="400px"
+      @closed="resetMerchantAuditForm"
     >
       <el-form :model="merchantAuditForm" label-width="80px">
         <el-form-item label="商户名称">
@@ -162,6 +164,7 @@
       v-model="showAddMerchantUserDialog"
       title="添加商户用户"
       width="400px"
+      @closed="resetAddMerchantUserForm"
     >
       <el-form :model="addMerchantUserForm" label-width="80px">
         <el-form-item label="选择用户">
@@ -223,10 +226,7 @@ const addMerchantUserForm = ref({});
 // 获取商户列表
 const getMerchants = async () => {
   try {
-    const response = await authApi.getMerchants();
-    if (response.code === 200) {
-      merchants.value = response.data;
-    }
+    merchants.value = await authApi.getMerchants();
   } catch (error) {
     ElMessage.error('获取商户列表失败');
   }
@@ -235,10 +235,7 @@ const getMerchants = async () => {
 // 获取商户用户列表
 const getMerchantUsers = async (merchantId) => {
   try {
-    const response = await authApi.getMerchantUsers(merchantId);
-    if (response.code === 200) {
-      merchantUsers.value = response.data;
-    }
+    merchantUsers.value = await authApi.getMerchantUsers(merchantId);
   } catch (error) {
     ElMessage.error('获取商户用户列表失败');
   }
@@ -247,13 +244,26 @@ const getMerchantUsers = async (merchantId) => {
 // 获取所有用户列表
 const getAllUsers = async () => {
   try {
-    const response = await authApi.getUsers();
-    if (response.code === 200) {
-      allUsers.value = response.data;
-    }
+    allUsers.value = await authApi.getUsers();
   } catch (error) {
     ElMessage.error('获取用户列表失败');
   }
+};
+
+// 重置商户表单
+const resetMerchantForm = () => {
+  merchantForm.value = {};
+  merchantDialogTitle.value = '创建商户';
+};
+
+// 重置商户审核表单
+const resetMerchantAuditForm = () => {
+  merchantAuditForm.value = {};
+};
+
+// 重置添加商户用户表单
+const resetAddMerchantUserForm = () => {
+  addMerchantUserForm.value = {};
 };
 
 // 编辑商户
@@ -276,20 +286,17 @@ const editMerchant = (merchant) => {
 // 保存商户
 const saveMerchant = async () => {
   try {
-    let response;
     if (merchantForm.value.id) {
       // 更新商户
-      response = await authApi.updateMerchant(merchantForm.value.id, merchantForm.value);
+      await authApi.updateMerchant(merchantForm.value.id, merchantForm.value);
     } else {
       // 创建商户
-      response = await authApi.createMerchant(merchantForm.value);
+      await authApi.createMerchant(merchantForm.value);
     }
-    if (response.code === 200) {
-      ElMessage.success(merchantForm.value.id ? '更新商户成功' : '创建商户成功');
-      showMerchantDialog.value = false;
-      getMerchants();
-      emit('refresh');
-    }
+    ElMessage.success(merchantForm.value.id ? '更新商户成功' : '创建商户成功');
+    showMerchantDialog.value = false;
+    getMerchants();
+    emit('refresh');
   } catch (error) {
     ElMessage.error(merchantForm.value.id ? '更新商户失败' : '创建商户失败');
   }
@@ -304,12 +311,10 @@ const deleteMerchant = async (merchantId) => {
       type: 'warning'
     });
     
-    const response = await authApi.deleteMerchant(merchantId);
-    if (response.code === 200) {
-      ElMessage.success('禁用商户成功');
-      getMerchants();
-      emit('refresh');
-    }
+    await authApi.deleteMerchant(merchantId);
+    ElMessage.success('禁用商户成功');
+    getMerchants();
+    emit('refresh');
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('禁用商户失败');
@@ -330,13 +335,11 @@ const auditMerchant = (merchant) => {
 // 保存商户审核
 const saveMerchantAudit = async () => {
   try {
-    const response = await authApi.auditMerchant(currentMerchant.value.id, merchantAuditForm.value);
-    if (response.code === 200) {
-      ElMessage.success('审核商户成功');
-      showMerchantAuditDialog.value = false;
-      getMerchants();
-      emit('refresh');
-    }
+    await authApi.auditMerchant(currentMerchant.value.id, merchantAuditForm.value);
+    ElMessage.success('审核商户成功');
+    showMerchantAuditDialog.value = false;
+    getMerchants();
+    emit('refresh');
   } catch (error) {
     ElMessage.error('审核商户失败');
   }
@@ -353,12 +356,10 @@ const manageMerchantUsers = async (merchant) => {
 // 添加商户用户
 const addMerchantUser = async () => {
   try {
-    const response = await authApi.addMerchantUser(currentMerchant.value.id, addMerchantUserForm.value);
-    if (response.code === 200) {
-      ElMessage.success('添加商户用户成功');
-      showAddMerchantUserDialog.value = false;
-      getMerchantUsers(currentMerchant.value.id);
-    }
+    await authApi.addMerchantUser(currentMerchant.value.id, addMerchantUserForm.value);
+    ElMessage.success('添加商户用户成功');
+    showAddMerchantUserDialog.value = false;
+    getMerchantUsers(currentMerchant.value.id);
   } catch (error) {
     ElMessage.error('添加商户用户失败');
   }
@@ -373,11 +374,9 @@ const removeMerchantUser = async (userId) => {
       type: 'warning'
     });
     
-    const response = await authApi.removeMerchantUser(currentMerchant.value.id, userId);
-    if (response.code === 200) {
-      ElMessage.success('移除商户用户成功');
-      getMerchantUsers(currentMerchant.value.id);
-    }
+    await authApi.removeMerchantUser(currentMerchant.value.id, userId);
+    ElMessage.success('移除商户用户成功');
+    getMerchantUsers(currentMerchant.value.id);
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('移除商户用户失败');

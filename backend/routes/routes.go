@@ -40,8 +40,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 
 	// 2. API路由组
 	// 路径前缀: /api
+	// 注意：RequestLogger 已在 main.go 中全局注册，这里不需要重复注册
 	api := r.Group("/api")
-	api.Use(middleware.RequestLogger())
 	{
 		// 2.1 认证相关路由（部分需要认证）
 		// 路径前缀: /api/auth

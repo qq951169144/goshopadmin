@@ -41,6 +41,7 @@
       v-model="showPermissionDialog"
       :title="permissionDialogTitle"
       width="400px"
+      @closed="resetPermissionForm"
     >
       <el-form :model="permissionForm" label-width="80px">
         <el-form-item label="权限名称">
@@ -92,13 +93,16 @@ const permissionDialogTitle = ref('创建权限');
 // 获取权限列表
 const getPermissions = async () => {
   try {
-    const response = await authApi.getPermissions();
-    if (response.code === 200) {
-      permissions.value = response.data;
-    }
+    permissions.value = await authApi.getPermissions();
   } catch (error) {
     ElMessage.error('获取权限列表失败');
   }
+};
+
+// 重置权限表单
+const resetPermissionForm = () => {
+  permissionForm.value = {};
+  permissionDialogTitle.value = '创建权限';
 };
 
 // 编辑权限
@@ -117,20 +121,17 @@ const editPermission = (permission) => {
 // 保存权限
 const savePermission = async () => {
   try {
-    let response;
     if (permissionForm.value.id) {
       // 更新权限
-      response = await authApi.updatePermission(permissionForm.value.id, permissionForm.value);
+      await authApi.updatePermission(permissionForm.value.id, permissionForm.value);
     } else {
       // 创建权限
-      response = await authApi.createPermission(permissionForm.value);
+      await authApi.createPermission(permissionForm.value);
     }
-    if (response.code === 200) {
-      ElMessage.success(permissionForm.value.id ? '更新权限成功' : '创建权限成功');
-      showPermissionDialog.value = false;
-      getPermissions();
-      emit('refresh');
-    }
+    ElMessage.success(permissionForm.value.id ? '更新权限成功' : '创建权限成功');
+    showPermissionDialog.value = false;
+    getPermissions();
+    emit('refresh');
   } catch (error) {
     ElMessage.error(permissionForm.value.id ? '更新权限失败' : '创建权限失败');
   }
@@ -145,12 +146,10 @@ const deletePermission = async (permissionId) => {
       type: 'warning'
     });
     
-    const response = await authApi.deletePermission(permissionId);
-    if (response.code === 200) {
-      ElMessage.success('禁用权限成功');
-      getPermissions();
-      emit('refresh');
-    }
+    await authApi.deletePermission(permissionId);
+    ElMessage.success('禁用权限成功');
+    getPermissions();
+    emit('refresh');
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('禁用权限失败');

@@ -14,6 +14,9 @@ import (
 )
 
 func main() {
+	// 初始化日志记录器（确保日志目录创建）
+	utils.Info("日志系统初始化成功")
+
 	// 确保在程序退出时关闭日志记录器
 	defer utils.CloseLogger()
 

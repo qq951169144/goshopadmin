@@ -35,6 +35,7 @@
       v-model="categoryDialogVisible"
       :title="categoryDialogTitle"
       width="500px"
+      @closed="resetCategoryForm"
     >
       <el-form :model="categoryForm" :rules="categoryRules" ref="categoryFormRef">
         <el-form-item label="分类名称" prop="name">
@@ -102,12 +103,21 @@ export default {
     this.getCategories()
   },
   methods: {
+    // 重置分类表单
+    resetCategoryForm() {
+      this.categoryForm = {
+        name: '',
+        parent_id: 0,
+        level: 1,
+        sort: 0,
+        status: 'active'
+      }
+      this.categoryDialogTitle = '添加分类'
+    },
     // 获取分类列表
     getCategories() {
-      productApi.getCategories().then(res => {
-        if (res.code === 200) {
-          this.categories = res.data
-        }
+      productApi.getCategories().then(data => {
+        this.categories = data
       })
     },
     // 处理添加分类
@@ -141,25 +151,17 @@ export default {
         if (valid) {
           if (this.categoryForm.id) {
             // 更新分类
-            productApi.updateCategory(this.categoryForm.id, this.categoryForm).then(res => {
-              if (res.code === 200) {
-                this.$message.success('更新分类成功')
-                this.categoryDialogVisible = false
-                this.getCategories()
-              } else {
-                this.$message.error(res.message)
-              }
+            productApi.updateCategory(this.categoryForm.id, this.categoryForm).then(() => {
+              this.$message.success('更新分类成功')
+              this.categoryDialogVisible = false
+              this.getCategories()
             })
           } else {
             // 创建分类
-            productApi.createCategory(this.categoryForm).then(res => {
-              if (res.code === 200) {
-                this.$message.success('创建分类成功')
-                this.categoryDialogVisible = false
-                this.getCategories()
-              } else {
-                this.$message.error(res.message)
-              }
+            productApi.createCategory(this.categoryForm).then(() => {
+              this.$message.success('创建分类成功')
+              this.categoryDialogVisible = false
+              this.getCategories()
             })
           }
         }
@@ -172,13 +174,9 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        productApi.deleteCategory(id).then(res => {
-          if (res.code === 200) {
-            this.$message.success('删除分类成功')
-            this.getCategories()
-          } else {
-            this.$message.error(res.message)
-          }
+        productApi.deleteCategory(id).then(() => {
+          this.$message.success('删除分类成功')
+          this.getCategories()
         })
       }).catch(() => {
         // 取消删除
