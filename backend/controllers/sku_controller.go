@@ -98,7 +98,10 @@ func (c *SKUController) BatchCreateSKU(ctx *gin.Context) {
 	}
 
 	var req struct {
-		SKUs []models.ProductSKU `json:"skus" binding:"required"`
+		SKUs []struct {
+			models.ProductSKU
+			SpecCombinations []models.ProductSKUSpec `json:"spec_combinations"`
+		} `json:"skus" binding:"required"`
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -106,7 +109,15 @@ func (c *SKUController) BatchCreateSKU(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.skuService.BatchCreateSKU(productID, req.SKUs, merchantID); err != nil {
+	// 转换数据格式
+	skus := make([]models.ProductSKU, len(req.SKUs))
+	specCombinations := make([][]models.ProductSKUSpec, len(req.SKUs))
+	for i, sku := range req.SKUs {
+		skus[i] = sku.ProductSKU
+		specCombinations[i] = sku.SpecCombinations
+	}
+
+	if err := c.skuService.BatchCreateSKU(productID, skus, specCombinations, merchantID); err != nil {
 		c.ResponseError(ctx, errors.CodeInternalError, err)
 		return
 	}

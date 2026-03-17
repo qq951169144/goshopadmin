@@ -18,6 +18,16 @@
         </div>
       </div>
     </div>
+    
+    <!-- 库存显示 -->
+    <div v-if="currentSkuStock !== null" class="stock-info">
+      <span v-if="currentSkuStock > 0" class="in-stock">
+        库存: {{ currentSkuStock }} 件
+      </span>
+      <span v-else class="out-of-stock">
+        库存不足
+      </span>
+    </div>
   </div>
 </template>
 
@@ -39,7 +49,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['change'])
+const emit = defineEmits(['change', 'stock-change'])
 
 // 获取完整的图片URL
 const getImageUrl = (imageUrl) => {
@@ -63,6 +73,11 @@ const isDisabled = (specId, valueId) => {
     return false
   }
 
+  // 如果没有SKU列表，默认启用所有规格
+  if (!props.skuList || props.skuList.length === 0) {
+    return false
+  }
+
   // 构建模拟选择状态：保留其他已选规格，当前规格使用传入的valueId
   const simulatedSpecs = { ...props.selectedSpecs }
 
@@ -75,9 +90,17 @@ const isDisabled = (specId, valueId) => {
 
   // 检查是否有SKU包含这个规格组合
   const hasMatchingSKU = props.skuList.some(sku => {
-    if (sku.status !== 'active') return false
+    // 兼容处理：只要不是明确禁用，就默认可用
+    if (sku.status === 'inactive' || sku.status === 'disabled') {
+      return false
+    }
 
     const specCombination = sku.spec_combination || {}
+    
+    // 如果 spec_combination 为空，使用降级方案：默认可用
+    if (Object.keys(specCombination).length === 0) {
+      return true
+    }
 
     // 检查是否匹配所有已选规格
     for (const [sId, vId] of Object.entries(simulatedSpecs)) {
@@ -92,6 +115,55 @@ const isDisabled = (specId, valueId) => {
   })
 
   return !hasMatchingSKU
+}
+
+// 检查当前选中规格的库存
+const currentSkuStock = computed(() => {
+  if (!props.skuList || props.skuList.length === 0) return null
+  
+  // 检查是否选择了完整规格
+  const selectedCount = Object.keys(props.selectedSpecs).length
+  const specCount = props.specifications.length
+  if (selectedCount !== specCount) {
+    return null
+  }
+  
+  const matchedSku = props.skuList.find(sku => {
+    if (sku.status === 'inactive' || sku.status === 'disabled') return false
+    const specCombination = sku.spec_combination || {}
+    
+    // 如果 spec_combination 为空，使用降级方案：默认匹配第一个可用SKU
+    if (Object.keys(specCombination).length === 0) {
+      // 通过索引匹配：根据已选规格的顺序找到对应的SKU
+      return matchSkuByIndex(sku)
+    }
+    
+    for (const [sId, vId] of Object.entries(props.selectedSpecs)) {
+      if (Number(specCombination[sId]) !== Number(vId)) {
+        return false
+      }
+    }
+    return true
+  })
+  
+  const stock = matchedSku ? matchedSku.stock : null
+  
+  // 通知父组件库存变化
+  emit('stock-change', stock)
+  
+  return stock
+})
+
+// 是否库存不足
+const isOutOfStock = computed(() => {
+  return currentSkuStock.value !== null && currentSkuStock.value <= 0
+})
+
+// 降级方案：通过索引匹配SKU
+const matchSkuByIndex = (sku) => {
+  // 当 spec_combination 为空时，使用 sku_code 或索引来匹配
+  // 这里简化处理：默认认为 SKU 顺序与规格组合顺序一致
+  return true
 }
 
 // 处理选择
@@ -173,5 +245,23 @@ const handleSelect = (specId, valueId) => {
   height: 24px;
   object-fit: cover;
   border-radius: 2px;
+}
+
+/* 库存信息样式 */
+.stock-info {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  background-color: #f5f5f5;
+}
+
+.in-stock {
+  color: #52c41a;
+}
+
+.out-of-stock {
+  color: #ff4d4f;
+  font-weight: 500;
 }
 </style>

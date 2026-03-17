@@ -33,19 +33,7 @@
 
       <!-- SKU列表 -->
       <el-table :data="skus" style="width: 100%" v-loading="loading">
-        <el-table-column prop="sku_code" label="SKU编码" width="180" />
-        <el-table-column label="规格组合" min-width="200">
-          <template #default="scope">
-            <el-tag
-              v-for="(specValue, specName) in getSpecCombination(scope.row)"
-              :key="specName"
-              size="small"
-              class="spec-combo-tag"
-            >
-              {{ specName }}: {{ specValue }}
-            </el-tag>
-          </template>
-        </el-table-column>
+        <el-table-column prop="sku_code" label="SKU编码" min-width="200" />
         <el-table-column prop="price" label="售价" width="120">
           <template #default="scope">
             <span class="price">¥{{ scope.row.price }}</span>

@@ -76,7 +76,7 @@ func (s *SKUService) CreateSKU(sku *models.ProductSKU, specCombinations []models
 }
 
 // BatchCreateSKU 批量创建SKU
-func (s *SKUService) BatchCreateSKU(productID int, skus []models.ProductSKU, merchantID int) error {
+func (s *SKUService) BatchCreateSKU(productID int, skus []models.ProductSKU, specCombinations [][]models.ProductSKUSpec, merchantID int) error {
 	// 检查商品是否属于该商户
 	var product models.Product
 	result := s.DB.Where("id = ? AND merchant_id = ?", productID, merchantID).First(&product)
@@ -106,6 +106,17 @@ func (s *SKUService) BatchCreateSKU(productID int, skus []models.ProductSKU, mer
 		if err := tx.Create(&skus[i]).Error; err != nil {
 			tx.Rollback()
 			return err
+		}
+
+		// 创建规格关联
+		if i < len(specCombinations) {
+			for j := range specCombinations[i] {
+				specCombinations[i][j].SkuID = skus[i].ID
+				if err := tx.Create(&specCombinations[i][j]).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
 		}
 	}
 
@@ -279,89 +290,96 @@ func (s *SKUService) GetSKUByID(skuID int, merchantID int) (models.ProductSKU, e
 	return sku, nil
 }
 
-// GenerateSKUsFromSpecs 根据规格组合自动生成SKU
-func (s *SKUService) GenerateSKUsFromSpecs(productID int, basePrice float64, merchantID int) ([]models.ProductSKU, error) {
-	// 检查商品是否属于该商户
-	var product models.Product
-	result := s.DB.Where("id = ? AND merchant_id = ?", productID, merchantID).First(&product)
-	if result.Error != nil {
-		return nil, errors.New("商品不存在或不属于该商户")
-	}
-
-	// 获取商品的所有规格和规格值
-	var specs []models.ProductSpecification
-	result = s.DB.Where("product_id = ?", productID).Preload("Values", func(db *gorm.DB) *gorm.DB {
-		return db.Where("status = ?", "active").Order("sort ASC")
-	}).Order("sort ASC").Find(&specs)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-
-	if len(specs) == 0 {
-		return nil, errors.New("商品没有配置规格")
-	}
-
-	// 检查是否所有规格都有规格值
-	for _, spec := range specs {
-		if len(spec.Values) == 0 {
-			return nil, errors.New("规格 '" + spec.Name + "' 没有配置规格值")
-		}
-	}
-
-	// 生成规格组合
-	var combinations [][]models.ProductSpecificationValue
-	var generateCombinations func(specIndex int, current []models.ProductSpecificationValue)
-	generateCombinations = func(specIndex int, current []models.ProductSpecificationValue) {
-		if specIndex == len(specs) {
-			// 复制当前组合
-			combo := make([]models.ProductSpecificationValue, len(current))
-			copy(combo, current)
-			combinations = append(combinations, combo)
-			return
-		}
-
-		for _, value := range specs[specIndex].Values {
-			current = append(current, value)
-			generateCombinations(specIndex+1, current)
-			current = current[:len(current)-1]
-		}
-	}
-	generateCombinations(0, []models.ProductSpecificationValue{})
-
-	// 生成SKU列表
-	var skus []models.ProductSKU
-	for i, combo := range combinations {
-		// 生成SKU编码
-		var skuCodeParts []string
-		skuCodeParts = append(skuCodeParts, "PROD-"+strconv.Itoa(productID))
-		for _, value := range combo {
-			skuCodeParts = append(skuCodeParts, value.Value)
-		}
-		skuCode := strings.Join(skuCodeParts, "-")
-
-		sku := models.ProductSKU{
-			ProductID:     productID,
-			MerchantID:    merchantID,
-			SKUCode:       skuCode,
-			Price:         basePrice,
-			OriginalPrice: 0,
-			Stock:         0,
-			Status:        "active",
-		}
-
-		// 生成规格组合关联（用于返回给前端展示）
-		var specCombos []models.ProductSKUSpec
-		for _, value := range combo {
-			specCombos = append(specCombos, models.ProductSKUSpec{
-				SpecID:      value.SpecID,
-				SpecValueID: value.ID,
-			})
-		}
-
-		// 这里不直接保存到数据库，而是返回给前端预览
-		_ = i
-		skus = append(skus, sku)
-	}
-
-	return skus, nil
-}
+// SKUWithSpecCombinations 包含规格组合的SKU
+ type SKUWithSpecCombinations struct {
+ 	models.ProductSKU
+ 	SpecCombinations []models.ProductSKUSpec `json:"spec_combinations"`
+ }
+ 
+ // GenerateSKUsFromSpecs 根据规格组合自动生成SKU
+ func (s *SKUService) GenerateSKUsFromSpecs(productID int, basePrice float64, merchantID int) ([]SKUWithSpecCombinations, error) {
+ 	// 检查商品是否属于该商户
+ 	var product models.Product
+ 	result := s.DB.Where("id = ? AND merchant_id = ?", productID, merchantID).First(&product)
+ 	if result.Error != nil {
+ 		return nil, errors.New("商品不存在或不属于该商户")
+ 	}
+ 
+ 	// 获取商品的所有规格和规格值
+ 	var specs []models.ProductSpecification
+ 	result = s.DB.Where("product_id = ?", productID).Preload("Values", func(db *gorm.DB) *gorm.DB {
+ 		return db.Where("status = ?", "active").Order("sort ASC")
+ 	}).Order("sort ASC").Find(&specs)
+ 	if result.Error != nil {
+ 		return nil, result.Error
+ 	}
+ 
+ 	if len(specs) == 0 {
+ 		return nil, errors.New("商品没有配置规格")
+ 	}
+ 
+ 	// 检查是否所有规格都有规格值
+ 	for _, spec := range specs {
+ 		if len(spec.Values) == 0 {
+ 			return nil, errors.New("规格 '" + spec.Name + "' 没有配置规格值")
+ 		}
+ 	}
+ 
+ 	// 生成规格组合
+ 	var combinations [][]models.ProductSpecificationValue
+ 	var generateCombinations func(specIndex int, current []models.ProductSpecificationValue)
+ 	generateCombinations = func(specIndex int, current []models.ProductSpecificationValue) {
+ 		if specIndex == len(specs) {
+ 			// 复制当前组合
+ 			combo := make([]models.ProductSpecificationValue, len(current))
+ 			copy(combo, current)
+ 			combinations = append(combinations, combo)
+ 			return
+ 		}
+ 
+ 		for _, value := range specs[specIndex].Values {
+ 			current = append(current, value)
+ 			generateCombinations(specIndex+1, current)
+ 			current = current[:len(current)-1]
+ 		}
+ 	}
+ 	generateCombinations(0, []models.ProductSpecificationValue{})
+ 
+ 	// 生成SKU列表
+ 	var skus []SKUWithSpecCombinations
+ 	for _, combo := range combinations {
+ 		// 生成SKU编码
+ 		var skuCodeParts []string
+ 		skuCodeParts = append(skuCodeParts, "PROD-"+strconv.Itoa(productID))
+ 		for _, value := range combo {
+ 			skuCodeParts = append(skuCodeParts, value.Value)
+ 		}
+ 		skuCode := strings.Join(skuCodeParts, "-")
+ 
+ 		sku := models.ProductSKU{
+ 			ProductID:     productID,
+ 			MerchantID:    merchantID,
+ 			SKUCode:       skuCode,
+ 			Price:         basePrice,
+ 			OriginalPrice: 0,
+ 			Stock:         0,
+ 			Status:        "active",
+ 		}
+ 
+ 		// 生成规格组合关联（用于返回给前端展示）
+ 		var specCombos []models.ProductSKUSpec
+ 		for _, value := range combo {
+ 			specCombos = append(specCombos, models.ProductSKUSpec{
+ 				SpecID:      value.SpecID,
+ 				SpecValueID: value.ID,
+ 			})
+ 		}
+ 
+ 		skus = append(skus, SKUWithSpecCombinations{
+ 			ProductSKU:       sku,
+ 			SpecCombinations: specCombos,
+ 		})
+ 	}
+ 
+ 	return skus, nil
+ }

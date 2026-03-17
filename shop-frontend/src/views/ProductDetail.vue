@@ -66,6 +66,7 @@
           :selected-specs="selectedSpecs"
           :sku-list="product.sku_list || []"
           @change="handleSpecChange"
+          @stock-change="handleStockChange"
         />
       </div>
 
@@ -118,6 +119,11 @@
     </div>
     <div v-else class="not-found">商品不存在</div>
 
+    <!-- 库存不足提示 -->
+    <div v-if="currentSkuStock !== null && currentSkuStock <= 0" class="stock-warning">
+      库存不足，无法购买
+    </div>
+
     <!-- 底部固定操作栏 -->
     <div v-if="product" class="bottom-action-bar">
       <div class="action-buttons">
@@ -148,6 +154,7 @@ const selectedSpecs = ref({})
 const selectedSkuId = ref(null)
 const quantity = ref(1)
 const currentImageIndex = ref(0)
+const currentSkuStock = ref(null)
 
 const defaultImage = 'https://via.placeholder.com/400x400?text=No+Image'
 
@@ -215,6 +222,11 @@ const canAddToCart = computed(() => {
     }
   }
 
+  // 检查库存
+  if (currentSkuStock.value !== null && currentSkuStock.value <= 0) {
+    return false
+  }
+
   return true
 })
 
@@ -245,6 +257,11 @@ const previewImage = () => {
 const handleSpecChange = (specs) => {
   selectedSpecs.value = specs
   quantity.value = 1 // 重置数量
+}
+
+// 处理库存变化
+const handleStockChange = (stock) => {
+  currentSkuStock.value = stock
 }
 
 const selectSku = (sku) => {
@@ -673,5 +690,19 @@ onMounted(() => {
 
 .btn-icon {
   font-size: 16px;
+}
+
+/* 库存不足提示 */
+.stock-warning {
+  position: fixed;
+  bottom: 120px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 8px;
+  background-color: #fff2f0;
+  color: #ff4d4f;
+  font-size: 14px;
+  z-index: 99;
 }
 </style>
