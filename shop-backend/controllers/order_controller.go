@@ -41,7 +41,7 @@ func (c *OrderController) CreateOrder(ctx *gin.Context) {
 
 	// 创建订单
 	order, err := c.orderService.CreateOrder(services.CreateOrderRequest{
-		UserID: userID.(uint),
+		UserID: userID.(int),
 		Items:  req.Items,
 	})
 	if err != nil {
@@ -64,7 +64,7 @@ func (c *OrderController) GetOrderDetail(ctx *gin.Context) {
 	}
 
 	// 从服务层获取订单详情
-	order, err := c.orderService.GetOrderDetail(orderID, userID.(uint))
+	order, err := c.orderService.GetOrderDetail(orderID, userID.(int))
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeOrderNotFound, err)
 		return

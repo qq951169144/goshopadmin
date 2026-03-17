@@ -327,15 +327,36 @@ export const productApi = {
   addProductImage: (data) => api.post('/product-images', data),
   // 删除商品图片
   deleteProductImage: (id) => api.delete(`/product-images/${id}`),
-  // 添加商品SKU
-  addProductSKU: (data) => api.post('/product-skus', data),
-  // 更新商品SKU
-  updateProductSKU: (id, data) => api.put(`/product-skus/${id}`, data),
-  // 删除商品SKU
-  deleteProductSKU: (id) => api.delete(`/product-skus/${id}`),
-
   // 更新商品图片
-  updateProductImage: (id, data) => api.put(`/product-images/${id}`, data)
+  updateProductImage: (id, data) => api.put(`/product-images/${id}`, data),
+
+  // ========== SKU多规格管理API ==========
+  // 获取商品规格列表
+  getProductSpecifications: (productId) => api.get(`/products/${productId}/specifications`),
+  // 创建商品规格
+  createProductSpecification: (productId, data) => api.post(`/products/${productId}/specifications`, data),
+  // 更新规格
+  updateSpecification: (id, data) => api.put(`/specifications/${id}`, data),
+  // 删除规格
+  deleteSpecification: (id) => api.delete(`/specifications/${id}`),
+  // 创建规格值
+  createSpecificationValue: (specId, data) => api.post(`/specifications/${specId}/values`, data),
+  // 更新规格值
+  updateSpecificationValue: (id, data) => api.put(`/specification-values/${id}`, data),
+  // 删除规格值
+  deleteSpecificationValue: (id) => api.delete(`/specification-values/${id}`),
+  // 获取商品SKU列表
+  getProductSKUs: (productId) => api.get(`/products/${productId}/skus`),
+  // 创建SKU
+  createProductSKU: (productId, data) => api.post(`/products/${productId}/skus`, data),
+  // 批量创建SKU
+  batchCreateSKUs: (productId, data) => api.post(`/products/${productId}/skus/batch`, data),
+  // 更新SKU
+  updateSKU: (id, data) => api.put(`/skus/${id}`, data),
+  // 删除SKU
+  deleteSKU: (id) => api.delete(`/skus/${id}`),
+  // 自动生成SKU组合
+  generateSKUs: (productId, data) => api.post(`/products/${productId}/skus/generate`, data)
 };
 
 export default api;

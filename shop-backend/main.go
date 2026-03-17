@@ -33,17 +33,19 @@ func main() {
 	cartService := services.NewCartService(conn.DB)
 	orderService := services.NewOrderService(conn.DB)
 	addressService := services.NewAddressService(conn.DB)
+	specificationService := services.NewSpecificationService(conn.DB)
 
 	// 6. 创建控制器实例（依赖注入）
 	deps := &routes.Dependencies{
-		AuthController:     controllers.NewAuthController(authService),
-		CustomerController: controllers.NewCustomerController(customerService),
-		CaptchaController:  controllers.NewCaptchaController(conn.Redis),
-		ProductController:  controllers.NewProductController(productService),
-		CartController:     controllers.NewCartController(cartService),
-		OrderController:    controllers.NewOrderController(orderService),
-		PaymentController:  controllers.NewPaymentController(orderService),
-		AddressController:  controllers.NewAddressController(addressService),
+		AuthController:          controllers.NewAuthController(authService),
+		CustomerController:      controllers.NewCustomerController(customerService),
+		CaptchaController:       controllers.NewCaptchaController(conn.Redis),
+		ProductController:       controllers.NewProductController(productService),
+		CartController:          controllers.NewCartController(cartService),
+		OrderController:         controllers.NewOrderController(orderService),
+		PaymentController:       controllers.NewPaymentController(orderService),
+		AddressController:       controllers.NewAddressController(addressService),
+		SpecificationController: controllers.NewSpecificationController(specificationService),
 	}
 
 	// 7. 设置路由

@@ -8,6 +8,8 @@ import Permissions from '../views/permissions/Permissions.vue'
 import Merchants from '../views/merchants/Merchants.vue'
 import Products from '../views/products/Products.vue'
 import ProductCategories from '../views/products/ProductCategories.vue'
+import ProductSpecifications from '../views/products/ProductSpecifications.vue'
+import ProductSKUs from '../views/products/ProductSKUs.vue'
 
 const routes = [
   {
@@ -58,6 +60,16 @@ const routes = [
         path: 'product-categories',
         name: 'ProductCategories',
         component: ProductCategories
+      },
+      {
+        path: 'products/:id/specifications',
+        name: 'ProductSpecifications',
+        component: ProductSpecifications
+      },
+      {
+        path: 'products/:id/skus',
+        name: 'ProductSKUs',
+        component: ProductSKUs
       }
     ]
   }

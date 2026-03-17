@@ -30,7 +30,7 @@ func (c *AddressController) GetAddresses(ctx *gin.Context) {
 		return
 	}
 
-	addresses, err := c.addressService.GetAddressList(customerID.(uint))
+	addresses, err := c.addressService.GetAddressList(customerID.(int))
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
@@ -51,13 +51,13 @@ func (c *AddressController) GetAddress(ctx *gin.Context) {
 	}
 
 	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
-	address, err := c.addressService.GetAddressByID(customerID.(uint), uint(id))
+	address, err := c.addressService.GetAddressByID(customerID.(int), id)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
@@ -96,7 +96,7 @@ func (c *AddressController) CreateAddress(ctx *gin.Context) {
 		return
 	}
 
-	address, err := c.addressService.CreateAddress(customerID.(uint), services.CreateAddressRequest{
+	address, err := c.addressService.CreateAddress(customerID.(int), services.CreateAddressRequest{
 		Name:          req.Name,
 		Phone:         req.Phone,
 		Province:      req.Province,
@@ -137,7 +137,7 @@ func (c *AddressController) UpdateAddress(ctx *gin.Context) {
 	}
 
 	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
@@ -149,7 +149,7 @@ func (c *AddressController) UpdateAddress(ctx *gin.Context) {
 		return
 	}
 
-	address, err := c.addressService.UpdateAddress(customerID.(uint), uint(id), services.UpdateAddressRequest{
+	address, err := c.addressService.UpdateAddress(customerID.(int), id, services.UpdateAddressRequest{
 		Name:          req.Name,
 		Phone:         req.Phone,
 		Province:      req.Province,
@@ -179,13 +179,13 @@ func (c *AddressController) DeleteAddress(ctx *gin.Context) {
 	}
 
 	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
-	if err := c.addressService.DeleteAddress(customerID.(uint), uint(id)); err != nil {
+	if err := c.addressService.DeleteAddress(customerID.(int), id); err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
@@ -205,13 +205,13 @@ func (c *AddressController) SetDefaultAddress(ctx *gin.Context) {
 	}
 
 	idStr := ctx.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
 
-	if err := c.addressService.SetDefaultAddress(customerID.(uint), uint(id)); err != nil {
+	if err := c.addressService.SetDefaultAddress(customerID.(int), id); err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
@@ -230,7 +230,7 @@ func (c *AddressController) GetDefaultAddress(ctx *gin.Context) {
 		return
 	}
 
-	address, err := c.addressService.GetDefaultAddress(customerID.(uint))
+	address, err := c.addressService.GetDefaultAddress(customerID.(int))
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return

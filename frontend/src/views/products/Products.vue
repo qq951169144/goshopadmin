@@ -20,13 +20,14 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="400">
+        <el-table-column label="操作" width="500">
           <template #default="scope">
             <el-button size="small" @click="handleEditProduct(scope.row)">编辑</el-button>
             <el-button size="small" type="danger" @click="handleDeleteProduct(scope.row.id)">删除</el-button>
             <el-button size="small" @click="handleViewProduct(scope.row)">预览</el-button>
             <el-button size="small" @click="handleManageImages(scope.row)">图片管理</el-button>
-            <el-button size="small" @click="handleManageSKUs(scope.row)">SKU管理</el-button>
+            <el-button size="small" type="primary" @click="handleManageSpecifications(scope.row)">管理规格</el-button>
+            <el-button size="small" type="success" @click="handleManageSKUsNew(scope.row)">管理SKU</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -113,6 +114,7 @@
             <el-checkbox v-model="image.is_main" @change="handleSetMainImage(image)">
               主图
             </el-checkbox>
+            <div class="sort-label">排序:</div>
             <el-input-number
               v-model="image.sort"
               :min="0"
@@ -120,6 +122,7 @@
               :disabled="sortUpdating[image.id]"
               @change="handleUpdateImageSort(image)"
               style="width: 110px; margin: 5px 0"
+              placeholder="排序"
             />
             <el-button size="small" type="danger" @click="handleDeleteImage(image.id)">
               删除
@@ -130,86 +133,6 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="imageDialogVisible = false">关闭</el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <!-- 商品SKU管理对话框 -->
-    <el-dialog
-      v-model="skuDialogVisible"
-      title="商品SKU管理"
-      width="600px"
-    >
-      <div class="sku-section">
-        <el-button type="primary" @click="handleAddSKU">添加SKU</el-button>
-        <el-table :data="productSKUs" style="margin-top: 20px">
-          <el-table-column prop="sku_code" label="SKU编码" />
-          <el-table-column prop="attributes" label="属性" />
-          <el-table-column prop="price" label="价格" width="100" />
-          <el-table-column prop="stock" label="库存" width="80" />
-          <el-table-column prop="status" label="状态" width="100">
-            <template #default="scope">
-              <el-tag :type="scope.row.status === 'active' ? 'success' : 'danger'">
-                {{ scope.row.status === 'active' ? '激活' : '禁用' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="150">
-            <template #default="scope">
-              <el-button size="small" @click="handleEditSKU(scope.row)">编辑</el-button>
-              <el-button size="small" type="danger" @click="handleDeleteSKU(scope.row.id)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="skuDialogVisible = false">关闭</el-button>
-        </span>
-      </template>
-    </el-dialog>
-
-    <!-- SKU编辑对话框 -->
-    <el-dialog
-      v-model="skuEditDialogVisible"
-      :title="skuForm.id ? '编辑SKU' : '添加SKU'"
-      width="500px"
-      @closed="resetSKUForm"
-    >
-      <el-form :model="skuForm" ref="skuFormRef">
-        <el-form-item label="SKU编码" prop="sku_code">
-          <el-input v-model="skuForm.sku_code" placeholder="请输入SKU编码" />
-        </el-form-item>
-        <el-form-item label="属性" prop="attributes">
-          <el-input v-model="skuForm.attributes" placeholder='请输入SKU属性，如{"color": "red", "size": "M"}' />
-        </el-form-item>
-        <el-form-item label="价格" prop="price">
-          <el-input-number
-            v-model="skuForm.price"
-            :min="0"
-            :step="0.01"
-            :precision="2"
-            placeholder="请输入价格"
-          />
-        </el-form-item>
-        <el-form-item label="库存" prop="stock">
-          <el-input-number
-            v-model="skuForm.stock"
-            :min="0"
-            placeholder="请输入库存"
-          />
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-select v-model="skuForm.status" placeholder="请选择状态">
-            <el-option label="激活" value="active" />
-            <el-option label="禁用" value="inactive" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="skuEditDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSaveSKU">保存</el-button>
         </span>
       </template>
     </el-dialog>
@@ -278,18 +201,6 @@ export default {
       uploadHeaders: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      skuDialogVisible: false,
-      productSKUs: [],
-      skuForm: {
-        id: 0,
-        product_id: 0,
-        sku_code: '',
-        attributes: '',
-        price: 0,
-        stock: 0,
-        status: 'active'
-      },
-      skuEditDialogVisible: false,
       previewDialogVisible: false,
       previewProduct: {},
       sortUpdating: {},      // 记录正在更新排序的图片ID
@@ -390,18 +301,6 @@ export default {
         this.quillEditor.root.innerHTML = ''
       }
     },
-    // 重置SKU表单
-    resetSKUForm() {
-      this.skuForm = {
-        id: 0,
-        product_id: 0,
-        sku_code: '',
-        attributes: '',
-        price: 0,
-        stock: 0,
-        status: 'active'
-      }
-    },
     // 处理添加商品
     handleCreateProduct() {
       this.productDialogTitle = '添加商品'
@@ -481,12 +380,20 @@ export default {
         this.imageDialogVisible = true
       }).catch(() => {})
     },
-    // 打开SKU管理对话框
+    // 打开SKU管理对话框（旧版）
     handleManageSKUs(product) {
       this.productForm.id = product.id
       // 获取商品SKU列表
       this.getProductSKUs(product.id)
       this.skuDialogVisible = true
+    },
+    // 打开规格管理页面
+    handleManageSpecifications(product) {
+      this.$emit('manage-specifications', product)
+    },
+    // 打开SKU管理页面
+    handleManageSKUsNew(product) {
+      this.$emit('manage-skus', product)
     },
     // 图片上传成功处理
     handleImageUploadSuccess(response, file, fileList) {
@@ -566,74 +473,6 @@ export default {
           delete this.sortDebounceTimers[image.id]
         })
       }, 800)
-    },
-    // 处理添加SKU
-    handleAddSKU() {
-      this.skuForm = {
-        id: 0,
-        product_id: this.productForm.id,
-        sku_code: `SKU${Date.now()}`,
-        attributes: '{"color": "red", "size": "M"}',
-        price: 0,
-        stock: 0,
-        status: 'active'
-      }
-      this.skuEditDialogVisible = true
-    },
-    // 处理编辑SKU
-    handleEditSKU(sku) {
-      this.skuForm = {
-        id: sku.id,
-        product_id: sku.product_id,
-        sku_code: sku.sku_code,
-        attributes: sku.attributes,
-        price: sku.price,
-        stock: sku.stock,
-        status: sku.status
-      }
-      this.skuEditDialogVisible = true
-    },
-    // 处理保存SKU
-    handleSaveSKU() {
-      if (this.skuForm.id) {
-        // 更新SKU
-        productApi.updateProductSKU(this.skuForm.id, this.skuForm).then(() => {
-          this.$message.success('更新SKU成功')
-          this.skuEditDialogVisible = false
-          this.getProductSKUs(this.skuForm.product_id)
-          this.getProducts() // 重新获取商品列表
-        })
-      } else {
-        // 创建SKU
-        productApi.addProductSKU(this.skuForm).then(() => {
-          this.$message.success('添加SKU成功')
-          this.skuEditDialogVisible = false
-          this.getProductSKUs(this.skuForm.product_id)
-          this.getProducts() // 重新获取商品列表
-        })
-      }
-    },
-    // 处理删除SKU
-    handleDeleteSKU(id) {
-      this.$confirm('确定要删除这个SKU吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
-        productApi.deleteProductSKU(id).then(() => {
-          this.$message.success('删除SKU成功')
-          this.productSKUs = this.productSKUs.filter(sku => sku.id !== id)
-          this.getProducts() // 重新获取商品列表
-        })
-      }).catch(() => {
-        // 取消删除
-      })
-    },
-    // 获取商品SKU列表
-    getProductSKUs(productId) {
-      productApi.getProduct(productId).then(data => {
-        this.productSKUs = data.skus || []
-      }).catch(() => {})
     }
   }
 }
@@ -680,8 +519,10 @@ export default {
   gap: 5px;
 }
 
-.sku-section {
-  margin-top: 20px;
+.sort-label {
+  font-size: 12px;
+  color: #606266;
+  margin-bottom: 2px;
 }
 
 .product-preview {

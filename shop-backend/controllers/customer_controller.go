@@ -37,7 +37,7 @@ func (c *CustomerController) GetProfile(ctx *gin.Context) {
 	}
 
 	// 从服务层获取客户信息
-	customer, err := c.customerService.GetProfile(customerID.(uint))
+	customer, err := c.customerService.GetProfile(customerID.(int))
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeUserNotFound, err)
 		return
@@ -62,7 +62,7 @@ func (c *CustomerController) UpdateProfile(ctx *gin.Context) {
 	}
 
 	// 更新客户信息
-	customer, err := c.customerService.UpdateProfile(customerID.(uint), services.UpdateProfileRequest{
+	customer, err := c.customerService.UpdateProfile(customerID.(int), services.UpdateProfileRequest{
 		Username: req.Username,
 		Email:    req.Email,
 	})
@@ -92,7 +92,7 @@ func (c *CustomerController) GetOrders(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "10"))
 
 	// 从服务层获取订单列表
-	orders, total, err := c.customerService.GetOrders(customerID.(uint), page, limit)
+	orders, total, err := c.customerService.GetOrders(customerID.(int), page, limit)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return

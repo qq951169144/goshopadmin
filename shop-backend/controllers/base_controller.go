@@ -88,11 +88,11 @@ func (c *BaseController) ResponseErrorWithMessage(ctx *gin.Context, bizCode int,
 }
 
 // GetUserID 从上下文获取用户ID
-func (c *BaseController) GetUserID(ctx *gin.Context) (uint, bool) {
+func (c *BaseController) GetUserID(ctx *gin.Context) (int, bool) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return 0, false
 	}
-	return userID.(uint), true
+	return userID.(int), true
 }

@@ -8,14 +8,15 @@ import (
 
 // Dependencies 包含所有依赖
 type Dependencies struct {
-	AuthController     *controllers.AuthController
-	CustomerController *controllers.CustomerController
-	CaptchaController  *controllers.CaptchaController
-	ProductController  *controllers.ProductController
-	CartController     *controllers.CartController
-	OrderController    *controllers.OrderController
-	PaymentController  *controllers.PaymentController
-	AddressController  *controllers.AddressController
+	AuthController         *controllers.AuthController
+	CustomerController     *controllers.CustomerController
+	CaptchaController      *controllers.CaptchaController
+	ProductController      *controllers.ProductController
+	CartController         *controllers.CartController
+	OrderController        *controllers.OrderController
+	PaymentController      *controllers.PaymentController
+	AddressController      *controllers.AddressController
+	SpecificationController *controllers.SpecificationController
 }
 
 // SetupRouter 设置路由
@@ -80,7 +81,9 @@ func SetupRouter(deps *Dependencies) *gin.Engine {
 		products := api.Group("/products")
 		{
 			products.GET("", deps.ProductController.GetProducts)
-			products.GET("/:id", deps.ProductController.GetProductDetail)
+			products.GET("/:id", deps.SpecificationController.GetProductDetail)
+			products.GET("/:id/skus", deps.SpecificationController.GetProductSKUs)
+			products.GET("/:id/sku", deps.SpecificationController.GetSKUBySpecCombination)
 		}
 
 		// 购物车路由

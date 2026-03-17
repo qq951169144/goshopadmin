@@ -29,7 +29,7 @@ type OrderItemInfo struct {
 
 // CreateOrderRequest 创建订单请求
 type CreateOrderRequest struct {
-	UserID uint
+	UserID int
 	Items  []OrderItemInfo
 }
 
@@ -113,7 +113,7 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 }
 
 // GetOrderDetail 获取订单详情
-func (s *OrderService) GetOrderDetail(orderID string, userID uint) (map[string]interface{}, error) {
+func (s *OrderService) GetOrderDetail(orderID string, userID int) (map[string]interface{}, error) {
 	// 从数据库获取订单详情
 	var order models.Order
 	result := s.db.Where("order_no = ? AND customer_id = ?", orderID, userID).Preload("Items").First(&order)

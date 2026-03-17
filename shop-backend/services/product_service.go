@@ -18,7 +18,7 @@ func NewProductService(db *gorm.DB) *ProductService {
 
 // ProductInfo 商品信息结构
 type ProductInfo struct {
-	ID              uint     `json:"id"`
+	ID              int      `json:"id"`
 	Name            string   `json:"name"`
 	Description     string   `json:"description"`
 	Price           float64  `json:"price"`
@@ -32,7 +32,7 @@ type ProductInfo struct {
 
 // ProductDetailInfo 商品详情信息结构
 type ProductDetailInfo struct {
-	ID           uint      `json:"id"`
+	ID           int       `json:"id"`
 	Name         string    `json:"name"`
 	Description  string    `json:"description"`
 	Detail       string    `json:"detail"`
@@ -46,7 +46,7 @@ type ProductDetailInfo struct {
 
 // SKUInfo SKU信息结构
 type SKUInfo struct {
-	ID         uint              `json:"id"`
+	ID         int               `json:"id"`
 	Name       string            `json:"name"`
 	Price      float64           `json:"price"`
 	Stock      int               `json:"stock"`
@@ -97,12 +97,12 @@ func (s *ProductService) GetProducts(req GetProductsRequest) (*GetProductsRespon
 			defaultSkuPrice = defaultSku.Price
 		}
 
-		// 查询商品图片列表 - 优先获取is_main=1的图片，否则按sort_order排序取第一张
+		// 查询商品图片列表 - 优先获取is_main=1的图片，否则按sort排序取第一张
 		var productImages []models.ProductImage
-		s.db.Where("product_id = ?", p.ID).Order("is_main DESC, sort_order ASC").Find(&productImages)
+		s.db.Where("product_id = ?", p.ID).Order("is_main DESC, sort ASC").Find(&productImages)
 
-		// 构建图片URL列表 - is_main优先，然后按sort_order
-		var images []string
+		// 构建图片URL列表 - is_main优先，然后按sort
+		images := make([]string, 0)
 		var mainImage string
 
 		for _, img := range productImages {
@@ -119,18 +119,11 @@ func (s *ProductService) GetProducts(req GetProductsRequest) (*GetProductsRespon
 			mainImage = images[0]
 		}
 
-		// 如果product_images没有图片，使用products表的image字段
-		if mainImage == "" && p.Image != "" {
-			mainImage = p.Image
-			images = append([]string{p.Image}, images...)
-		}
-
 		productList = append(productList, ProductInfo{
-			ID:              p.ID,
+			ID:              int(p.ID),
 			Name:            p.Name,
 			Description:     p.Description,
 			Price:           p.Price,
-			SKU:             p.SKU,
 			Stock:           p.Stock,
 			Image:           mainImage,
 			Images:          images,
@@ -161,7 +154,7 @@ func (s *ProductService) GetProductDetail(id int) (*ProductDetailInfo, error) {
 	for _, sku := range skus {
 		skuList = append(skuList, SKUInfo{
 			ID:    sku.ID,
-			Name:  sku.Name,
+			Name:  sku.SKUCode,
 			Price: sku.Price,
 			Stock: sku.Stock,
 		})
@@ -177,30 +170,32 @@ func (s *ProductService) GetProductDetail(id int) (*ProductDetailInfo, error) {
 		})
 	}
 
-	// 查询商品图片列表 - is_main DESC(主图优先), sort_order ASC(排序)
+	// 查询商品图片列表 - is_main DESC(主图优先), sort ASC(排序)
 	var productImages []models.ProductImage
-	s.db.Where("product_id = ?", id).Order("is_main DESC, sort_order ASC").Find(&productImages)
+	s.db.Where("product_id = ?", id).Order("is_main DESC, sort ASC").Find(&productImages)
 
 	// 构建图片URL列表 - is_main放第一位
-	var images []string
+	images := make([]string, 0)
+	var mainImage string
 	for _, img := range productImages {
 		if img.ImageURL != "" {
 			images = append(images, img.ImageURL)
+			if img.IsMain && mainImage == "" {
+				mainImage = img.ImageURL
+			}
 		}
 	}
-
-	// 如果product_images没有图片，使用products表的image字段
-	if len(images) == 0 && product.Image != "" {
-		images = append(images, product.Image)
+	if mainImage == "" && len(images) > 0 {
+		mainImage = images[0]
 	}
 
 	return &ProductDetailInfo{
-		ID:           product.ID,
+		ID:           int(product.ID),
 		Name:         product.Name,
 		Description:  product.Description,
 		Detail:       product.Detail, // 富文本详情
 		Price:        product.Price,
-		Image:        product.Image,
+		Image:        mainImage,
 		Images:       images,
 		SKUs:         skuList,
 		Sales:        0,

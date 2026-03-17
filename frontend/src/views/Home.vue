@@ -64,28 +64,50 @@
         <el-main class="main">
           <div class="content">
             <!-- 仪表盘 -->
-            <Dashboard v-if="activeMenu === 'dashboard'" />
+            <Dashboard v-if="currentView === 'dashboard'" />
             
             <!-- 用户管理 -->
-            <Users v-else-if="activeMenu === 'users' && hasPermission('user:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
+            <Users v-else-if="currentView === 'users' && hasPermission('user:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
             
             <!-- 角色管理 -->
-            <Roles v-else-if="activeMenu === 'roles' && hasPermission('role:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
+            <Roles v-else-if="currentView === 'roles' && hasPermission('role:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
             
             <!-- 权限管理 -->
-            <Permissions v-else-if="activeMenu === 'permissions' && hasPermission('role:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
+            <Permissions v-else-if="currentView === 'permissions' && hasPermission('role:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
             
             <!-- 商户管理 -->
-            <Merchants v-else-if="activeMenu === 'merchants' && hasPermission('merchant:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
+            <Merchants v-else-if="currentView === 'merchants' && hasPermission('merchant:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
             
             <!-- 商品管理 -->
-            <Products v-else-if="activeMenu === 'products' && hasPermission('product:manage')" :has-permission="hasPermission" @refresh="handleRefresh" />
+            <Products 
+              v-else-if="currentView === 'products' && hasPermission('product:manage')" 
+              :has-permission="hasPermission" 
+              @refresh="handleRefresh"
+              @manage-specifications="handleManageSpecifications"
+              @manage-skus="handleManageSKUs"
+            />
             
             <!-- 商品分类管理 -->
-            <ProductCategories v-else-if="activeMenu === 'product-categories' && hasPermission('product:category')" :has-permission="hasPermission" @refresh="handleRefresh" />
+            <ProductCategories v-else-if="currentView === 'product-categories' && hasPermission('product:category')" :has-permission="hasPermission" @refresh="handleRefresh" />
+            
+            <!-- 规格管理 -->
+            <ProductSpecifications 
+              v-else-if="currentView === 'specifications' && hasPermission('product:manage')" 
+              :product-id="currentProduct?.id"
+              :product-name="currentProduct?.name"
+              @back="handleBackToProducts"
+            />
+            
+            <!-- SKU管理 -->
+            <ProductSKUs 
+              v-else-if="currentView === 'skus' && hasPermission('product:manage')" 
+              :product-id="currentProduct?.id"
+              :product-name="currentProduct?.name"
+              @back="handleBackToProducts"
+            />
             
             <!-- 无权限提示 -->
-            <el-card v-else-if="(activeMenu === 'users' || activeMenu === 'roles' || activeMenu === 'permissions' || activeMenu === 'merchants' || activeMenu === 'products' || activeMenu === 'product-categories')">
+            <el-card v-else-if="(currentView === 'users' || currentView === 'roles' || currentView === 'permissions' || currentView === 'merchants' || currentView === 'products' || currentView === 'product-categories')">
               <div class="no-permission">
                 <el-empty description="您没有权限访问此页面" />
               </div>
@@ -111,8 +133,12 @@ import Permissions from './permissions/Permissions.vue';
 import Merchants from './merchants/Merchants.vue';
 import Products from './products/Products.vue';
 import ProductCategories from './products/ProductCategories.vue';
+import ProductSpecifications from './products/ProductSpecifications.vue';
+import ProductSKUs from './products/ProductSKUs.vue';
 
 const activeMenu = ref('dashboard');
+const currentView = ref('dashboard'); // 当前视图：dashboard, users, roles, permissions, merchants, products, product-categories, specifications, skus
+const currentProduct = ref(null); // 当前选中的商品
 const user = ref(null);
 
 // 计算属性：用户信息
@@ -135,6 +161,26 @@ const hasPermission = (permissionCode) => {
 // 处理菜单选择
 const handleMenuSelect = (key) => {
   activeMenu.value = key;
+  currentView.value = key;
+  currentProduct.value = null;
+};
+
+// 处理管理规格
+const handleManageSpecifications = (product) => {
+  currentProduct.value = product;
+  currentView.value = 'specifications';
+};
+
+// 处理管理SKU
+const handleManageSKUs = (product) => {
+  currentProduct.value = product;
+  currentView.value = 'skus';
+};
+
+// 返回商品列表
+const handleBackToProducts = () => {
+  currentView.value = 'products';
+  currentProduct.value = null;
 };
 
 // 处理登出

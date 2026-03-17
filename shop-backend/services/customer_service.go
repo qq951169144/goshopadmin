@@ -20,14 +20,14 @@ func NewCustomerService(db *gorm.DB) *CustomerService {
 
 // CustomerResponse 客户响应结构
 type CustomerResponse struct {
-	ID        uint      `json:"id"`
+	ID        int       `json:"id"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 // GetProfile 获取个人信息
-func (s *CustomerService) GetProfile(customerID uint) (*CustomerResponse, error) {
+func (s *CustomerService) GetProfile(customerID int) (*CustomerResponse, error) {
 	var customer models.Customer
 	result := s.db.First(&customer, customerID)
 	if result.RowsAffected == 0 {
@@ -49,7 +49,7 @@ type UpdateProfileRequest struct {
 }
 
 // UpdateProfile 更新个人信息
-func (s *CustomerService) UpdateProfile(customerID uint, req UpdateProfileRequest) (*CustomerResponse, error) {
+func (s *CustomerService) UpdateProfile(customerID int, req UpdateProfileRequest) (*CustomerResponse, error) {
 	var customer models.Customer
 	result := s.db.First(&customer, customerID)
 	if result.RowsAffected == 0 {
@@ -77,7 +77,7 @@ func (s *CustomerService) UpdateProfile(customerID uint, req UpdateProfileReques
 }
 
 // GetOrders 获取订单列表
-func (s *CustomerService) GetOrders(customerID uint, page, limit int) ([]map[string]interface{}, int64, error) {
+func (s *CustomerService) GetOrders(customerID int, page, limit int) ([]map[string]interface{}, int64, error) {
 	// 构建查询
 	query := s.db.Model(&models.Order{}).Where("customer_id = ?", customerID)
 

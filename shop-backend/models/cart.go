@@ -6,7 +6,7 @@ import (
 
 // Cart 购物车模型
 type Cart struct {
-	ID        uint       `json:"id" gorm:"primaryKey;type:int UNSIGNED"`
+	ID        int        `json:"id" gorm:"primaryKey"`
 	UserID    int        `json:"user_id" gorm:"index"`
 	SessionID string     `json:"session_id" gorm:"index"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -16,7 +16,7 @@ type Cart struct {
 
 // CartItem 购物车项模型
 type CartItem struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
+	ID        int       `json:"id" gorm:"primaryKey"`
 	CartID    int       `json:"cart_id" gorm:"index"`
 	ProductID int       `json:"product_id" gorm:"index"`
 	Quantity  int       `json:"quantity" gorm:"not null;default:1"`

@@ -3,9 +3,10 @@ package controllers
 import (
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"shop-backend/errors"
 	"shop-backend/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 // CartController 购物车控制器
@@ -40,7 +41,7 @@ func (c *CartController) GetCart(ctx *gin.Context) {
 	}
 
 	// 从服务层获取购物车
-	cart, err := c.cartService.GetCart(userID.(uint))
+	cart, err := c.cartService.GetCart(userID.(int))
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
@@ -66,7 +67,7 @@ func (c *CartController) AddToCart(ctx *gin.Context) {
 
 	// 添加到购物车
 	err := c.cartService.AddToCart(services.AddToCartRequest{
-		UserID:    userID.(uint),
+		UserID:    userID.(int),
 		ProductID: req.ProductID,
 		Quantity:  req.Quantity,
 		Price:     req.Price,
@@ -91,7 +92,7 @@ type UpdateCartItemRequest struct {
 // UpdateCartItem 更新购物车项
 func (c *CartController) UpdateCartItem(ctx *gin.Context) {
 	itemID := ctx.Param("id")
-	itemIDUint, err := strconv.ParseUint(itemID, 10, 32)
+	itemIDInt, err := strconv.Atoi(itemID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
@@ -112,8 +113,8 @@ func (c *CartController) UpdateCartItem(ctx *gin.Context) {
 
 	// 更新购物车项
 	err = c.cartService.UpdateCartItem(services.UpdateCartItemRequest{
-		UserID:   userID.(uint),
-		ItemID:   uint(itemIDUint),
+		UserID:   userID.(int),
+		ItemID:   itemIDInt,
 		Quantity: req.Quantity,
 	})
 	if err != nil {
@@ -131,7 +132,7 @@ func (c *CartController) UpdateCartItem(ctx *gin.Context) {
 // RemoveCartItem 移除购物车项
 func (c *CartController) RemoveCartItem(ctx *gin.Context) {
 	itemID := ctx.Param("id")
-	itemIDUint, err := strconv.ParseUint(itemID, 10, 32)
+	itemIDInt, err := strconv.Atoi(itemID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
@@ -146,8 +147,8 @@ func (c *CartController) RemoveCartItem(ctx *gin.Context) {
 
 	// 移除购物车项
 	err = c.cartService.RemoveCartItem(services.RemoveCartItemRequest{
-		UserID: userID.(uint),
-		ItemID: uint(itemIDUint),
+		UserID: userID.(int),
+		ItemID: itemIDInt,
 	})
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
@@ -182,7 +183,7 @@ func (c *CartController) SyncCart(ctx *gin.Context) {
 
 	// 同步购物车
 	err := c.cartService.SyncCart(services.SyncCartRequest{
-		UserID: userID.(uint),
+		UserID: userID.(int),
 		Items:  req.Items,
 	})
 	if err != nil {

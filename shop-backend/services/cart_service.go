@@ -31,7 +31,7 @@ type CartInfo struct {
 }
 
 // GetCart 获取购物车
-func (s *CartService) GetCart(userID uint) (*CartInfo, error) {
+func (s *CartService) GetCart(userID int) (*CartInfo, error) {
 	// 从数据库获取购物车
 	var cart models.Cart
 	result := s.db.Where("user_id = ?", int(userID)).Preload("Items").First(&cart)
@@ -56,7 +56,7 @@ func (s *CartService) GetCart(userID uint) (*CartInfo, error) {
 
 // AddToCartRequest 添加到购物车请求
 type AddToCartRequest struct {
-	UserID    uint
+	UserID    int
 	ProductID int
 	Quantity  int
 	Price     float64
@@ -106,8 +106,8 @@ func (s *CartService) AddToCart(req AddToCartRequest) error {
 
 // UpdateCartItemRequest 更新购物车项请求
 type UpdateCartItemRequest struct {
-	UserID   uint
-	ItemID   uint
+	UserID   int
+	ItemID   int
 	Quantity int
 }
 
@@ -131,8 +131,8 @@ func (s *CartService) UpdateCartItem(req UpdateCartItemRequest) error {
 
 // RemoveCartItemRequest 移除购物车项请求
 type RemoveCartItemRequest struct {
-	UserID uint
-	ItemID uint
+	UserID int
+	ItemID int
 }
 
 // RemoveCartItem 移除购物车项
@@ -154,7 +154,7 @@ func (s *CartService) RemoveCartItem(req RemoveCartItemRequest) error {
 
 // SyncCartRequest 同步购物车请求
 type SyncCartRequest struct {
-	UserID uint
+	UserID int
 	Items  []CartItemInfo
 }
 

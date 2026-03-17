@@ -67,7 +67,7 @@ func Auth() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("user_id", uint(userID))
+		c.Set("user_id", int(userID))
 		c.Next()
 	}
 }

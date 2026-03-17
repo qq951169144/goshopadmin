@@ -18,7 +18,7 @@ func NewAddressService(db *gorm.DB) *AddressService {
 
 // AddressResponse 地址响应结构
 type AddressResponse struct {
-	ID            uint   `json:"id"`
+	ID            int    `json:"id"`
 	Name          string `json:"name"`
 	Phone         string `json:"phone"`
 	Province      string `json:"province"`
@@ -51,7 +51,7 @@ type UpdateAddressRequest struct {
 }
 
 // GetAddressList 获取地址列表
-func (s *AddressService) GetAddressList(customerID uint) ([]AddressResponse, error) {
+func (s *AddressService) GetAddressList(customerID int) ([]AddressResponse, error) {
 	var addresses []models.Address
 	result := s.db.Where("customer_id = ?", customerID).Order("is_default DESC, created_at DESC").Find(&addresses)
 	if result.Error != nil {
@@ -76,7 +76,7 @@ func (s *AddressService) GetAddressList(customerID uint) ([]AddressResponse, err
 }
 
 // GetAddressByID 根据ID获取地址
-func (s *AddressService) GetAddressByID(customerID, addressID uint) (*AddressResponse, error) {
+func (s *AddressService) GetAddressByID(customerID, addressID int) (*AddressResponse, error) {
 	var address models.Address
 	result := s.db.Where("id = ? AND customer_id = ?", addressID, customerID).First(&address)
 	if result.Error != nil {
@@ -99,7 +99,7 @@ func (s *AddressService) GetAddressByID(customerID, addressID uint) (*AddressRes
 }
 
 // CreateAddress 创建地址
-func (s *AddressService) CreateAddress(customerID uint, req CreateAddressRequest) (*AddressResponse, error) {
+func (s *AddressService) CreateAddress(customerID int, req CreateAddressRequest) (*AddressResponse, error) {
 	// 如果设置为默认地址，先将其他地址设为非默认
 	if req.IsDefault {
 		s.db.Model(&models.Address{}).Where("customer_id = ?", customerID).Update("is_default", false)
@@ -133,7 +133,7 @@ func (s *AddressService) CreateAddress(customerID uint, req CreateAddressRequest
 }
 
 // UpdateAddress 更新地址
-func (s *AddressService) UpdateAddress(customerID, addressID uint, req UpdateAddressRequest) (*AddressResponse, error) {
+func (s *AddressService) UpdateAddress(customerID, addressID int, req UpdateAddressRequest) (*AddressResponse, error) {
 	var address models.Address
 	result := s.db.Where("id = ? AND customer_id = ?", addressID, customerID).First(&address)
 	if result.Error != nil {
@@ -186,7 +186,7 @@ func (s *AddressService) UpdateAddress(customerID, addressID uint, req UpdateAdd
 }
 
 // DeleteAddress 删除地址
-func (s *AddressService) DeleteAddress(customerID, addressID uint) error {
+func (s *AddressService) DeleteAddress(customerID, addressID int) error {
 	result := s.db.Where("id = ? AND customer_id = ?", addressID, customerID).Delete(&models.Address{})
 	if result.Error != nil {
 		return result.Error
@@ -198,7 +198,7 @@ func (s *AddressService) DeleteAddress(customerID, addressID uint) error {
 }
 
 // SetDefaultAddress 设置默认地址
-func (s *AddressService) SetDefaultAddress(customerID, addressID uint) error {
+func (s *AddressService) SetDefaultAddress(customerID, addressID int) error {
 	var address models.Address
 	result := s.db.Where("id = ? AND customer_id = ?", addressID, customerID).First(&address)
 	if result.Error != nil {
@@ -219,7 +219,7 @@ func (s *AddressService) SetDefaultAddress(customerID, addressID uint) error {
 }
 
 // GetDefaultAddress 获取默认地址
-func (s *AddressService) GetDefaultAddress(customerID uint) (*AddressResponse, error) {
+func (s *AddressService) GetDefaultAddress(customerID int) (*AddressResponse, error) {
 	var address models.Address
 	result := s.db.Where("customer_id = ? AND is_default = ?", customerID, true).First(&address)
 	if result.Error != nil {

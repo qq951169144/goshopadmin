@@ -6,7 +6,7 @@ import (
 
 // Order 订单模型
 type Order struct {
-	ID            uint        `json:"id" gorm:"primaryKey;type:int UNSIGNED"`
+	ID            int         `json:"id" gorm:"primaryKey"`
 	OrderNo       string      `json:"order_no" gorm:"size:32;unique;not null"`
 	CustomerID    int         `json:"customer_id" gorm:"not null;index"`
 	MerchantID    int         `json:"merchant_id" gorm:"not null;index"`
@@ -26,8 +26,8 @@ type Order struct {
 
 // OrderItem 订单项模型
 type OrderItem struct {
-	ID            uint      `json:"id" gorm:"primaryKey;type:int UNSIGNED"`
-	OrderID       uint      `json:"order_id" gorm:"not null;index;type:int UNSIGNED"`
+	ID            int       `json:"id" gorm:"primaryKey"`
+	OrderID       int       `json:"order_id" gorm:"not null;index"`
 	ProductID     int       `json:"product_id" gorm:"not null;index"`
 	SkuID         int       `json:"sku_id"`
 	ProductName   string    `json:"product_name" gorm:"size:100;not null"`

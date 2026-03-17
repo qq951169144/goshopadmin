@@ -179,8 +179,6 @@ CREATE TABLE IF NOT EXISTS products (
     status enum('active','inactive') DEFAULT 'active',
     created_at datetime(3) DEFAULT NULL,
     updated_at datetime(3) DEFAULT NULL,
-    sku VARCHAR(191) DEFAULT NULL,
-    UNIQUE INDEX sku (sku),
     INDEX idx_products_merchant_id (merchant_id),
     INDEX idx_products_category_id (category_id),
     INDEX idx_products_status (status)
@@ -192,9 +190,9 @@ CREATE TABLE IF NOT EXISTS product_skus (
     product_id INT NOT NULL,
     merchant_id INT NOT NULL,
     sku_code VARCHAR(50) NOT NULL,
-    sku VARCHAR(50) NOT NULL,
-    attributes JSON NOT NULL,
+    attributes JSON,
     price DECIMAL(10,2) NOT NULL,
+    original_price DECIMAL(10,2) DEFAULT 0 COMMENT '原价',
     stock INT NOT NULL,
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -204,6 +202,41 @@ CREATE TABLE IF NOT EXISTS product_skus (
     INDEX idx_product_skus_merchant_id (merchant_id),
     INDEX idx_product_skus_status (status)
 );
+
+-- 创建商品规格表
+CREATE TABLE IF NOT EXISTS product_specifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT NOT NULL COMMENT '所属商品ID',
+    name VARCHAR(50) NOT NULL COMMENT '规格名称：颜色、尺寸、版本',
+    sort INT DEFAULT 0 COMMENT '排序，控制前端展示顺序',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_product_specifications_product_id (product_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 创建规格值表
+CREATE TABLE IF NOT EXISTS product_specification_values (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    spec_id INT NOT NULL COMMENT '关联规格ID',
+    value VARCHAR(50) NOT NULL COMMENT '规格值：红色、M码',
+    sort INT DEFAULT 0 COMMENT '排序',
+    status enum('active','inactive') DEFAULT 'active' COMMENT '状态：active-启用，inactive-禁用',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_specification_values_spec_id (spec_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 创建SKU规格关联表
+CREATE TABLE IF NOT EXISTS product_sku_specs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sku_id INT NOT NULL COMMENT 'SKU ID',
+    spec_id INT NOT NULL COMMENT '规格ID',
+    spec_value_id INT NOT NULL COMMENT '规格值ID',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_sku_specs_sku_id (sku_id),
+    INDEX idx_sku_specs_spec_id (spec_id),
+    INDEX idx_sku_specs_spec_value_id (spec_value_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 创建商品图片表
 CREATE TABLE IF NOT EXISTS product_images (
@@ -255,7 +288,7 @@ CREATE TABLE IF NOT EXISTS addresses (
 
 -- 创建订单表
 CREATE TABLE IF NOT EXISTS orders (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     order_no VARCHAR(32) NOT NULL UNIQUE,
     customer_id INT NOT NULL,
     merchant_id INT NOT NULL,
@@ -278,7 +311,7 @@ CREATE TABLE IF NOT EXISTS orders (
 
 -- 创建订单明细表
 CREATE TABLE IF NOT EXISTS order_items (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     product_id INT NOT NULL,
     sku_id INT DEFAULT NULL,
@@ -381,7 +414,7 @@ CREATE TABLE IF NOT EXISTS shipping (
 
 -- 创建购物车表
 CREATE TABLE IF NOT EXISTS carts (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id INT NOT NULL AUTO_INCREMENT,
     user_id INT NOT NULL DEFAULT 0,
     session_id VARCHAR(255) DEFAULT NULL,
     created_at datetime(3) DEFAULT NULL,
@@ -394,7 +427,7 @@ CREATE TABLE IF NOT EXISTS carts (
 
 -- 创建购物车项表
 CREATE TABLE IF NOT EXISTS cart_items (
-    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    id INT NOT NULL AUTO_INCREMENT,
     cart_id INT NOT NULL,
     product_id INT NOT NULL,
     quantity INT NOT NULL DEFAULT '1',
@@ -505,14 +538,6 @@ INSERT INTO product_categories (id, merchant_id, name, parent_id, level, sort, s
 (2, 1, '小玩具', 0, 1, 2, 'active', '2026-03-12 11:03:19', '2026-03-12 11:03:19'),
 (3, 1, '食物', 0, 1, 0, 'active', '2026-03-12 11:03:27', '2026-03-12 11:03:27'),
 (4, 1, '虚拟商品', 0, 1, 0, 'active', '2026-03-12 11:03:32', '2026-03-12 11:03:32');
-
--- 插入商品
-INSERT INTO products (id, name, description, detail, price, stock, category_id, merchant_id, status, created_at, updated_at, sku) VALUES
-(1, '衣架', '衣架衣架衣架衣架衣架', '<h1><strong style="color: rgb(240, 102, 102);">啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架啊啊啊啊啊啊啊啊啊啊啊啊啊衣架</strong></h1>', 0.00, 100, 1, 1, 'active', '2026-03-12 11:08:50.598', '2026-03-12 11:09:05.474', NULL);
-
--- 插入商品SKU
-INSERT INTO product_skus (id, product_id, merchant_id, sku_code, sku, attributes, price, stock, status, created_at, updated_at) VALUES
-(1, 1, 1, 'PROD-1-DEFAULT', '', '{"type": "default"}', 10.00, 100, 'active', '2026-03-12 11:08:51', '2026-03-12 11:09:05');
 
 -- 提交事务
 COMMIT;

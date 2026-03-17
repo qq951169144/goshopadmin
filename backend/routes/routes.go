@@ -4,6 +4,7 @@ import (
 	"goshopadmin/config"
 	"goshopadmin/controllers"
 	"goshopadmin/middleware"
+	"goshopadmin/services"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -11,26 +12,34 @@ import (
 
 // Dependencies 包含所有依赖
 type Dependencies struct {
-	CommonController     *controllers.CommonController
-	AuthController       *controllers.AuthController
-	UserController       *controllers.UserController
-	RoleController       *controllers.RoleController
-	PermissionController *controllers.PermissionController
-	MerchantController   *controllers.MerchantController
-	ProductController    *controllers.ProductController
+	CommonController         *controllers.CommonController
+	AuthController           *controllers.AuthController
+	UserController           *controllers.UserController
+	RoleController           *controllers.RoleController
+	PermissionController     *controllers.PermissionController
+	MerchantController       *controllers.MerchantController
+	ProductController        *controllers.ProductController
+	SpecificationController  *controllers.SpecificationController
+	SKUController            *controllers.SKUController
 }
 
 // SetupRoutes 设置所有路由
 func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
+	// 创建服务实例
+	specService := services.NewSpecificationService(db)
+	skuService := services.NewSKUService(db)
+
 	// 创建控制器实例
 	deps := &Dependencies{
-		CommonController:     controllers.NewCommonController(),
-		AuthController:       controllers.NewAuthController(db, cfg.JWTSecret, cfg.JWTExpireHour),
-		UserController:       controllers.NewUserController(db, cfg.JWTSecret, cfg.JWTExpireHour),
-		RoleController:       controllers.NewRoleController(db, cfg.JWTSecret, cfg.JWTExpireHour),
-		PermissionController: controllers.NewPermissionController(db, cfg.JWTSecret, cfg.JWTExpireHour),
-		MerchantController:   controllers.NewMerchantController(db),
-		ProductController:    controllers.NewProductController(db),
+		CommonController:        controllers.NewCommonController(),
+		AuthController:          controllers.NewAuthController(db, cfg.JWTSecret, cfg.JWTExpireHour),
+		UserController:          controllers.NewUserController(db, cfg.JWTSecret, cfg.JWTExpireHour),
+		RoleController:          controllers.NewRoleController(db, cfg.JWTSecret, cfg.JWTExpireHour),
+		PermissionController:    controllers.NewPermissionController(db, cfg.JWTSecret, cfg.JWTExpireHour),
+		MerchantController:      controllers.NewMerchantController(db),
+		ProductController:       controllers.NewProductController(db),
+		SpecificationController: controllers.NewSpecificationController(specService),
+		SKUController:           controllers.NewSKUController(skuService),
 	}
 
 	// 1. 通用路由（无需认证）
@@ -149,13 +158,39 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 				images.PUT("/:id", deps.ProductController.UpdateProductImage)
 			}
 
-			// 商品SKU管理路由
-			// 路径: /api/product-skus, /api/product-skus/:id
-			skus := protected.Group("/product-skus")
+			// 规格管理路由
+			// 路径: /api/products/:id/specifications
+			products.GET("/:id/specifications", deps.SpecificationController.GetSpecificationsByProductID)
+			products.POST("/:id/specifications", deps.SpecificationController.CreateSpecification)
+
+			// 规格值管理路由
+			// 路径: /api/specifications/:id/values
+			specifications := protected.Group("/specifications")
 			{
-				skus.POST("", deps.ProductController.AddProductSKU)
-				skus.PUT("/:id", deps.ProductController.UpdateProductSKU)
-				skus.DELETE("/:id", deps.ProductController.DeleteProductSKU)
+				specifications.PUT("/:id", deps.SpecificationController.UpdateSpecification)
+				specifications.DELETE("/:id", deps.SpecificationController.DeleteSpecification)
+				specifications.POST("/:id/values", deps.SpecificationController.CreateSpecificationValue)
+			}
+
+			// 规格值管理路由（独立路径）
+			specValues := protected.Group("/specification-values")
+			{
+				specValues.PUT("/:id", deps.SpecificationController.UpdateSpecificationValue)
+				specValues.DELETE("/:id", deps.SpecificationController.DeleteSpecificationValue)
+			}
+
+			// SKU管理路由（新）
+			// 路径: /api/products/:id/skus
+			products.POST("/:id/skus", deps.SKUController.CreateSKU)
+			products.POST("/:id/skus/batch", deps.SKUController.BatchCreateSKU)
+			products.GET("/:id/skus", deps.SKUController.GetSKUsByProductID)
+			products.POST("/:id/skus/generate", deps.SKUController.GenerateSKUsFromSpecs)
+
+			// SKU管理路由（独立路径）
+			skuRoutes := protected.Group("/skus")
+			{
+				skuRoutes.PUT("/:id", deps.SKUController.UpdateSKU)
+				skuRoutes.DELETE("/:id", deps.SKUController.DeleteSKU)
 			}
 		}
 	}

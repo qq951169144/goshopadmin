@@ -50,11 +50,32 @@
         <h1 class="product-name">{{ product.name }}</h1>
         <p class="product-price">
           <span class="price-symbol">¥</span>
-          <span class="price-value">{{ formatPrice(selectedSkuPrice || product.price) }}</span>
+          <span class="price-value">{{ formatPrice(currentPrice) }}</span>
+          <span v-if="currentOriginalPrice > 0" class="original-price">
+            ¥{{ formatPrice(currentOriginalPrice) }}
+          </span>
         </p>
+
       </div>
 
-      <!-- SKU选择 -->
+      <!-- 规格选择 -->
+      <div class="sku-section" v-if="product.specifications && product.specifications.length > 0">
+        <h3>选择规格</h3>
+        <SpecSelector
+          :specifications="product.specifications"
+          :selected-specs="selectedSpecs"
+          :sku-list="product.sku_list || []"
+          @change="handleSpecChange"
+        />
+      </div>
+
+      <!-- 调试信息：显示是否有规格数据 -->
+      <div class="sku-section" v-else style="background: #fff3cd; padding: 10px; color: #856404;">
+        <p>暂无规格数据 (specifications: {{ product.specifications }})</p>
+        <p>SKU列表: {{ product.sku_list?.length || 0 }} 个</p>
+      </div>
+
+      <!-- 旧版SKU选择（兼容） -->
       <div class="sku-section" v-if="product.skus && product.skus.length > 0">
         <h3>选择规格</h3>
         <div class="sku-options">
@@ -62,7 +83,7 @@
             v-for="sku in product.skus" 
             :key="sku.id" 
             class="sku-option" 
-            :class="{ active: selectedSku === sku.id }" 
+            :class="{ active: selectedSkuId === sku.id }" 
             @click="selectSku(sku)"
           >
             {{ sku.name }}
@@ -100,11 +121,11 @@
     <!-- 底部固定操作栏 -->
     <div v-if="product" class="bottom-action-bar">
       <div class="action-buttons">
-        <button class="add-to-cart" @click="addToCart">
+        <button class="add-to-cart" @click="addToCart" :disabled="!canAddToCart">
           <span class="btn-icon">🛒</span>
           <span class="btn-text">加入购物车</span>
         </button>
-        <button class="buy-now" @click="buyNow">
+        <button class="buy-now" @click="buyNow" :disabled="!canAddToCart">
           <span class="btn-text">立即购买</span>
         </button>
       </div>
@@ -113,16 +134,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { productAPI, cartAPI } from '../api'
+import SpecSelector from '../components/SpecSelector.vue'
 
 const route = useRoute()
 const router = useRouter()
 const product = ref(null)
 const loading = ref(true)
 const error = ref('')
-const selectedSku = ref(null)
+const selectedSpecs = ref({})
+const selectedSkuId = ref(null)
 const quantity = ref(1)
 const currentImageIndex = ref(0)
 
@@ -135,10 +158,64 @@ const currentImage = computed(() => {
   return ''
 })
 
-const selectedSkuPrice = computed(() => {
-  if (!product.value || !product.value.skus) return null
-  const sku = product.value.skus.find(s => s.id === selectedSku.value)
-  return sku ? sku.price : null
+// 当前选中的SKU
+const currentSku = computed(() => {
+  if (!product.value) return null
+
+  // 如果有规格选择
+  if (product.value.specifications && product.value.specifications.length > 0) {
+    const skuList = product.value.sku_list || []
+    return skuList.find(sku => {
+      const specCombination = sku.spec_combination || {}
+      for (const [specId, valueId] of Object.entries(selectedSpecs.value)) {
+        // 使用 Number() 进行类型转换后比较
+        if (Number(specCombination[specId]) !== Number(valueId)) {
+          return false
+        }
+      }
+      return true
+    })
+  }
+
+  // 旧版SKU选择
+  if (product.value.skus && product.value.skus.length > 0) {
+    return product.value.skus.find(s => s.id === selectedSkuId.value)
+  }
+
+  return null
+})
+
+// 当前价格
+const currentPrice = computed(() => {
+  if (currentSku.value) {
+    return currentSku.value.price
+  }
+  if (product.value?.price_range) {
+    return product.value.price_range.min
+  }
+  return product.value?.price || 0
+})
+
+// 当前原价
+const currentOriginalPrice = computed(() => {
+  if (currentSku.value) {
+    return currentSku.value.original_price || 0
+  }
+  return 0
+})
+
+// 是否可以加入购物车
+const canAddToCart = computed(() => {
+  // 如果有规格，必须选择完整规格
+  if (product.value?.specifications && product.value.specifications.length > 0) {
+    const selectedCount = Object.keys(selectedSpecs.value).length
+    const specCount = product.value.specifications.length
+    if (selectedCount !== specCount) {
+      return false
+    }
+  }
+
+  return true
 })
 
 const formatPrice = (price) => {
@@ -161,12 +238,18 @@ const prevImage = () => {
 }
 
 const previewImage = () => {
-  // 图片预览功能，可以在这里实现大图查看
   console.log('预览图片:', currentImage.value)
 }
 
+// 处理规格选择变化
+const handleSpecChange = (specs) => {
+  selectedSpecs.value = specs
+  quantity.value = 1 // 重置数量
+}
+
 const selectSku = (sku) => {
-  selectedSku.value = sku.id
+  selectedSkuId.value = sku.id
+  quantity.value = 1
 }
 
 const decreaseQuantity = () => {
@@ -184,10 +267,18 @@ const loadProductDetail = async () => {
     const id = route.params.id
     const response = await productAPI.getProductDetail(id)
     product.value = response || null
+    console.log('商品详情数据:', product.value)
+    console.log('规格数据:', product.value?.specifications)
+    console.log('SKU列表:', product.value?.sku_list)
     if (product.value) {
       currentImageIndex.value = 0
+      selectedSpecs.value = {}
+      selectedSkuId.value = null
+      quantity.value = 1
+
+      // 如果有旧版SKU，默认选择第一个
       if (product.value.skus && product.value.skus.length > 0) {
-        selectedSku.value = product.value.skus[0].id
+        selectedSkuId.value = product.value.skus[0].id
       }
     }
   } catch (err) {
@@ -201,12 +292,17 @@ const loadProductDetail = async () => {
 const addToCart = async () => {
   if (!product.value) return
   
+  if (!canAddToCart.value) {
+    alert('请选择完整的规格')
+    return
+  }
+  
   try {
     const cartItem = {
       product_id: product.value.id,
       quantity: quantity.value,
-      price: selectedSkuPrice.value || product.value.price,
-      sku_id: selectedSku.value
+      price: currentPrice.value,
+      sku_id: currentSku.value?.id || selectedSku.value
     }
     await cartAPI.addToCart(cartItem)
     alert('添加到购物车成功')
@@ -219,12 +315,17 @@ const addToCart = async () => {
 const buyNow = async () => {
   if (!product.value) return
   
+  if (!canAddToCart.value) {
+    alert('请选择完整的规格')
+    return
+  }
+  
   try {
     const cartItem = {
       product_id: product.value.id,
       quantity: quantity.value,
-      price: selectedSkuPrice.value || product.value.price,
-      sku_id: selectedSku.value
+      price: currentPrice.value,
+      sku_id: currentSku.value?.id || selectedSku.value
     }
     await cartAPI.addToCart(cartItem)
     router.push('/cart')
@@ -357,6 +458,9 @@ onMounted(() => {
 
 .product-price {
   color: #ff4757;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
 }
 
 .price-symbol {
@@ -366,6 +470,18 @@ onMounted(() => {
 .price-value {
   font-size: 28px;
   font-weight: bold;
+}
+
+.original-price {
+  font-size: 14px;
+  color: #999;
+  text-decoration: line-through;
+}
+
+.product-stock {
+  font-size: 14px;
+  color: #666;
+  margin-top: 8px;
 }
 
 /* SKU选择 */
@@ -536,8 +652,14 @@ onMounted(() => {
   color: white;
 }
 
-.add-to-cart:hover {
+.add-to-cart:hover:not(:disabled) {
   background-color: #f57c00;
+}
+
+.add-to-cart:disabled,
+.buy-now:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .buy-now {
@@ -545,7 +667,7 @@ onMounted(() => {
   color: white;
 }
 
-.buy-now:hover {
+.buy-now:hover:not(:disabled) {
   background-color: #e84118;
 }
 
