@@ -63,9 +63,19 @@
 | `/api/product-categories/:id` | `DELETE` | 删除商品分类   | 无                                                                                                                           | `{"code": 200, "message": "删除分类成功"}`                  |
 | `/api/product-images`         | `POST`   | 添加商品图片   | `{"product_id": 1, "image_url": "string", "is_main": true, "sort": 0}`                                                         | `{"code": 200, "message": "添加图片成功", "data": {...}}`   |
 | `/api/product-images/:id`     | `DELETE` | 删除商品图片   | 无                                                                                                                           | `{"code": 200, "message": "删除图片成功"}`                  |
-| `/api/product-skus`           | `POST`   | 添加商品SKU  | `{"product_id": 1, "sku_code": "string", "attributes": "{\"color\": \"red\", \"size\": \"M\"}", "price": 100.00, "stock": 10, "status": "active"}`    | `{"code": 200, "message": "添加SKU成功", "data": {...}}`  |
-| `/api/product-skus/:id`       | `PUT`    | 更新商品SKU  | `{"product_id": 1, "sku_code": "string", "attributes": "{\"color\": \"red\", \"size\": \"M\"}", "price": 100.00, "stock": 10, "status": "active"}` | `{"code": 200, "message": "更新SKU成功", "data": {...}}`  |
+| `/api/product-skus`           | `POST`   | 添加商品SKU  | `{"product_id": 1, "sku_code": "string", "attributes": "{\"color\": \"red\", \"size\": \"M\"}", "price": 100.00, "original_price": 120.00, "stock": 10, "status": "active"}`    | `{"code": 200, "message": "添加SKU成功", "data": {...}}`  |
+| `/api/product-skus/:id`       | `PUT`    | 更新商品SKU  | `{"product_id": 1, "sku_code": "string", "attributes": "{\"color\": \"red\", \"size\": \"M\"}", "price": 100.00, "original_price": 120.00, "stock": 10, "status": "active"}` | `{"code": 200, "message": "更新SKU成功", "data": {...}}`  |
 | `/api/product-skus/:id`       | `DELETE` | 删除商品SKU  | 无                                                                                                                           | `{"code": 200, "message": "删除SKU成功"}`                 |
+| `/api/products/:id/specifications` | `GET`    | 获取商品规格列表 | 无                                                                                                                           | `{"code": 200, "message": "获取规格列表成功", "data": [...]}` |
+| `/api/products/:id/specifications` | `POST`   | 创建商品规格   | `{"name": "颜色", "sort": 1}`                                                                                              | `{"code": 200, "message": "创建规格成功", "data": {...}}`   |
+| `/api/specifications/:id`     | `PUT`    | 更新商品规格   | `{"name": "颜色", "sort": 1}`                                                                                              | `{"code": 200, "message": "更新规格成功", "data": {...}}`   |
+| `/api/specifications/:id`     | `DELETE` | 删除商品规格   | 无                                                                                                                           | `{"code": 200, "message": "删除规格成功"}`                  |
+| `/api/specifications/:id/values` | `GET`    | 获取规格值列表  | 无                                                                                                                           | `{"code": 200, "message": "获取规格值列表成功", "data": [...]}` |
+| `/api/specifications/:id/values` | `POST`   | 创建规格值     | `{"value": "红色", "sort": 1, "status": "active"}`                                                                         | `{"code": 200, "message": "创建规格值成功", "data": {...}}` |
+| `/api/specification-values/:id` | `PUT`    | 更新规格值     | `{"value": "红色", "sort": 1, "status": "active"}`                                                                         | `{"code": 200, "message": "更新规格值成功", "data": {...}}` |
+| `/api/specification-values/:id` | `DELETE` | 删除规格值     | 无                                                                                                                           | `{"code": 200, "message": "删除规格值成功"}`                |
+| `/api/product-skus/:id/specs` | `GET`    | 获取SKU规格关联 | 无                                                                                                                           | `{"code": 200, "message": "获取SKU规格成功", "data": [...]}` |
+| `/api/product-skus/:id/specs` | `POST`   | 设置SKU规格关联 | `{"spec_id": 1, "spec_value_id": 2}`                                                                                       | `{"code": 200, "message": "设置SKU规格成功", "data": {...}}` |
 
 ## 二、前端页面功能实现
 
@@ -133,18 +143,20 @@
 
 - **功能**：
   - 显示商品列表，包括ID、商品名称、价格、库存、分类、状态等信息
-  - 支持创建新商品，填写商品名称、描述、价格、库存、分类等信息
+  - 支持创建新商品，填写商品名称、描述、详情、分类等信息
   - 支持编辑现有商品，修改商品信息和状态
   - 支持删除商品，带确认对话框
-  - 支持管理商品图片，添加和删除图片
-  - 支持管理商品SKU，添加、编辑和删除SKU
+  - 支持管理商品图片，添加和删除图片，设置主图
+  - 支持管理商品规格，创建规格（如颜色、尺寸）和规格值（如红色、M码）
+  - 支持管理商品SKU，添加、编辑和删除SKU，关联规格组合
   - 支持预览C端商品展示页面
 - **实现**：
   - 使用Element Plus的Table组件展示商品列表
   - 使用Dialog组件实现创建和编辑商品的表单
   - 使用富文本编辑器编辑商品详情
   - 使用Dialog组件实现商品图片管理功能
-  - 使用Dialog组件实现商品SKU管理功能
+  - 使用Dialog组件实现商品规格管理功能
+  - 使用Dialog组件实现商品SKU管理功能，支持规格组合选择
   - 使用MessageBox组件实现删除确认
   - 调用后端API接口实现数据交互
 
@@ -457,13 +469,16 @@
 - **商户银行信息表** (`merchant_banks`)：id, merchant_id, bank_name, account_name, account_number, status, created_at, updated_at
 - **商户提现表** (`merchant_withdraws`)：id, merchant_id, amount, status, bank_id, created_at, updated_at
 - **商户对账单表** (`merchant_statements`)：id, merchant_id, type, amount, balance, description, created_at
-- **C端用户表** (`customers`)：id, username, password, phone, email, status, created_at, updated_at
+- **C端用户表** (`customers`)：id, username, password, phone, email, status, created_at, updated_at, nickname, avatar, last_login_at, last_login_ip
 - **地址表** (`addresses`)：id, customer_id, name, phone, province, city, district, detail_address, is_default, status, created_at, updated_at
-- **订单表** (`orders`)：id, order_no, customer_id, merchant_id, total_amount, status, address_id, created_at, updated_at
+- **订单表** (`orders`)：id, order_no, customer_id, merchant_id, total_amount, status, address_id, created_at, updated_at, payment_method, transaction_id, paid_at, shipped_at, delivered_at, cancelled_at
 - **订单明细表** (`order_items`)：id, order_id, product_id, sku_id, product_name, sku_attributes, price, quantity, total_amount, created_at, updated_at
 - **支付记录表** (`payments`)：id, order_id, payment_no, amount, payment_method, transaction_id, status, created_at, updated_at, paid_at
 - **购物车表** (`carts`)：id, user_id, session_id, created_at, updated_at
 - **购物车项表** (`cart_items`)：id, cart_id, product_id, quantity, price, sku, created_at, updated_at
+- **商品规格表** (`product_specifications`)：id, product_id, name, sort, created_at, updated_at
+- **规格值表** (`product_specification_values`)：id, spec_id, value, sort, status, created_at, updated_at
+- **SKU规格关联表** (`product_sku_specs`)：id, sku_id, spec_id, spec_value_id, created_at
 
 ## 四、测试结果
 
