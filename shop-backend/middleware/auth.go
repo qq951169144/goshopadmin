@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -34,13 +33,13 @@ func Auth() gin.HandlerFunc {
 
 		tokenString := parts[1]
 
-		// 使用已设置的密钥或环境变量
+		// 使用已设置的密钥（强制从配置读取）
 		secret := jwtSecret
 		if secret == "" {
-			secret = os.Getenv("JWT_SECRET")
-		}
-		if secret == "" {
-			secret = "your-secret-key"
+			// 密钥未配置，返回服务器错误
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "JWT secret not configured"})
+			c.Abort()
+			return
 		}
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {

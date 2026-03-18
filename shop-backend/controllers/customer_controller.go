@@ -43,7 +43,10 @@ func (c *CustomerController) GetProfile(ctx *gin.Context) {
 		return
 	}
 
-	c.ResponseSuccess(ctx, customer)
+	c.ResponseSuccess(ctx, gin.H{
+		"username": customer.Username,
+		"email":    customer.Email,
+	})
 }
 
 // UpdateProfile 更新个人信息

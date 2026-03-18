@@ -17,7 +17,7 @@
         <label>验证码</label>
         <div class="captcha">
           <input type="text" v-model="captcha" placeholder="请输入验证码" required />
-          <img :src="captchaUrl" alt="验证码" @click="refreshCaptcha" />
+          <img v-if="captchaUrl" :src="captchaUrl" alt="验证码" @click="refreshCaptcha" />
         </div>
       </div>
       <button type="submit" :disabled="loading">{{ loading ? '登录中...' : '登录' }}</button>
@@ -31,18 +31,27 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { authAPI } from '../api'
+import { authAPI, captchaAPI } from '../api'
 
 const router = useRouter()
 const username = ref('')
 const password = ref('')
 const captcha = ref('')
+const captchaId = ref('')
+const captchaUrl = ref('')
 const loading = ref(false)
-const captchaUrl = ref('/api/captcha?' + new Date().getTime())
 
-const refreshCaptcha = () => {
-  captchaUrl.value = '/api/captcha?' + new Date().getTime()
-  captcha.value = ''
+const refreshCaptcha = async () => {
+  try {
+    const response = await captchaAPI.getCaptcha()
+    // 从响应头获取 captcha_id
+    captchaId.value = response.headers['x-captcha-id']
+    // 创建图片 URL
+    captchaUrl.value = URL.createObjectURL(response.data)
+    captcha.value = ''
+  } catch (error) {
+    console.error('获取验证码失败:', error)
+  }
 }
 
 const goHome = () => {
@@ -54,20 +63,25 @@ const login = async () => {
     alert('请填写完整信息')
     return
   }
-  
+
+  if (!captchaId.value) {
+    alert('验证码已过期，请刷新验证码')
+    return
+  }
+
   loading.value = true
   try {
     const response = await authAPI.login({
       username: username.value,
       password: password.value,
       captcha: captcha.value,
-      captcha_id: '1' // 实际项目中应该从验证码接口获取
+      captcha_id: captchaId.value
     })
-    
+
     // 保存token
     localStorage.setItem('token', response.token)
-    localStorage.setItem('customer_id', response.user_id)
-    
+    // 注意：不再存储 customer_id，后端从 JWT token 中解析用户身份
+
     // 跳转到首页
     router.push('/')
   } catch (error) {

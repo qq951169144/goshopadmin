@@ -33,6 +33,8 @@ const (
 	CodeConflict       = 4090 // 资源冲突
 	CodeDuplicate      = 4091 // 数据重复
 	CodeStockInsufficient = 4092 // 库存不足
+	CodeCaptchaError   = 4093 // 验证码错误
+	CodeUserExists     = 4094 // 用户名已存在
 
 	// 5000 - 服务器错误 (5xx 服务端错误)
 	CodeInternalError = 5000 // 内部错误
@@ -62,6 +64,8 @@ var ErrorMessage = map[int]string{
 	CodeConflict:          "资源冲突",
 	CodeDuplicate:         "数据已存在",
 	CodeStockInsufficient: "库存不足",
+	CodeCaptchaError:      "验证码错误",
+	CodeUserExists:        "用户名已存在",
 	CodeInternalError:     "系统繁忙，请稍后重试",
 	CodeDBError:           "数据操作失败",
 	CodeCacheError:        "缓存服务异常",

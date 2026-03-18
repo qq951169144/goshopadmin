@@ -1,32 +1,32 @@
 package services
 
 import (
-	"context"
 	"errors"
+	"fmt"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"shop-backend/models"
+
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	"shop-backend/models"
 )
 
 // AuthService 认证服务
 type AuthService struct {
-	db            *gorm.DB
-	redis         *redis.Client
-	jwtSecret     string
-	jwtExpireHour int
+	db             *gorm.DB
+	captchaService *CaptchaService
+	jwtSecret      string
+	jwtExpireHour  int
 }
 
 // NewAuthService 创建认证服务实例
-func NewAuthService(db *gorm.DB, redis *redis.Client, jwtSecret string, jwtExpireHour int) *AuthService {
+func NewAuthService(db *gorm.DB, captchaService *CaptchaService, jwtSecret string, jwtExpireHour int) *AuthService {
 	return &AuthService{
-		db:            db,
-		redis:         redis,
-		jwtSecret:     jwtSecret,
-		jwtExpireHour: jwtExpireHour,
+		db:             db,
+		captchaService: captchaService,
+		jwtSecret:      jwtSecret,
+		jwtExpireHour:  jwtExpireHour,
 	}
 }
 
@@ -41,9 +41,7 @@ type RegisterRequest struct {
 // Register 用户注册
 func (s *AuthService) Register(req RegisterRequest) (string, *models.Customer, error) {
 	// 验证验证码
-	ctx := context.Background()
-	storedCaptcha, err := s.redis.Get(ctx, "captcha:"+req.CaptchaID).Result()
-	if err != nil || storedCaptcha != req.Captcha {
+	if !s.captchaService.VerifyCaptcha(req.CaptchaID, req.Captcha) {
 		return "", nil, errors.New("验证码错误")
 	}
 
@@ -51,13 +49,13 @@ func (s *AuthService) Register(req RegisterRequest) (string, *models.Customer, e
 	var existingUser models.Customer
 	result := s.db.Where("username = ?", req.Username).First(&existingUser)
 	if result.RowsAffected > 0 {
-		return "", nil, errors.New("用户名已存在")
+		return "", nil, fmt.Errorf("用户名已存在: %s", req.Username)
 	}
 
 	// 密码加密
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return "", nil, errors.New("密码加密失败")
+		return "", nil, fmt.Errorf("密码加密失败: %w", err)
 	}
 
 	// 创建用户
@@ -67,13 +65,13 @@ func (s *AuthService) Register(req RegisterRequest) (string, *models.Customer, e
 	}
 
 	if err := s.db.Create(&user).Error; err != nil {
-		return "", nil, errors.New("创建用户失败")
+		return "", nil, fmt.Errorf("创建用户失败: %w", err)
 	}
 
 	// 生成token
 	token, err := s.generateToken(user.ID)
 	if err != nil {
-		return "", nil, errors.New("生成token失败")
+		return "", nil, fmt.Errorf("生成token失败: %w", err)
 	}
 
 	return token, &user, nil
@@ -90,9 +88,7 @@ type LoginRequest struct {
 // Login 用户登录
 func (s *AuthService) Login(req LoginRequest) (string, *models.Customer, error) {
 	// 验证验证码
-	ctx := context.Background()
-	storedCaptcha, err := s.redis.Get(ctx, "captcha:"+req.CaptchaID).Result()
-	if err != nil || storedCaptcha != req.Captcha {
+	if !s.captchaService.VerifyCaptcha(req.CaptchaID, req.Captcha) {
 		return "", nil, errors.New("验证码错误")
 	}
 
@@ -103,7 +99,7 @@ func (s *AuthService) Login(req LoginRequest) (string, *models.Customer, error) 
 		return "", nil, errors.New("用户名或密码错误")
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
 		return "", nil, errors.New("用户名或密码错误")
 	}

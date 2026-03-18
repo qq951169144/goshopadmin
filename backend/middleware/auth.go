@@ -3,7 +3,6 @@ package middleware
 import (
 	"goshopadmin/utils"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -38,13 +37,13 @@ func AuthMiddleware() gin.HandlerFunc {
 		// 解析token
 		tokenString := parts[1]
 
-		// 使用环境变量或已设置的密钥
+		// 使用已设置的密钥（强制从配置读取）
 		secret := jwtSecret
 		if secret == "" {
-			secret = os.Getenv("JWT_SECRET")
-		}
-		if secret == "" {
-			secret = "your-secret-key"
+			// 密钥未配置，返回服务器错误
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "JWT密钥未配置"})
+			c.Abort()
+			return
 		}
 
 		claims, err := utils.ParseToken(tokenString, secret)

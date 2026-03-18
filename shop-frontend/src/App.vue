@@ -48,7 +48,9 @@ const isLoggedIn = computed(() => {
 
 // 处理个人中心点击
 const handleProfileClick = () => {
-  if (isLoggedIn.value) {
+  // 每次点击时重新检查登录状态
+  const token = localStorage.getItem('token')
+  if (token) {
     router.push('/customer/profile')
   } else {
     router.push('/login')

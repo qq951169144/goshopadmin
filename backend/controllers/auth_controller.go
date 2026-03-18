@@ -60,9 +60,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	c.ResponseSuccess(ctx, gin.H{
 		"token": token,
 		"user": gin.H{
-			"id":        user.ID,
 			"username":  user.Username,
-			"role_id":   user.RoleID,
 			"role_name": user.Role.Name,
 		},
 	})
@@ -105,9 +103,7 @@ func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 	}
 
 	c.ResponseSuccess(ctx, gin.H{
-		"id":          user.ID,
 		"username":    user.Username,
-		"role_id":     user.RoleID,
 		"role_name":   user.Role.Name,
 		"permissions": user.Role.Permissions,
 	})

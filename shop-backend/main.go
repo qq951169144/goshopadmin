@@ -27,7 +27,10 @@ func main() {
 	middleware.SetJWTSecret(cfg.JWTSecret)
 
 	// 5. 创建服务层实例（依赖注入）
-	authService := services.NewAuthService(conn.DB, conn.Redis, cfg.JWTSecret, cfg.JWTExpireHour)
+	// 注意：CaptchaService 需要先创建，因为 AuthService 依赖它
+	captchaService := services.NewCaptchaService(conn.Redis)
+
+	authService := services.NewAuthService(conn.DB, captchaService, cfg.JWTSecret, cfg.JWTExpireHour)
 	customerService := services.NewCustomerService(conn.DB)
 	productService := services.NewProductService(conn.DB)
 	cartService := services.NewCartService(conn.DB)
@@ -39,7 +42,7 @@ func main() {
 	deps := &routes.Dependencies{
 		AuthController:          controllers.NewAuthController(authService),
 		CustomerController:      controllers.NewCustomerController(customerService),
-		CaptchaController:       controllers.NewCaptchaController(conn.Redis),
+		CaptchaController:       controllers.NewCaptchaController(captchaService),
 		ProductController:       controllers.NewProductController(productService),
 		CartController:          controllers.NewCartController(cartService),
 		OrderController:         controllers.NewOrderController(orderService),

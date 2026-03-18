@@ -21,7 +21,7 @@
         <label>验证码</label>
         <div class="captcha">
           <input type="text" v-model="captcha" placeholder="请输入验证码" required />
-          <img :src="captchaUrl" alt="验证码" @click="refreshCaptcha" />
+          <img v-if="captchaUrl" :src="captchaUrl" alt="验证码" @click="refreshCaptcha" />
         </div>
       </div>
       <button type="submit" :disabled="loading">{{ loading ? '注册中...' : '注册' }}</button>
@@ -35,19 +35,28 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { authAPI } from '../api'
+import { authAPI, captchaAPI } from '../api'
 
 const router = useRouter()
 const username = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const captcha = ref('')
+const captchaId = ref('')
+const captchaUrl = ref('')
 const loading = ref(false)
-const captchaUrl = ref('/api/captcha?' + new Date().getTime())
 
-const refreshCaptcha = () => {
-  captchaUrl.value = '/api/captcha?' + new Date().getTime()
-  captcha.value = ''
+const refreshCaptcha = async () => {
+  try {
+    const response = await captchaAPI.getCaptcha()
+    // 从响应头获取 captcha_id
+    captchaId.value = response.headers['x-captcha-id']
+    // 创建图片 URL
+    captchaUrl.value = URL.createObjectURL(response.data)
+    captcha.value = ''
+  } catch (error) {
+    console.error('获取验证码失败:', error)
+  }
 }
 
 const goHome = () => {
@@ -59,21 +68,26 @@ const register = async () => {
     alert('请填写完整信息')
     return
   }
-  
+
   if (password.value !== confirmPassword.value) {
     alert('两次输入的密码不一致')
     return
   }
-  
+
+  if (!captchaId.value) {
+    alert('验证码已过期，请刷新验证码')
+    return
+  }
+
   loading.value = true
   try {
     await authAPI.register({
       username: username.value,
       password: password.value,
       captcha: captcha.value,
-      captcha_id: '1' // 实际项目中应该从验证码接口获取
+      captcha_id: captchaId.value
     })
-    
+
     alert('注册成功，请登录')
     router.push('/login')
   } catch (error) {

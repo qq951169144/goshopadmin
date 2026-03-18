@@ -230,8 +230,8 @@
 
 | 接口路径                 | 方法       | 功能描述     | 请求参数                                                                                                   | 成功响应                                                  |
 | :------------------- | :------- | :------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
-| `/api/auth/register` | `POST`   | 注册     | `{"username": "string", "password": "string", "captcha_id": "string", "captcha": "string"}` | `{"message": "Register success", "token": "...", "user_id": 1}` |
-| `/api/auth/login`    | `POST`   | 登录     | `{"username": "string", "password": "string", "captcha_id": "string", "captcha": "string"}` | `{"token": "...", "user_id": 1}` |
+| `/api/auth/register` | `POST`   | 注册     | `{"username": "string", "password": "string", "captcha_id": "string", "captcha": "string"}` | `{"message": "Register success", "token": "..."}` |
+| `/api/auth/login`    | `POST`   | 登录     | `{"username": "string", "password": "string", "captcha_id": "string", "captcha": "string"}` | `{"token": "..."}` |
 | `/api/auth/logout`   | `POST`   | 登出     | 无                                                                                                          | `{"message": "Logout success"}`                  |
 
 ### 6.2 验证码API
@@ -245,7 +245,7 @@
 
 | 接口路径                 | 方法       | 功能描述     | 请求参数 | 成功响应                                                  |
 | :------------------- | :------- | :------- | :--- | :---------------------------------------------------- |
-| `/api/user/profile`  | `GET`    | 获取个人信息  | 无    | `{"id": 1, "username": "testuser", "email": "test@example.com", "created_at": "..."}` |
+| `/api/user/profile`  | `GET`    | 获取个人信息  | 无    | `{"username": "testuser", "email": "test@example.com"}` |
 | `/api/user/profile`  | `PUT`    | 更新个人信息  | `{"username": "string", "email": "string"}` | `{"message": "Profile updated", "username": "...", "email": "..."}` |
 | `/api/user/orders`   | `GET`    | 获取订单列表  | `page`, `limit` | `{"orders": [...], "total": 2}` |
 
@@ -260,8 +260,8 @@
 
 | 接口路径                 | 方法       | 功能描述     | 请求参数                                                                                                   | 成功响应                                                  |
 | :------------------- | :------- | :------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
-| `/api/cart`          | `GET`    | 获取购物车   | 无                                                                                                          | `{"items": [...]}` |
-| `/api/cart/items`    | `POST`   | 添加商品到购物车 | `{"product_id": 1, "quantity": 2, "price": 99.99, "sku": "red-medium"}` | `{"message": "Item added to cart", "item": {...}}` |
+| `/api/cart`          | `GET`    | 获取购物车   | 无                                                                                                          | `{"items": [{"id": 1, "product_id": 1, "product_name": "iPhone 13", "main_image": "...", "sku_id": 1, "sku_code": "128GB-Black", "quantity": 2, "price": 99.99}]}` |
+| `/api/cart/items`    | `POST`   | 添加商品到购物车 | `{"product_id": 1, "sku_id": 1, "quantity": 2, "price": 99.99}` | `{"message": "Item added to cart"}` |
 | `/api/cart/items/:id` | `PUT`    | 更新购物车项  | `{"quantity": 3}`                                                                                      | `{"message": "Cart item updated", "item_id": "...", "quantity": 3}` |
 | `/api/cart/items/:id` | `DELETE` | 移除购物车项  | 无                                                                                                          | `{"message": "Cart item removed", "item_id": "..."}` |
 | `/api/cart/sync`     | `POST`   | 同步购物车   | `{"items": [...]}`                                                                                        | `{"message": "Cart synced", "items": [...]}` |
@@ -475,7 +475,7 @@
 - **订单明细表** (`order_items`)：id, order_id, product_id, sku_id, product_name, sku_attributes, price, quantity, total_amount, created_at, updated_at
 - **支付记录表** (`payments`)：id, order_id, payment_no, amount, payment_method, transaction_id, status, created_at, updated_at, paid_at
 - **购物车表** (`carts`)：id, user_id, session_id, created_at, updated_at
-- **购物车项表** (`cart_items`)：id, cart_id, product_id, quantity, price, sku, created_at, updated_at
+- **购物车项表** (`cart_items`)：id, cart_id, product_id, sku_id, quantity, price, created_at, updated_at
 - **商品规格表** (`product_specifications`)：id, product_id, name, sort, created_at, updated_at
 - **规格值表** (`product_specification_values`)：id, spec_id, value, sort, status, created_at, updated_at
 - **SKU规格关联表** (`product_sku_specs`)：id, sku_id, spec_id, spec_value_id, created_at

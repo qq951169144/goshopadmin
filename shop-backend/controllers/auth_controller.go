@@ -1,9 +1,12 @@
 package controllers
 
 import (
-	"github.com/gin-gonic/gin"
+	"strings"
+
 	"shop-backend/errors"
 	"shop-backend/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 // AuthController 认证控制器
@@ -35,21 +38,29 @@ func (c *AuthController) Register(ctx *gin.Context) {
 		return
 	}
 
-	token, user, err := c.authService.Register(services.RegisterRequest{
+	token, _, err := c.authService.Register(services.RegisterRequest{
 		Username:  req.Username,
 		Password:  req.Password,
 		CaptchaID: req.CaptchaID,
 		Captcha:   req.Captcha,
 	})
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeDuplicate, err)
+		// 根据错误信息判断错误类型，返回对应的错误码
+		errStr := err.Error()
+		switch {
+		case strings.Contains(errStr, "验证码错误"):
+			c.ResponseError(ctx, errors.CodeCaptchaError, err)
+		case strings.Contains(errStr, "用户名已存在"):
+			c.ResponseError(ctx, errors.CodeUserExists, err)
+		default:
+			c.ResponseError(ctx, errors.CodeDuplicate, err)
+		}
 		return
 	}
 
 	c.ResponseSuccess(ctx, gin.H{
 		"message": "Register success",
 		"token":   token,
-		"user_id": user.ID,
 	})
 }
 
@@ -69,7 +80,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	token, user, err := c.authService.Login(services.LoginRequest{
+	token, _, err := c.authService.Login(services.LoginRequest{
 		Username:  req.Username,
 		Password:  req.Password,
 		CaptchaID: req.CaptchaID,
@@ -81,8 +92,7 @@ func (c *AuthController) Login(ctx *gin.Context) {
 	}
 
 	c.ResponseSuccess(ctx, gin.H{
-		"token":   token,
-		"user_id": user.ID,
+		"token": token,
 	})
 }
 

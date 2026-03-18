@@ -11,9 +11,10 @@
     <div v-else>
       <div class="cart-items">
         <div v-for="item in cartItems" :key="item.id" class="cart-item">
-          <img :src="item.image || defaultImage" :alt="item.name" />
+          <img :src="item.main_image || defaultImage" :alt="item.product_name" />
           <div class="item-details">
-            <h3>{{ item.name }}</h3>
+            <h3>{{ item.product_name }}</h3>
+            <p class="sku-code" v-if="item.sku_code">规格: {{ item.sku_code }}</p>
             <p class="price">¥{{ formatPrice(item.price) }}</p>
             <div class="quantity-control">
               <button @click="decreaseQuantity(item)" :disabled="item.quantity <= 1">-</button>
@@ -206,6 +207,12 @@ h1 {
   font-weight: bold;
   font-size: 16px;
   margin: 8px 0;
+}
+
+.sku-code {
+  color: #999;
+  font-size: 12px;
+  margin: 4px 0;
 }
 
 .quantity-control {

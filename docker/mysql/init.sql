@@ -415,14 +415,14 @@ CREATE TABLE IF NOT EXISTS shipping (
 -- 创建购物车表
 CREATE TABLE IF NOT EXISTS carts (
     id INT NOT NULL AUTO_INCREMENT,
-    user_id INT NOT NULL DEFAULT 0,
+    customer_id INT NOT NULL DEFAULT 0,
     session_id VARCHAR(255) DEFAULT NULL,
     created_at datetime(3) DEFAULT NULL,
     updated_at datetime(3) DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(3),
     PRIMARY KEY (`id`),
-    INDEX `idx_carts_user_id` (`user_id`),
+    INDEX `idx_carts_customer_id` (`customer_id`),
     INDEX `idx_carts_session_id` (`session_id`),
-    INDEX `idx_carts_user_session` (`user_id`, `session_id`)
+    INDEX `idx_carts_customer_session` (`customer_id`, `session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 创建购物车项表
@@ -430,16 +430,17 @@ CREATE TABLE IF NOT EXISTS cart_items (
     id INT NOT NULL AUTO_INCREMENT,
     cart_id INT NOT NULL,
     product_id INT NOT NULL,
+    sku_id INT DEFAULT NULL,
     quantity INT NOT NULL DEFAULT '1',
     price decimal(10,2) NOT NULL,
-    sku VARCHAR(255) DEFAULT NULL,
     created_at datetime(3) DEFAULT NULL,
     updated_at datetime(3) DEFAULT NULL,
     PRIMARY KEY (`id`),
     INDEX `idx_cart_items_cart_id` (`cart_id`),
     INDEX `idx_cart_items_product_id` (`product_id`),
+    INDEX `idx_cart_items_sku_id` (`sku_id`),
     INDEX `idx_cart_items_cart_product` (`cart_id`, `product_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 创建支付方式表
 CREATE TABLE IF NOT EXISTS payment_methods (

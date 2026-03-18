@@ -1,21 +1,22 @@
 package routes
 
 import (
-	"github.com/gin-gonic/gin"
 	"shop-backend/controllers"
 	"shop-backend/middleware"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Dependencies 包含所有依赖
 type Dependencies struct {
-	AuthController         *controllers.AuthController
-	CustomerController     *controllers.CustomerController
-	CaptchaController      *controllers.CaptchaController
-	ProductController      *controllers.ProductController
-	CartController         *controllers.CartController
-	OrderController        *controllers.OrderController
-	PaymentController      *controllers.PaymentController
-	AddressController      *controllers.AddressController
+	AuthController          *controllers.AuthController
+	CustomerController      *controllers.CustomerController
+	CaptchaController       *controllers.CaptchaController
+	ProductController       *controllers.ProductController
+	CartController          *controllers.CartController
+	OrderController         *controllers.OrderController
+	PaymentController       *controllers.PaymentController
+	AddressController       *controllers.AddressController
 	SpecificationController *controllers.SpecificationController
 }
 
@@ -87,13 +88,13 @@ func SetupRouter(deps *Dependencies) *gin.Engine {
 		}
 
 		// 购物车路由
-		cart := api.Group("/cart")
+		cart := api.Group("/cart", middleware.Auth())
 		{
 			cart.GET("", deps.CartController.GetCart)
 			cart.POST("/items", deps.CartController.AddToCart)
 			cart.PUT("/items/:id", deps.CartController.UpdateCartItem)
 			cart.DELETE("/items/:id", deps.CartController.RemoveCartItem)
-			cart.POST("/sync", middleware.Auth(), deps.CartController.SyncCart)
+			cart.POST("/sync", deps.CartController.SyncCart)
 		}
 
 		// 订单路由

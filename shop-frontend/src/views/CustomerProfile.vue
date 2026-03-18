@@ -106,7 +106,7 @@ const logout = () => {
   if (!confirm('确定要退出登录吗？')) return
   
   localStorage.removeItem('token')
-  localStorage.removeItem('customer_id')
+  // 注意：不再清除 customer_id，因为我们不再存储它
   router.push('/login')
 }
 

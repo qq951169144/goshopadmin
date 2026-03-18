@@ -80,23 +80,28 @@ api.interceptors.response.use(
     // 1. 移除已完成的请求
     removePendingRequest(response.config)
 
-    // 2. 获取后端返回的数据
+    // 2. 如果是 blob 响应类型（如验证码图片），直接返回完整响应
+    if (response.config.responseType === 'blob') {
+      return response
+    }
+
+    // 3. 获取后端返回的数据
     const res = response.data
 
-    // 3. 【单体应用】获取 RequestID（用于问题排查，可选）
+    // 4. 【单体应用】获取 RequestID（用于问题排查，可选）
     const requestID = response.headers['x-request-id']
     response.requestID = requestID
 
-    // 4. 判断业务状态码
+    // 5. 判断业务状态码
     if (res.code === 0 || res.code === 200) {
       // 成功，直接返回数据
       return res.data
     }
 
-    // 5. 业务错误处理
+    // 6. 业务错误处理
     handleBusinessError(res, requestID)
 
-    // 6. 返回拒绝的 Promise
+    // 7. 返回拒绝的 Promise
     return Promise.reject(new Error(res.message || '操作失败'))
   },
   error => {
@@ -324,8 +329,8 @@ export const paymentAPI = {
 
 // 验证码相关API
 export const captchaAPI = {
-  // 获取验证码
-  getCaptcha: () => api.get('/captcha'),
+  // 获取验证码 - 返回原始响应以获取 headers
+  getCaptcha: () => api.get('/captcha', { responseType: 'blob' }),
   // 验证验证码
   verifyCaptcha: (data) => api.post('/captcha/verify', data)
 }

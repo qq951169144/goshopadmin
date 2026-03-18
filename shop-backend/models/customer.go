@@ -14,7 +14,7 @@ type Customer struct {
 	Status      string    `json:"status" gorm:"type:enum('active','inactive');default:'active'"`
 	Nickname    string    `json:"nickname" gorm:"size:50"`
 	Avatar      string    `json:"avatar" gorm:"size:255"`
-	LastLoginAt time.Time `json:"last_login_at"`
+	LastLoginAt *time.Time `json:"last_login_at"`
 	LastLoginIp string    `json:"last_login_ip" gorm:"size:50"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

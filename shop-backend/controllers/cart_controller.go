@@ -5,6 +5,7 @@ import (
 
 	"shop-backend/errors"
 	"shop-backend/services"
+	"shop-backend/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,15 +26,15 @@ func NewCartController(cartService *services.CartService) *CartController {
 // CartItemRequest 购物车项请求结构
 type CartItemRequest struct {
 	ProductID int     `json:"product_id" binding:"required"`
+	SkuID     int     `json:"sku_id"`
 	Quantity  int     `json:"quantity" binding:"required"`
 	Price     float64 `json:"price" binding:"required"`
-	SKU       string  `json:"sku"`
 }
 
 // GetCart 获取购物车
 func (c *CartController) GetCart(ctx *gin.Context) {
 	// 从上下文中获取用户ID
-	userID, exists := ctx.Get("user_id")
+	customerID, exists := ctx.Get("user_id")
 	if !exists {
 		// 未登录用户，返回空购物车
 		c.ResponseSuccess(ctx, gin.H{"items": []services.CartItemInfo{}})
@@ -41,7 +42,7 @@ func (c *CartController) GetCart(ctx *gin.Context) {
 	}
 
 	// 从服务层获取购物车
-	cart, err := c.cartService.GetCart(userID.(int))
+	cart, err := c.cartService.GetCart(customerID.(int))
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
@@ -59,7 +60,8 @@ func (c *CartController) AddToCart(ctx *gin.Context) {
 	}
 
 	// 从上下文中获取用户ID
-	userID, exists := ctx.Get("user_id")
+	customerID, exists := ctx.Get("user_id")
+	utils.Info("获取customerID = %v", customerID)
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -67,11 +69,11 @@ func (c *CartController) AddToCart(ctx *gin.Context) {
 
 	// 添加到购物车
 	err := c.cartService.AddToCart(services.AddToCartRequest{
-		UserID:    userID.(int),
-		ProductID: req.ProductID,
-		Quantity:  req.Quantity,
-		Price:     req.Price,
-		SKU:       req.SKU,
+		CustomerID: customerID.(int),
+		ProductID:  req.ProductID,
+		SkuID:      req.SkuID,
+		Quantity:   req.Quantity,
+		Price:      req.Price,
 	})
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
@@ -105,7 +107,7 @@ func (c *CartController) UpdateCartItem(ctx *gin.Context) {
 	}
 
 	// 从上下文中获取用户ID
-	userID, exists := ctx.Get("user_id")
+	customerID, exists := ctx.Get("user_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -113,9 +115,9 @@ func (c *CartController) UpdateCartItem(ctx *gin.Context) {
 
 	// 更新购物车项
 	err = c.cartService.UpdateCartItem(services.UpdateCartItemRequest{
-		UserID:   userID.(int),
-		ItemID:   itemIDInt,
-		Quantity: req.Quantity,
+		CustomerID: customerID.(int),
+		ItemID:     itemIDInt,
+		Quantity:   req.Quantity,
 	})
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
@@ -139,7 +141,7 @@ func (c *CartController) RemoveCartItem(ctx *gin.Context) {
 	}
 
 	// 从上下文中获取用户ID
-	userID, exists := ctx.Get("user_id")
+	customerID, exists := ctx.Get("user_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -147,8 +149,8 @@ func (c *CartController) RemoveCartItem(ctx *gin.Context) {
 
 	// 移除购物车项
 	err = c.cartService.RemoveCartItem(services.RemoveCartItemRequest{
-		UserID: userID.(int),
-		ItemID: itemIDInt,
+		CustomerID: customerID.(int),
+		ItemID:     itemIDInt,
 	})
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
@@ -175,7 +177,7 @@ func (c *CartController) SyncCart(ctx *gin.Context) {
 	}
 
 	// 从上下文中获取用户ID
-	userID, exists := ctx.Get("user_id")
+	customerID, exists := ctx.Get("user_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -183,8 +185,8 @@ func (c *CartController) SyncCart(ctx *gin.Context) {
 
 	// 同步购物车
 	err := c.cartService.SyncCart(services.SyncCartRequest{
-		UserID: userID.(int),
-		Items:  req.Items,
+		CustomerID: customerID.(int),
+		Items:      req.Items,
 	})
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
