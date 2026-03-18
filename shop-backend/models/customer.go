@@ -9,7 +9,7 @@ type Customer struct {
 	ID          int       `json:"id" gorm:"primaryKey"`
 	Username    string    `json:"username" gorm:"size:50;unique;not null"`
 	Password    string    `json:"password" gorm:"size:100;not null"`
-	Phone       string    `json:"phone" gorm:"size:20;unique;not null"`
+	Phone       string    `json:"phone" gorm:"size:20;unique"`
 	Email       string    `json:"email" gorm:"size:100;unique"`
 	Status      string    `json:"status" gorm:"type:enum('active','inactive');default:'active'"`
 	Nickname    string    `json:"nickname" gorm:"size:50"`
