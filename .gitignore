@@ -77,3 +77,7 @@ docker/data/
 
 # 上传文件目录
 backend/uploads/
+
+# 备忘录文件
+备忘录.md
+订单流程调通后续开发计划.md

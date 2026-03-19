@@ -293,7 +293,7 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_id INT NOT NULL,
     merchant_id INT NOT NULL,
     total_amount DECIMAL(10,2) NOT NULL,
-    status VARCHAR(191) NOT NULL DEFAULT 'pending',
+    status enum('pending','paid','shipped','completed','cancelled') NOT NULL DEFAULT 'pending',
     address_id INT NOT NULL,
     created_at datetime(3) DEFAULT NULL,
     updated_at datetime(3) DEFAULT NULL,
@@ -406,7 +406,7 @@ CREATE TABLE IF NOT EXISTS shipping (
     id INT AUTO_INCREMENT PRIMARY KEY,
     order_id INT NOT NULL,
     tracking_no VARCHAR(50),
-    status VARCHAR(20) NOT NULL,
+    status enum('pending','shipped','delivered','returned') NOT NULL DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_shipping_order_id (order_id)

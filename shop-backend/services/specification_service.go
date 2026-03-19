@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"shop-backend/constants"
 	"shop-backend/models"
 	"strconv"
 	"strings"
@@ -99,7 +100,7 @@ func (s *SpecificationService) GetProductDetailWithSpecs(productID int) (*Produc
 	var specInfos []SpecificationInfo
 	for _, spec := range specifications {
 		var values []models.ProductSpecificationValue
-		s.db.Where("spec_id = ? AND status = ?", spec.ID, "active").Order("sort ASC").Find(&values)
+		s.db.Where("spec_id = ? AND status = ?", spec.ID, constants.StatusActive).Order("sort ASC").Find(&values)
 
 		var valueInfos []SpecificationValueInfo
 		for _, value := range values {

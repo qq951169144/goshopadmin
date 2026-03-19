@@ -77,12 +77,7 @@ const loadProfile = async () => {
     user.value = response
   } catch (error) {
     console.error('加载用户信息失败:', error)
-    // 使用模拟数据
-    user.value = {
-      username: '张三',
-      phone: '138****8888',
-      avatar: ''
-    }
+    user.value = null
   }
 }
 

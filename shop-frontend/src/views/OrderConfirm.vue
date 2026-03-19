@@ -29,10 +29,10 @@
         <div class="section-title">商品信息</div>
         <div class="product-list">
           <div v-for="item in cartItems" :key="item.product_id" class="product-item">
-            <img :src="item.image || defaultImage" :alt="item.name" />
+            <img :src="item.main_image || defaultImage" :alt="item.product_name" />
             <div class="product-info">
-              <h4>{{ item.name }}</h4>
-              <p class="sku" v-if="item.sku">{{ item.sku }}</p>
+              <h4>{{ item.product_name }}</h4>
+              <p class="sku" v-if="item.sku_code">{{ item.sku_code }}</p>
               <div class="price-quantity">
                 <span class="price">¥{{ formatPrice(item.price) }}</span>
                 <span class="quantity">x{{ item.quantity }}</span>
@@ -42,20 +42,12 @@
         </div>
       </div>
 
-      <!-- 配送方式 -->
+      <!-- 配送方式 - 默认包邮 -->
       <div class="delivery-section">
         <div class="section-title">配送方式</div>
-        <div class="delivery-options">
-          <div 
-            v-for="option in deliveryOptions" 
-            :key="option.value"
-            class="delivery-option"
-            :class="{ active: selectedDelivery === option.value }"
-            @click="selectedDelivery = option.value"
-          >
-            <span class="option-name">{{ option.name }}</span>
-            <span class="option-price">{{ option.price > 0 ? `¥${option.price}` : '免运费' }}</span>
-          </div>
+        <div class="delivery-info">
+          <span class="delivery-text">包邮</span>
+          <span class="delivery-price">¥0.00</span>
         </div>
       </div>
 
@@ -83,6 +75,10 @@
           <span>优惠</span>
           <span class="discount">-¥{{ formatPrice(discount) }}</span>
         </div>
+        <div class="amount-item total">
+          <span>应付总额</span>
+          <span class="total-amount">¥{{ formatPrice(finalAmount) }}</span>
+        </div>
       </div>
     </div>
 
@@ -107,41 +103,34 @@ const router = useRouter()
 
 const cartItems = ref([])
 const selectedAddress = ref(null)
-const selectedDelivery = ref('express')
 const remark = ref('')
 const loading = ref(false)
 const discount = ref(0)
 
 const defaultImage = 'https://via.placeholder.com/80x80?text=No+Image'
 
-const deliveryOptions = [
-  { name: '快递配送', value: 'express', price: 10 },
-  { name: '顺丰速运', value: 'sf', price: 15 },
-  { name: '到店自提', value: 'self', price: 0 }
-]
+// 运费固定为0（包邮）
+const shippingFee = 0
 
 const totalAmount = computed(() => {
   return cartItems.value.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 })
 
-const shippingFee = computed(() => {
-  const option = deliveryOptions.find(o => o.value === selectedDelivery.value)
-  return option ? option.price : 10
-})
-
 const finalAmount = computed(() => {
-  return totalAmount.value + shippingFee.value - discount.value
+  return totalAmount.value + shippingFee - discount.value
 })
 
-onMounted(() => {
+onMounted(async () => {
   loadCartItems()
-  loadDefaultAddress()
   
   // 检查是否有从地址页面选择的地址
   const savedAddress = localStorage.getItem('selectedAddress')
   if (savedAddress) {
     selectedAddress.value = JSON.parse(savedAddress)
     localStorage.removeItem('selectedAddress')
+  } else {
+    // 没有选择的地址，加载默认地址
+    await loadDefaultAddress()
   }
 })
 
@@ -157,16 +146,9 @@ const loadCartItems = async () => {
     }
   } catch (error) {
     console.error('加载购物车失败:', error)
-    // 使用模拟数据
-    cartItems.value = [
-      {
-        product_id: 1,
-        name: 'Apple iPhone 15 Pro Max 256GB',
-        price: 9999.00,
-        quantity: 1,
-        image: 'https://via.placeholder.com/80x80?text=iPhone'
-      }
-    ]
+    cartItems.value = []
+    alert('加载购物车失败')
+    router.push('/cart')
   } finally {
     loading.value = false
   }
@@ -212,12 +194,10 @@ const submitOrder = async () => {
       address_id: selectedAddress.value.id,
       items: cartItems.value.map(item => ({
         product_id: item.product_id,
-        quantity: item.quantity,
-        price: item.price
+        sku_id: item.sku_id || 0,
+        quantity: item.quantity
       })),
-      remark: remark.value,
-      delivery_method: selectedDelivery.value,
-      total_amount: finalAmount.value
+      remark: remark.value
     }
 
     const response = await orderAPI.createOrder(orderData)
@@ -401,36 +381,24 @@ const submitOrder = async () => {
 }
 
 /* 配送方式 */
-.delivery-options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.delivery-option {
+.delivery-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  border: 1px solid #eee;
+  background-color: #f9f9f9;
   border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
 }
 
-.delivery-option.active {
-  border-color: #4CAF50;
-  background-color: #f0f9f0;
-}
-
-.option-name {
+.delivery-text {
   font-size: 14px;
   color: #333;
 }
 
-.option-price {
+.delivery-price {
   font-size: 14px;
-  color: #ff4757;
+  color: #4CAF50;
+  font-weight: bold;
 }
 
 /* 备注 */

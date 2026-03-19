@@ -182,7 +182,7 @@ func (s *MerchantService) UpdateMerchant(id int, name, contactName, contactPhone
 	}
 
 	// 重置审核状态
-	merchant.AuditStatus = "pending"
+	merchant.AuditStatus = constants.AuditStatusPending
 
 	if err := tx.Save(&merchant).Error; err != nil {
 		tx.Rollback()

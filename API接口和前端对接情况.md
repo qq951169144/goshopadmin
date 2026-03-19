@@ -270,8 +270,19 @@
 
 | 接口路径                 | 方法       | 功能描述     | 请求参数                                                                                                   | 成功响应                                                  |
 | :------------------- | :------- | :------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
-| `/api/orders`        | `POST`   | 创建订单     | `{"items": [{"product_id": 1, "quantity": 2, "price": 99.99, "sku": "red-medium"}]}` | `{"order_id": "ORD202603120001", "amount": 199.98, "payment_url": "...", "status": "pending", "created_at": "..."}` |
-| `/api/orders/:id`    | `GET`    | 获取订单详情  | 无                                                                                                          | `{"order_id": "...", "amount": 199.98, "status": "paid", "items": [...], "created_at": "...", "paid_at": "..."}` |
+| `/api/orders`        | `POST`   | 创建订单     | `{"address_id": 1, "items": [{"product_id": 1, "quantity": 2}], "remark": ""}` | `{"order_id": "ORD202603190001", "amount": 199.98, "payment_url": "/api/payment/fake-pay?order_id=ORD202603190001", "status": "pending", "created_at": "..."}` |
+| `/api/orders/:id`    | `GET`    | 获取订单详情  | 无                                                                                                          | `{"order_id": "ORD202603190001", "amount": 199.98, "status": "pending", "created_at": "...", "address": {"name": "张三", "phone": "13800138000", "province": "广东省", "city": "深圳市", "district": "南山区", "detail_address": "科技园路1号"}, "items": [{"product_id": 1, "product_name": "iPhone 15 Pro", "product_image": "...", "sku_attributes": {}, "price": 99.99, "quantity": 2}]}` |
+
+**创建订单说明**：
+- 前端只需传递 `address_id` 和 `items`（仅含 `product_id` 和 `quantity`）
+- 商品价格由后端查询数据库获取实时价格
+- 订单总金额由后端计算
+- 创建订单时会检查并扣减库存，库存不足返回错误
+
+**订单详情说明**：
+- 返回完整的收货地址信息
+- 返回商品图片URL
+- 返回商品名称和SKU属性
 
 ### 6.7 支付API
 

@@ -3,9 +3,10 @@ package controllers
 import (
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"shop-backend/errors"
 	"shop-backend/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 // AddressController 地址控制器
@@ -23,8 +24,8 @@ func NewAddressController(addressService *services.AddressService) *AddressContr
 
 // GetAddresses 获取地址列表
 func (c *AddressController) GetAddresses(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -43,8 +44,8 @@ func (c *AddressController) GetAddresses(ctx *gin.Context) {
 
 // GetAddress 获取单个地址
 func (c *AddressController) GetAddress(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -83,8 +84,8 @@ type CreateAddressRequest struct {
 
 // CreateAddress 创建地址
 func (c *AddressController) CreateAddress(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -129,8 +130,8 @@ type UpdateAddressRequest struct {
 
 // UpdateAddress 更新地址
 func (c *AddressController) UpdateAddress(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -171,8 +172,8 @@ func (c *AddressController) UpdateAddress(ctx *gin.Context) {
 
 // DeleteAddress 删除地址
 func (c *AddressController) DeleteAddress(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -197,8 +198,8 @@ func (c *AddressController) DeleteAddress(ctx *gin.Context) {
 
 // SetDefaultAddress 设置默认地址
 func (c *AddressController) SetDefaultAddress(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -223,8 +224,8 @@ func (c *AddressController) SetDefaultAddress(ctx *gin.Context) {
 
 // GetDefaultAddress 获取默认地址
 func (c *AddressController) GetDefaultAddress(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return

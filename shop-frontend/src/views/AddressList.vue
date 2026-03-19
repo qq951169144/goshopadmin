@@ -72,29 +72,7 @@ const loadAddresses = async () => {
     addresses.value = response.addresses || []
   } catch (error) {
     console.error('加载地址失败:', error)
-    // 使用模拟数据
-    addresses.value = [
-      {
-        id: 1,
-        name: '张三',
-        phone: '13800138000',
-        province: '广东省',
-        city: '深圳市',
-        district: '南山区',
-        detail_address: '科技园路1号',
-        is_default: true
-      },
-      {
-        id: 2,
-        name: '李四',
-        phone: '13900139000',
-        province: '广东省',
-        city: '广州市',
-        district: '天河区',
-        detail_address: '珠江新城路2号',
-        is_default: false
-      }
-    ]
+    addresses.value = []
   } finally {
     loading.value = false
   }
@@ -138,7 +116,7 @@ const selectAddress = (address) => {
 .address-list-page {
   min-height: 100vh;
   background-color: #f5f5f5;
-  padding-bottom: 80px;
+  padding-bottom: 140px;
 }
 
 .page-header {
@@ -291,7 +269,7 @@ const selectAddress = (address) => {
 /* 底部添加按钮 */
 .bottom-bar {
   position: fixed;
-  bottom: 0;
+  bottom: 56px;
   left: 0;
   right: 0;
   background-color: white;
@@ -321,5 +299,10 @@ const selectAddress = (address) => {
 
 .add-address-btn:hover {
   background-color: #45a049;
+}
+
+/* 隐藏底部TabBar */
+:global(.tab-bar) {
+  display: none !important;
 }
 </style>

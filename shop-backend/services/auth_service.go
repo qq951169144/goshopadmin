@@ -114,10 +114,10 @@ func (s *AuthService) Login(req LoginRequest) (string, *models.Customer, error) 
 }
 
 // generateToken 生成JWT token
-func (s *AuthService) generateToken(userID int) (string, error) {
+func (s *AuthService) generateToken(customerID int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(time.Hour * time.Duration(s.jwtExpireHour)).Unix(),
+		"customer_id": customerID,
+		"exp":         time.Now().Add(time.Hour * time.Duration(s.jwtExpireHour)).Unix(),
 	})
 
 	tokenString, err := token.SignedString([]byte(s.jwtSecret))

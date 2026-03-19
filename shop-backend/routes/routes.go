@@ -101,7 +101,9 @@ func SetupRouter(deps *Dependencies) *gin.Engine {
 		orders := api.Group("/orders", middleware.Auth())
 		{
 			orders.POST("", deps.OrderController.CreateOrder)
-			orders.GET("/:id", deps.OrderController.GetOrderDetail)
+			orders.GET("/:orderNo", deps.OrderController.GetOrderDetail)
+			orders.PUT("/:orderNo/cancel", deps.OrderController.CancelOrder)
+			orders.PUT("/:orderNo/confirm", deps.OrderController.ConfirmReceipt)
 		}
 
 		// 支付路由

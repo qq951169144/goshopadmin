@@ -29,8 +29,8 @@ type UpdateProfileRequest struct {
 
 // GetProfile 获取个人信息
 func (c *CustomerController) GetProfile(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -57,8 +57,8 @@ func (c *CustomerController) UpdateProfile(ctx *gin.Context) {
 		return
 	}
 
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -83,8 +83,8 @@ func (c *CustomerController) UpdateProfile(ctx *gin.Context) {
 
 // GetOrders 获取订单列表
 func (c *CustomerController) GetOrders(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -93,9 +93,10 @@ func (c *CustomerController) GetOrders(ctx *gin.Context) {
 	// 获取查询参数
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "10"))
+	status := ctx.DefaultQuery("status", "") // 状态筛选参数
 
 	// 从服务层获取订单列表
-	orders, total, err := c.customerService.GetOrders(customerID.(int), page, limit)
+	orders, total, err := c.customerService.GetOrders(customerID.(int), page, limit, status)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return

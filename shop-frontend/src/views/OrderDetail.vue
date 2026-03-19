@@ -27,13 +27,18 @@
       <!-- 收货地址 -->
       <div class="address-section">
         <div class="section-title">收货地址</div>
-        <div class="address-info">
+        <div class="address-info" v-if="order.address">
           <div class="contact">
-            <span class="name">{{ order.address?.name || '张三' }}</span>
-            <span class="phone">{{ order.address?.phone || '138****8888' }}</span>
+            <span class="name">{{ order.address.name }}</span>
+            <span class="phone">{{ order.address.phone }}</span>
           </div>
           <div class="address">
-            {{ order.address?.province || '广东省' }}{{ order.address?.city || '深圳市' }}{{ order.address?.district || '南山区' }}{{ order.address?.detail_address || '科技园路1号' }}
+            {{ order.address.province }}{{ order.address.city }}{{ order.address.district }}{{ order.address.detail_address }}
+          </div>
+        </div>
+        <div class="address-info" v-else>
+          <div class="contact">
+            <span class="name">暂无地址信息</span>
           </div>
         </div>
       </div>
@@ -42,12 +47,12 @@
       <div class="products-section">
         <div class="section-title">商品信息</div>
         <div class="product-list">
-          <div v-for="item in order.items" :key="item.id" class="product-item">
-            <img :src="item.image || item.product_image || defaultImage" :alt="item.product_name || item.name" />
+          <div v-for="(item, index) in order.items" :key="index" class="product-item">
+            <img :src="item.product_image || item.image || defaultImage" :alt="item.product_name" />
             <div class="product-info">
-              <h4>{{ item.product_name || item.name }}</h4>
-              <p class="sku" v-if="item.sku_attributes">{{ formatSku(item.sku_attributes) }}</p>
-              <p class="sku" v-else-if="item.sku_name">{{ item.sku_name }}</p>
+              <h4>{{ item.product_name }}</h4>
+              <p class="sku" v-if="item.sku_code">{{ item.sku_code }}</p>
+              <p class="sku" v-else-if="item.sku_attributes && item.sku_attributes !== '{}'">{{ formatSku(item.sku_attributes) }}</p>
               <div class="price-quantity">
                 <span class="price">¥{{ formatPrice(item.price) }}</span>
                 <span class="quantity">x{{ item.quantity }}</span>
@@ -63,7 +68,7 @@
         <div class="info-list">
           <div class="info-item">
             <span class="label">订单编号</span>
-            <span class="value">{{ order.order_no || order.id }}</span>
+            <span class="value">{{ order.order_no }}</span>
           </div>
           <div class="info-item">
             <span class="label">下单时间</span>
@@ -80,19 +85,19 @@
       <div class="amount-section">
         <div class="amount-item">
           <span class="label">商品总额</span>
-          <span class="value">¥{{ formatPrice(order.total_amount || order.total) }}</span>
+          <span class="value">¥{{ formatPrice(order.total_amount) }}</span>
         </div>
         <div class="amount-item">
           <span class="label">运费</span>
           <span class="value">¥{{ formatPrice(order.shipping_fee || 0) }}</span>
         </div>
-        <div class="amount-item">
+        <div class="amount-item" v-if="order.discount > 0">
           <span class="label">优惠</span>
-          <span class="value discount">-¥{{ formatPrice(order.discount || 0) }}</span>
+          <span class="value discount">-¥{{ formatPrice(order.discount) }}</span>
         </div>
         <div class="amount-total">
           <span class="label">实付款</span>
-          <span class="value">¥{{ formatPrice((order.total_amount || order.total) + (order.shipping_fee || 0) - (order.discount || 0)) }}</span>
+          <span class="value">¥{{ formatPrice(order.total_amount) }}</span>
         </div>
       </div>
 
@@ -133,7 +138,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { orderAPI } from '../api'
+import { orderAPI, paymentAPI } from '../api'
 
 const route = useRoute()
 const router = useRouter()
@@ -213,13 +218,25 @@ const goBack = () => {
   router.back()
 }
 
-const payOrder = () => {
-  alert('跳转到支付页面')
+const payOrder = async () => {
+  if (!order.value || !order.value.order_no) {
+    alert('订单信息不完整')
+    return
+  }
+  try {
+    await paymentAPI.fakePay(order.value.order_no)
+    alert('支付成功')
+    loadOrderDetail()
+  } catch (error) {
+    console.error('支付失败:', error)
+    alert('支付失败')
+  }
 }
 
 const cancelOrder = async () => {
   if (!confirm('确定要取消该订单吗？')) return
   try {
+    await orderAPI.cancelOrder(order.value.order_no)
     order.value.status = 'cancelled'
     alert('订单已取消')
   } catch (error) {
@@ -231,6 +248,7 @@ const cancelOrder = async () => {
 const confirmReceipt = async () => {
   if (!confirm('确认已收到商品？')) return
   try {
+    await orderAPI.confirmReceipt(order.value.order_no)
     order.value.status = 'completed'
     alert('确认收货成功')
   } catch (error) {
@@ -246,39 +264,13 @@ const contactService = () => {
 const loadOrderDetail = async () => {
   loading.value = true
   try {
-    const orderId = route.params.id
-    const response = await orderAPI.getOrderDetail(orderId)
+    const orderNo = route.params.id
+    const response = await orderAPI.getOrderDetail(orderNo)
     order.value = response
   } catch (error) {
     console.error('加载订单详情失败:', error)
-    // 使用模拟数据
-    order.value = {
-      id: route.params.id,
-      order_no: route.params.id,
-      status: 'pending',
-      total_amount: 299.97,
-      shipping_fee: 10,
-      discount: 0,
-      created_at: new Date().toISOString(),
-      payment_method: '微信支付',
-      address: {
-        name: '张三',
-        phone: '13800138000',
-        province: '广东省',
-        city: '深圳市',
-        district: '南山区',
-        detail_address: '科技园路1号'
-      },
-      items: [
-        {
-          id: 1,
-          product_name: 'Apple iPhone 15 Pro Max 256GB',
-          price: 99.99,
-          quantity: 3,
-          image: 'https://via.placeholder.com/80x80?text=iPhone'
-        }
-      ]
-    }
+    alert('加载订单详情失败')
+    router.back()
   } finally {
     loading.value = false
   }

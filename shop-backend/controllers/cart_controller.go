@@ -33,8 +33,8 @@ type CartItemRequest struct {
 
 // GetCart 获取购物车
 func (c *CartController) GetCart(ctx *gin.Context) {
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		// 未登录用户，返回空购物车
 		c.ResponseSuccess(ctx, gin.H{"items": []services.CartItemInfo{}})
@@ -59,8 +59,8 @@ func (c *CartController) AddToCart(ctx *gin.Context) {
 		return
 	}
 
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	utils.Info("获取customerID = %v", customerID)
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
@@ -106,8 +106,8 @@ func (c *CartController) UpdateCartItem(ctx *gin.Context) {
 		return
 	}
 
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -140,8 +140,8 @@ func (c *CartController) RemoveCartItem(ctx *gin.Context) {
 		return
 	}
 
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
@@ -176,8 +176,8 @@ func (c *CartController) SyncCart(ctx *gin.Context) {
 		return
 	}
 
-	// 从上下文中获取用户ID
-	customerID, exists := ctx.Get("user_id")
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
 	if !exists {
 		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return

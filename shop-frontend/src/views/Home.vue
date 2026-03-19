@@ -125,16 +125,8 @@ const loadHotProducts = async (page = 1, append = false) => {
     currentPage.value = page
   } catch (error) {
     console.error('加载热门商品失败:', error)
-    // 使用模拟数据
     if (!append) {
-      hotProducts.value = [
-        { id: 1, name: 'Apple iPhone 15 Pro Max 256GB 钛金属', default_sku_price: 9999.00, sales: 1200, image: 'https://via.placeholder.com/120x120?text=iPhone' },
-        { id: 2, name: 'Sony WH-1000XM5 头戴式降噪耳机', default_sku_price: 2499.00, sales: 856, image: 'https://via.placeholder.com/120x120?text=Headphone' },
-        { id: 3, name: 'MacBook Air M2 13.6英寸 8+256GB', default_sku_price: 8999.00, sales: 645, image: 'https://via.placeholder.com/120x120?text=MacBook' },
-        { id: 4, name: 'Nintendo Switch OLED 游戏机', default_sku_price: 2199.00, sales: 2341, image: 'https://via.placeholder.com/120x120?text=Switch' },
-        { id: 5, name: 'Dyson 戴森 V15 Detect 吸尘器', default_sku_price: 4990.00, sales: 432, image: 'https://via.placeholder.com/120x120?text=Dyson' },
-        { id: 6, name: '小米空气净化器 4 Pro', default_sku_price: 1299.00, sales: 5678, image: 'https://via.placeholder.com/120x120?text=Air+Purifier' }
-      ]
+      hotProducts.value = []
       hasMore.value = false
     }
   } finally {

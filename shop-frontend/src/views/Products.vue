@@ -79,31 +79,19 @@ const loadProducts = async () => {
     total.value = response.total || 0
   } catch (error) {
     console.error('加载商品列表失败:', error)
-    // 使用模拟数据
-    products.value = [
-      { id: 1, name: '商品1', price: 99.99, description: '商品1描述', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%201&image_size=square' },
-      { id: 2, name: '商品2', price: 199.99, description: '商品2描述', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%202&image_size=square' },
-      { id: 3, name: '商品3', price: 299.99, description: '商品3描述', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%203&image_size=square' },
-      { id: 4, name: '商品4', price: 399.99, description: '商品4描述', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%204&image_size=square' },
-      { id: 5, name: '商品5', price: 499.99, description: '商品5描述', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%205&image_size=square' },
-      { id: 6, name: '商品6', price: 599.99, description: '商品6描述', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%206&image_size=square' },
-      { id: 7, name: '商品7', price: 699.99, description: '商品7描述', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%207&image_size=square' },
-      { id: 8, name: '商品8', price: 799.99, description: '商品8描述', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%208&image_size=square' },
-      { id: 9, name: '商品9', price: 899.99, description: '商品9描述', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%209&image_size=square' },
-      { id: 10, name: '商品10', price: 999.99, description: '商品10描述', image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=product%20image%2010&image_size=square' }
-    ]
-    total.value = 20
+    products.value = []
+    total.value = 0
   }
 }
 
-const loadCategories = () => {
-  // 模拟分类数据
-  categories.value = [
-    { id: 1, name: '电子产品' },
-    { id: 2, name: '服装' },
-    { id: 3, name: '食品' },
-    { id: 4, name: '家居' }
-  ]
+const loadCategories = async () => {
+  try {
+    const response = await productAPI.getCategories()
+    categories.value = response || []
+  } catch (error) {
+    console.error('加载分类失败:', error)
+    categories.value = []
+  }
 }
 
 const searchProducts = () => {

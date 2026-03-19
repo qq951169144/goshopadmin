@@ -59,14 +59,14 @@ func Auth() gin.HandlerFunc {
 			return
 		}
 
-		userID, ok := claims["user_id"].(float64)
+		customerID, ok := claims["customer_id"].(float64)
 		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID in token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid customer ID in token"})
 			c.Abort()
 			return
 		}
 
-		c.Set("user_id", int(userID))
+		c.Set("customer_id", int(customerID))
 		c.Next()
 	}
 }

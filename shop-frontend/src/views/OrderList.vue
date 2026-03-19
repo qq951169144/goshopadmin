@@ -26,10 +26,10 @@
         <button @click="goShopping">去购物</button>
       </div>
       <div v-else>
-        <div v-for="order in filteredOrders" :key="order.id" class="order-card">
+        <div v-for="order in filteredOrders" :key="order.order_id" class="order-card">
           <div class="order-header">
             <div class="order-info">
-              <span class="order-no">订单号：{{ order.order_no || order.id }}</span>
+              <span class="order-no">订单号：{{ order.order_no }}</span>
               <span class="order-date">{{ formatDate(order.created_at) }}</span>
             </div>
             <span class="order-status" :class="getStatusClass(order.status)">
@@ -37,12 +37,12 @@
             </span>
           </div>
 
-          <div class="order-items" @click="viewOrderDetail(order.id)">
-            <div v-for="item in order.items" :key="item.id" class="order-item">
-              <img :src="item.image || defaultImage" :alt="item.product_name || item.name" />
+          <div class="order-items" @click="viewOrderDetail(order.order_no)">
+            <div v-for="(item, index) in order.items" :key="index" class="order-item">
+              <img :src="item.product_image || defaultImage" :alt="item.product_name" />
               <div class="item-info">
-                <h4>{{ item.product_name || item.name }}</h4>
-                <p class="item-sku" v-if="item.sku_attributes">{{ formatSku(item.sku_attributes) }}</p>
+                <h4>{{ item.product_name }}</h4>
+                <p class="item-sku" v-if="item.sku_attributes && item.sku_attributes !== '{}'">{{ formatSku(item.sku_attributes) }}</p>
                 <p class="item-price">¥{{ formatPrice(item.price) }} x {{ item.quantity }}</p>
               </div>
             </div>
@@ -52,34 +52,34 @@
             <div class="order-total">
               <span>共{{ getTotalItems(order.items) }}件商品</span>
               <span class="total-amount">
-                合计：<strong>¥{{ formatPrice(order.total_amount || order.total) }}</strong>
+                合计：<strong>¥{{ formatPrice(order.amount) }}</strong>
               </span>
             </div>
             <div class="order-actions">
-              <button 
-                v-if="order.status === 'pending'" 
+              <button
+                v-if="order.status === 'pending'"
                 class="btn-primary"
-                @click="payOrder(order.id)"
+                @click="payOrder(order)"
               >
                 立即支付
               </button>
               <button 
                 v-if="order.status === 'pending'" 
                 class="btn-default"
-                @click="cancelOrder(order.id)"
+                @click="cancelOrder(order.order_no)"
               >
                 取消订单
               </button>
               <button 
                 v-if="order.status === 'shipped'" 
                 class="btn-primary"
-                @click="confirmReceipt(order.id)"
+                @click="confirmReceipt(order.order_no)"
               >
                 确认收货
               </button>
               <button 
                 class="btn-default"
-                @click="viewOrderDetail(order.id)"
+                @click="viewOrderDetail(order.order_no)"
               >
                 查看详情
               </button>
@@ -95,9 +95,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { customerAPI, orderAPI } from '../api'
+import { customerAPI, orderAPI, paymentAPI } from '../api'
 
 const router = useRouter()
 const orders = ref([])
@@ -178,19 +178,29 @@ const goShopping = () => {
   router.push('/')
 }
 
-const viewOrderDetail = (orderId) => {
-  router.push(`/order/${orderId}`)
+const viewOrderDetail = (orderNo) => {
+  router.push(`/order/${orderNo}`)
 }
 
-const payOrder = (orderId) => {
-  router.push(`/order/${orderId}?action=pay`)
+const payOrder = async (order) => {
+  try {
+    await paymentAPI.fakePay(order.order_no)
+    // 支付成功，跳转到订单详情页
+    router.push(`/order/${order.order_no}`)
+  } catch (error) {
+    // 支付失败，显示弹窗
+    console.error('支付失败:', error)
+    alert('支付失败: ' + (error.message || '请稍后重试'))
+    // 刷新订单列表
+    loadOrders()
+  }
 }
 
-const cancelOrder = async (orderId) => {
+const cancelOrder = async (orderNo) => {
   if (!confirm('确定要取消该订单吗？')) return
   try {
-    // 调用取消订单API
-    const order = orders.value.find(o => o.id === orderId)
+    await orderAPI.cancelOrder(orderNo)
+    const order = orders.value.find(o => o.order_no === orderNo)
     if (order) {
       order.status = 'cancelled'
     }
@@ -201,11 +211,11 @@ const cancelOrder = async (orderId) => {
   }
 }
 
-const confirmReceipt = async (orderId) => {
+const confirmReceipt = async (orderNo) => {
   if (!confirm('确认已收到商品？')) return
   try {
-    // 调用确认收货API
-    const order = orders.value.find(o => o.id === orderId)
+    await orderAPI.confirmReceipt(orderNo)
+    const order = orders.value.find(o => o.order_no === orderNo)
     if (order) {
       order.status = 'completed'
     }
@@ -221,7 +231,13 @@ const loadOrders = async (page = 1, append = false) => {
   loading.value = true
 
   try {
-    const response = await customerAPI.getOrders({ page, limit: pageSize })
+    // 构建查询参数
+    const params = { page, limit: pageSize }
+    if (currentTab.value !== 'all') {
+      params.status = currentTab.value
+    }
+
+    const response = await customerAPI.getOrders(params)
     const newOrders = response.orders || []
     const total = response.total || 0
 
@@ -235,58 +251,8 @@ const loadOrders = async (page = 1, append = false) => {
     currentPage.value = page
   } catch (error) {
     console.error('加载订单失败:', error)
-    // 使用模拟数据
     if (!append) {
-      orders.value = [
-        {
-          id: '202401010001',
-          order_no: '202401010001',
-          status: 'pending',
-          total_amount: 299.97,
-          created_at: new Date().toISOString(),
-          items: [
-            {
-              id: 1,
-              product_name: 'Apple iPhone 15 Pro Max',
-              price: 99.99,
-              quantity: 3,
-              image: 'https://via.placeholder.com/80x80?text=iPhone'
-            }
-          ]
-        },
-        {
-          id: '202401010002',
-          order_no: '202401010002',
-          status: 'shipped',
-          total_amount: 199.99,
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-          items: [
-            {
-              id: 2,
-              product_name: 'Sony WH-1000XM5',
-              price: 199.99,
-              quantity: 1,
-              image: 'https://via.placeholder.com/80x80?text=Headphone'
-            }
-          ]
-        },
-        {
-          id: '202401010003',
-          order_no: '202401010003',
-          status: 'completed',
-          total_amount: 499.00,
-          created_at: new Date(Date.now() - 172800000).toISOString(),
-          items: [
-            {
-              id: 3,
-              product_name: 'Dyson V15',
-              price: 499.00,
-              quantity: 1,
-              image: 'https://via.placeholder.com/80x80?text=Dyson'
-            }
-          ]
-        }
-      ]
+      orders.value = []
       hasMore.value = false
     }
   } finally {
@@ -302,6 +268,12 @@ const loadMore = () => {
 
 onMounted(() => {
   loadOrders()
+})
+
+watch(currentTab, () => {
+  currentPage.value = 1
+  hasMore.value = true
+  loadOrders(1, false)
 })
 </script>
 

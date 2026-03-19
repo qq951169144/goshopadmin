@@ -2,12 +2,13 @@ package controllers
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"shop-backend/constants"
 	"shop-backend/errors"
 	"shop-backend/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 // PaymentController 支付控制器
@@ -23,61 +24,16 @@ func NewPaymentController(orderService *services.OrderService) *PaymentControlle
 	}
 }
 
-// FakePay 伪支付页面
+// FakePay 伪支付接口
 func (c *PaymentController) FakePay(ctx *gin.Context) {
-	orderID := ctx.Query("order_id")
+	orderNo := ctx.Query("orderNo")
 
 	// 查找订单
-	order, err := c.orderService.GetOrderByID(orderID)
+	order, err := c.orderService.GetOrderByOrderNo(orderNo)
 	if err != nil {
-		ctx.Header("Content-Type", "text/html; charset=utf-8")
-		ctx.String(http.StatusNotFound, `
-			<!DOCTYPE html>
-			<html>
-			<head>
-				<title>订单不存在</title>
-				<style>
-					body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-					h1 { color: #f44336; }
-					p { font-size: 18px; margin: 20px 0; }
-					button { padding: 10px 20px; font-size: 16px; background-color: #333; color: white; border: none; border-radius: 4px; cursor: pointer; }
-					button:hover { background-color: #555; }
-				</style>
-			</head>
-			<body>
-				<h1>订单不存在</h1>
-				<p>请检查订单号是否正确</p>
-				<button onclick="window.history.back()">返回</button>
-			</body>
-			</html>
-		`)
+		c.ResponseError(ctx, errors.CodeOrderNotFound, err)
 		return
 	}
-
-	// 生成支付成功页面
-	ctx.Header("Content-Type", "text/html; charset=utf-8")
-	ctx.String(http.StatusOK, `
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<title>支付成功</title>
-			<style>
-				body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-				h1 { color: #4CAF50; }
-				p { font-size: 18px; margin: 20px 0; }
-				button { padding: 10px 20px; font-size: 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
-				button:hover { background-color: #45a049; }
-			</style>
-		</head>
-		<body>
-			<h1>支付成功</h1>
-			<p>订单号: %s</p>
-			<p>支付金额: ¥%.2f</p>
-			<p>支付时间: %s</p>
-			<button onclick="window.location.href='/order/%s'">查看订单</button>
-		</body>
-		</html>
-	`, orderID, order.TotalAmount, time.Now().Format("2006-01-02 15:04:05"), orderID)
 
 	// 模拟支付回调
 	go func() {
@@ -85,13 +41,20 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 		transactionID := fmt.Sprintf("TRX%s", time.Now().Format("20060102150405"))
 
 		// 更新订单状态
-		c.orderService.UpdateOrderStatus(orderID, "paid", transactionID)
+		c.orderService.UpdateOrderStatus(orderNo, constants.OrderStatusPaid, transactionID)
 	}()
+
+	// 返回 JSON 响应
+	c.ResponseSuccess(ctx, gin.H{
+		"order_no": orderNo,
+		"amount":   order.TotalAmount,
+		"message":  "支付成功",
+	})
 }
 
 // PaymentCallbackRequest 支付回调请求结构
 type PaymentCallbackRequest struct {
-	OrderID       string  `json:"order_id" binding:"required"`
+	OrderNo       string  `json:"order_id" binding:"required"`
 	TransactionID string  `json:"transaction_id" binding:"required"`
 	Status        string  `json:"status" binding:"required"`
 	Amount        float64 `json:"amount" binding:"required"`
@@ -106,7 +69,7 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 	}
 
 	// 查找订单
-	order, err := c.orderService.GetOrderByID(req.OrderID)
+	order, err := c.orderService.GetOrderByOrderNo(req.OrderNo)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeOrderNotFound, err)
 		return
@@ -119,7 +82,7 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 	}
 
 	// 更新订单状态
-	err = c.orderService.UpdateOrderStatus(req.OrderID, req.Status, req.TransactionID)
+	err = c.orderService.UpdateOrderStatus(req.OrderNo, req.Status, req.TransactionID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
@@ -127,7 +90,7 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 
 	c.ResponseSuccess(ctx, gin.H{
 		"message":        "Payment callback received",
-		"order_id":       req.OrderID,
+		"order_no":       req.OrderNo,
 		"transaction_id": req.TransactionID,
 		"status":         req.Status,
 	})

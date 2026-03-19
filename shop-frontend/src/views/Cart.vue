@@ -62,11 +62,7 @@ const loadCart = async () => {
     cartItems.value = response.items || []
   } catch (error) {
     console.error('加载购物车失败:', error)
-    // 使用模拟数据
-    cartItems.value = [
-      { id: 1, name: 'Apple iPhone 15 Pro Max 256GB', price: 9999.00, quantity: 1, image: 'https://via.placeholder.com/80x80?text=iPhone' },
-      { id: 2, name: 'Sony WH-1000XM5 头戴式降噪耳机', price: 2499.00, quantity: 2, image: 'https://via.placeholder.com/80x80?text=Headphone' }
-    ]
+    cartItems.value = []
   }
 }
 

@@ -316,13 +316,17 @@ export const orderAPI = {
   // 创建订单
   createOrder: (data) => api.post('/orders', data),
   // 获取订单详情
-  getOrderDetail: (id) => api.get(`/orders/${id}`)
+  getOrderDetail: (orderNo) => api.get(`/orders/${orderNo}`),
+  // 取消订单
+  cancelOrder: (orderNo) => api.put(`/orders/${orderNo}/cancel`),
+  // 确认收货
+  confirmReceipt: (orderNo) => api.put(`/orders/${orderNo}/confirm`)
 }
 
 // 支付相关API
 export const paymentAPI = {
   // 模拟支付
-  fakePay: (params) => api.get('/payment/fake-pay', { params }),
+  fakePay: (orderNo) => api.get(`/payment/fake-pay?orderNo=${orderNo}`),
   // 支付回调
   paymentCallback: (data) => api.post('/payment/callback', data)
 }
