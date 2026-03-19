@@ -54,7 +54,7 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 
 // PaymentCallbackRequest 支付回调请求结构
 type PaymentCallbackRequest struct {
-	OrderNo       string  `json:"order_id" binding:"required"`
+	OrderNo       string  `json:"order_no" binding:"required"`
 	TransactionID string  `json:"transaction_id" binding:"required"`
 	Status        string  `json:"status" binding:"required"`
 	Amount        float64 `json:"amount" binding:"required"`
