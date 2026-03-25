@@ -145,7 +145,7 @@ func (c *AddressController) UpdateAddress(ctx *gin.Context) {
 	}
 
 	var req UpdateAddressRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+	if err = ctx.ShouldBindJSON(&req); err != nil {
 		c.ResponseError(ctx, errors.CodeParamInvalid, err)
 		return
 	}
