@@ -41,7 +41,7 @@ func LoadConfig() (*Config, error) {
 		RedisPort:     getEnv("REDIS_PORT", "6379"),
 		RedisPassword: getEnv("REDIS_PASSWORD", ""),
 		RedisDB:       redisDB,
-		JWTSecret:     getEnv("JWT_SECRET", "your-secret-key"),
+		JWTSecret:     getEnv("JWT_SECRET", "1a4tx4pQczv8y1HMX9KytdUeP2rrVt9q"),
 		JWTExpireHour: jwtExpireHour,
 	}, nil
 }

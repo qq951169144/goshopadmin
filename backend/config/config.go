@@ -94,7 +94,7 @@ func LoadConfig() (*Config, error) {
 		RedisDB:       redisDB,
 
 		// JWT配置
-		JWTSecret:     getEnv("JWT_SECRET", "your-secret-key"),
+		JWTSecret:     getEnv("JWT_SECRET", "pqe9SIYpdZf4SPZAcjo4c8T6UcKChcTi"),
 		JWTExpireHour: jwtExpireHour,
 
 		// RabbitMQ配置
