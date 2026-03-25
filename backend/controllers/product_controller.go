@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
@@ -99,9 +100,9 @@ type UpdateProductImageRequest struct {
 }
 
 // NewProductController 创建商品控制器实例
-func NewProductController(db *gorm.DB) *ProductController {
+func NewProductController(db *gorm.DB, redisClient *redis.Client) *ProductController {
 	return &ProductController{
-		productService: services.NewProductService(db),
+		productService: services.NewProductService(db, redisClient),
 	}
 }
 

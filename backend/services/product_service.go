@@ -1,21 +1,49 @@
 package services
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"goshopadmin/cache"
 	"goshopadmin/constants"
 	"goshopadmin/models"
 
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
 // ProductService 商品服务
 type ProductService struct {
-	DB *gorm.DB
+	DB        *gorm.DB
+	Redis     *redis.Client
+	CacheUtil *cache.CacheUtil
 }
 
 // NewProductService 创建商品服务实例
-func NewProductService(db *gorm.DB) *ProductService {
-	return &ProductService{DB: db}
+func NewProductService(db *gorm.DB, redis *redis.Client) *ProductService {
+	cacheUtil := cache.NewCacheUtil(db, redis)
+	return &ProductService{DB: db, Redis: redis, CacheUtil: cacheUtil}
+}
+
+// DeleteProductCache 删除商品缓存
+func (s *ProductService) DeleteProductCache(ctx context.Context, productID int) error {
+	// 删除商品详情缓存
+	s.CacheUtil.DeleteProductCache(ctx, productID)
+
+	// 删除商品空值缓存
+	nullKey := fmt.Sprintf("product:null:%d", productID)
+	s.CacheUtil.SetNullValue(ctx, nullKey)
+
+	// 删除商品列表缓存
+	s.CacheUtil.DeleteProductListCache(ctx)
+
+	return nil
+}
+
+// AddProductToBloomFilter 添加商品到布隆过滤器
+func (s *ProductService) AddProductToBloomFilter(ctx context.Context, productID int) error {
+	// 使用缓存工具添加商品到布隆过滤器
+	return s.CacheUtil.AddProductToBloomFilter(ctx, productID)
 }
 
 // GetMerchantIDByUserID 根据用户ID获取商户ID
@@ -53,7 +81,16 @@ func (s *ProductService) CreateProduct(product *models.Product, merchantID int) 
 	product.MerchantID = merchantID
 	// 创建商品（不再自动创建默认SKU）
 	result := s.DB.Create(product)
-	return result.Error
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// 商品创建成功后，添加到布隆过滤器并清理相关缓存
+	ctx := context.Background()
+	s.AddProductToBloomFilter(ctx, int(product.ID))
+	s.DeleteProductCache(ctx, int(product.ID))
+
+	return nil
 }
 
 // UpdateProduct 更新商品
@@ -67,7 +104,15 @@ func (s *ProductService) UpdateProduct(productID int, merchantID int, updateData
 
 	// 使用map更新指定字段
 	result = s.DB.Model(&existingProduct).Updates(updateData)
-	return result.Error
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// 商品更新成功后，清理相关缓存
+	ctx := context.Background()
+	s.DeleteProductCache(ctx, productID)
+
+	return nil
 }
 
 // DeleteProduct 禁用商品
@@ -81,7 +126,15 @@ func (s *ProductService) DeleteProduct(id int, merchantID int) error {
 
 	// 更新商品状态为禁用
 	result = s.DB.Model(&existingProduct).Update("status", constants.StatusInactive)
-	return result.Error
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// 商品禁用成功后，清理相关缓存
+	ctx := context.Background()
+	s.DeleteProductCache(ctx, id)
+
+	return nil
 }
 
 // GetCategoriesByMerchantID 获取商户的商品分类列表
@@ -180,7 +233,15 @@ func (s *ProductService) AddProductImage(image *models.ProductImage, merchantID 
 
 	// 添加图片
 	result = s.DB.Create(image)
-	return result.Error
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// 商品图片添加成功后，清理相关商品缓存
+	ctx := context.Background()
+	s.DeleteProductCache(ctx, image.ProductID)
+
+	return nil
 }
 
 // DeleteProductImage 删除商品图片
@@ -198,9 +259,20 @@ func (s *ProductService) DeleteProductImage(id int, merchantID int) error {
 		return errors.New("商品不存在或不属于该商户")
 	}
 
+	// 保存商品ID，用于后续清理缓存
+	productID := image.ProductID
+
 	// 删除图片
 	result = s.DB.Delete(&image)
-	return result.Error
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// 商品图片删除成功后，清理相关商品缓存
+	ctx := context.Background()
+	s.DeleteProductCache(ctx, productID)
+
+	return nil
 }
 
 // UpdateProductImage 更新商品图片
@@ -217,6 +289,9 @@ func (s *ProductService) UpdateProductImage(image *models.ProductImage, merchant
 	if result.Error != nil {
 		return errors.New("商品不存在或不属于该商户")
 	}
+
+	// 保存商品ID，用于后续清理缓存
+	productID := existingImage.ProductID
 
 	// 开启事务
 	tx := s.DB.Begin()
@@ -241,5 +316,13 @@ func (s *ProductService) UpdateProductImage(image *models.ProductImage, merchant
 	}
 
 	// 提交事务
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// 商品图片更新成功后，清理相关商品缓存
+	ctx := context.Background()
+	s.DeleteProductCache(ctx, productID)
+
+	return nil
 }

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
+
+	"shop-backend/cache"
 	"shop-backend/config"
 	"shop-backend/controllers"
 	"shop-backend/middleware"
@@ -26,15 +29,26 @@ func main() {
 	// 3. 设置JWT密钥到中间件
 	middleware.SetJWTSecret(cfg.JWTSecret)
 
-	// 5. 创建服务层实例（依赖注入）
+	// 4. 初始化缓存工具
+	cacheUtil := cache.NewCacheUtil(conn.DB, conn.Redis)
+
+	// 5. 初始化布隆过滤器并预热数据
+	ctx := context.Background()
+	if err := cacheUtil.InitBloomFilters(ctx); err != nil {
+		log.Printf("Warning: Failed to initialize bloom filters: %v", err)
+	} else {
+		log.Println("Bloom filters initialized and data warmed up successfully")
+	}
+
+	// 6. 创建服务层实例（依赖注入）
 	// 注意：CaptchaService 需要先创建，因为 AuthService 依赖它
 	captchaService := services.NewCaptchaService(conn.Redis)
 
 	authService := services.NewAuthService(conn.DB, captchaService, cfg.JWTSecret, cfg.JWTExpireHour)
 	customerService := services.NewCustomerService(conn.DB)
-	productService := services.NewProductService(conn.DB)
+	productService := services.NewProductService(conn.DB, cacheUtil)
 	cartService := services.NewCartService(conn.DB)
-	orderService := services.NewOrderService(conn.DB)
+	orderService := services.NewOrderService(conn.DB, cacheUtil)
 	addressService := services.NewAddressService(conn.DB)
 	specificationService := services.NewSpecificationService(conn.DB)
 

@@ -1,30 +1,49 @@
 package routes
 
 import (
+	"context"
+	"fmt"
 	"goshopadmin/config"
 	"goshopadmin/controllers"
 	"goshopadmin/middleware"
 	"goshopadmin/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
 // Dependencies 包含所有依赖
 type Dependencies struct {
-	CommonController         *controllers.CommonController
-	AuthController           *controllers.AuthController
-	UserController           *controllers.UserController
-	RoleController           *controllers.RoleController
-	PermissionController     *controllers.PermissionController
-	MerchantController       *controllers.MerchantController
-	ProductController        *controllers.ProductController
-	SpecificationController  *controllers.SpecificationController
-	SKUController            *controllers.SKUController
+	CommonController        *controllers.CommonController
+	AuthController          *controllers.AuthController
+	UserController          *controllers.UserController
+	RoleController          *controllers.RoleController
+	PermissionController    *controllers.PermissionController
+	MerchantController      *controllers.MerchantController
+	ProductController       *controllers.ProductController
+	SpecificationController *controllers.SpecificationController
+	SKUController           *controllers.SKUController
 }
 
 // SetupRoutes 设置所有路由
 func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
+	// 初始化Redis客户端
+	redisAddr := fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+	})
+
+	// 测试Redis连接
+	ctx := context.Background()
+	_, err := redisClient.Ping(ctx).Result()
+	if err != nil {
+		// 记录错误但不中断启动
+		// TODO: 添加日志记录
+	}
+
 	// 创建服务实例
 	specService := services.NewSpecificationService(db)
 	skuService := services.NewSKUService(db)
@@ -37,7 +56,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 		RoleController:          controllers.NewRoleController(db, cfg.JWTSecret, cfg.JWTExpireHour),
 		PermissionController:    controllers.NewPermissionController(db, cfg.JWTSecret, cfg.JWTExpireHour),
 		MerchantController:      controllers.NewMerchantController(db),
-		ProductController:       controllers.NewProductController(db),
+		ProductController:       controllers.NewProductController(db, redisClient),
 		SpecificationController: controllers.NewSpecificationController(specService),
 		SKUController:           controllers.NewSKUController(skuService),
 	}

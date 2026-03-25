@@ -1,11 +1,13 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"shop-backend/cache"
 	"shop-backend/constants"
 	"shop-backend/models"
 
@@ -15,12 +17,16 @@ import (
 
 // OrderService 订单服务
 type OrderService struct {
-	db *gorm.DB
+	db        *gorm.DB
+	cacheUtil *cache.CacheUtil
 }
 
 // NewOrderService 创建订单服务实例
-func NewOrderService(db *gorm.DB) *OrderService {
-	return &OrderService{db: db}
+func NewOrderService(db *gorm.DB, cacheUtil *cache.CacheUtil) *OrderService {
+	return &OrderService{
+		db:        db,
+		cacheUtil: cacheUtil,
+	}
 }
 
 // OrderItemRequest 订单项请求（前端传入）
@@ -195,6 +201,10 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 		return nil, errors.New("提交事务失败")
 	}
 
+	// 添加订单号到布隆过滤器
+	ctx := context.Background()
+	s.cacheUtil.AddOrderToBloomFilter(ctx, orderNo)
+
 	// 生成支付URL
 	paymentURL := fmt.Sprintf("/api/payment/fake-pay?order_id=%s", orderNo)
 
@@ -230,14 +240,44 @@ type OrderDetailInfo struct {
 
 // GetOrderDetail 获取订单详情
 func (s *OrderService) GetOrderDetail(orderNo string, customerID int) (map[string]interface{}, error) {
-	// 从数据库获取订单详情，支持按order_no查询
-	var order models.Order
-	result := s.db.Where("order_no = ? AND customer_id = ?", orderNo, customerID).Preload("Items").First(&order)
-	if result.RowsAffected == 0 {
+	ctx := context.Background()
+
+	// 生成缓存键
+	nullKey := fmt.Sprintf("order:null:%s", orderNo)
+
+	// 1. 检查空值缓存
+	nullExists, err := s.cacheUtil.GetNullValue(ctx, nullKey)
+	if err == nil && nullExists {
 		return nil, errors.New("订单不存在")
 	}
 
-	// 查询地址信息
+	// 2. 检查缓存
+	cachedData, err := s.cacheUtil.GetOrderCache(ctx, orderNo, customerID)
+	if err == nil && cachedData != nil {
+		// 缓存命中
+		if data, ok := cachedData.(map[string]interface{}); ok {
+			return data, nil
+		}
+	}
+
+	// 3. 检查布隆过滤器
+	exists, err := s.cacheUtil.CheckOrderExists(ctx, orderNo)
+	if err == nil && !exists {
+		// 布隆过滤器判断不存在，设置空值缓存
+		s.cacheUtil.SetNullValue(ctx, nullKey)
+		return nil, errors.New("订单不存在")
+	}
+
+	// 4. 查询数据库
+	var order models.Order
+	result := s.db.Where("order_no = ? AND customer_id = ?", orderNo, customerID).Preload("Items").First(&order)
+	if result.RowsAffected == 0 {
+		// 数据库也不存在，设置空值缓存
+		s.cacheUtil.SetNullValue(ctx, nullKey)
+		return nil, errors.New("订单不存在")
+	}
+
+	// 5. 查询地址信息
 	var address models.Address
 	addressInfo := map[string]string{
 		"name":           "",
@@ -256,7 +296,7 @@ func (s *OrderService) GetOrderDetail(orderNo string, customerID int) (map[strin
 		addressInfo["detail_address"] = address.DetailAddress
 	}
 
-	// 转换为前端需要的格式
+	// 6. 转换为前端需要的格式
 	var items []OrderDetailItem
 	for _, item := range order.Items {
 		// 查询商品主图
@@ -287,7 +327,8 @@ func (s *OrderService) GetOrderDetail(orderNo string, customerID int) (map[strin
 		})
 	}
 
-	return map[string]interface{}{
+	// 7. 构建响应数据
+	responseData := map[string]interface{}{
 		"order_id":   order.ID,
 		"order_no":   order.OrderNo,
 		"amount":     order.TotalAmount,
@@ -295,7 +336,12 @@ func (s *OrderService) GetOrderDetail(orderNo string, customerID int) (map[strin
 		"created_at": order.CreatedAt,
 		"address":    addressInfo,
 		"items":      items,
-	}, nil
+	}
+
+	// 8. 设置缓存
+	s.cacheUtil.SetOrderCache(ctx, orderNo, customerID, responseData)
+
+	return responseData, nil
 }
 
 // UpdateOrderStatus 更新订单状态
@@ -315,6 +361,10 @@ func (s *OrderService) UpdateOrderStatus(orderNo, status, transactionID string) 
 	if err := s.db.Save(&order).Error; err != nil {
 		return errors.New("更新订单状态失败")
 	}
+
+	// 清理缓存
+	ctx := context.Background()
+	s.cacheUtil.DeleteOrderCacheByOrderNo(ctx, orderNo)
 
 	return nil
 }
@@ -340,6 +390,11 @@ func (s *OrderService) CancelOrder(orderNo string, customerID int) error {
 		return errors.New("取消订单失败")
 	}
 
+	// 清理缓存
+	ctx := context.Background()
+	s.cacheUtil.DeleteOrderCache(ctx, orderNo, customerID)
+	s.cacheUtil.DeleteOrderCacheByOrderNo(ctx, orderNo)
+
 	return nil
 }
 
@@ -363,6 +418,11 @@ func (s *OrderService) ConfirmReceipt(orderNo string, customerID int) error {
 	if err := s.db.Save(&order).Error; err != nil {
 		return errors.New("确认收货失败")
 	}
+
+	// 清理缓存
+	ctx := context.Background()
+	s.cacheUtil.DeleteOrderCache(ctx, orderNo, customerID)
+	s.cacheUtil.DeleteOrderCacheByOrderNo(ctx, orderNo)
 
 	return nil
 }
