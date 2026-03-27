@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"shop-backend/cache"
 	"shop-backend/constants"
 	"shop-backend/errors"
 	"shop-backend/services"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // PaymentController 支付控制器
@@ -18,9 +20,9 @@ type PaymentController struct {
 }
 
 // NewPaymentController 创建支付控制器实例
-func NewPaymentController(orderService *services.OrderService) *PaymentController {
+func NewPaymentController(db *gorm.DB, cacheUtil *cache.CacheUtil) *PaymentController {
 	return &PaymentController{
-		orderService: orderService,
+		orderService: services.NewOrderService(db, cacheUtil),
 	}
 }
 

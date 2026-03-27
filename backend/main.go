@@ -52,7 +52,7 @@ func main() {
 	r.Static("/uploads", "./uploads")
 
 	// 8. 设置路由
-	routes.SetupRoutes(r, conn.DB, cfg)
+	routes.SetupRoutes(r, conn.DB, conn.Redis, cfg)
 
 	// 9. 启动服务器
 	port := cfg.ServerPort

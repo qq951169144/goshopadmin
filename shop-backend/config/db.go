@@ -29,19 +29,24 @@ func InitDB(cfg *Config) (*DBConnection, error) {
 
 	log.Println("Database connected successfully")
 
-	// 连接 Redis
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     cfg.GetRedisAddr(),
+	// 初始化Redis连接
+	var redisClient *redis.Client
+	redisAddr := cfg.GetRedisAddr()
+	redisClient = redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
 		Password: cfg.RedisPassword,
 		DB:       cfg.RedisDB,
 	})
 
+	// 测试Redis连接
 	ctx := context.Background()
 	if err := redisClient.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("failed to connect redis: %w", err)
+		log.Printf("Warning: Failed to connect Redis: %v", err)
+		// Redis连接失败，不中断启动
+		redisClient = nil
+	} else {
+		log.Println("Redis connected successfully")
 	}
-
-	log.Println("Redis connected successfully")
 
 	return &DBConnection{
 		DB:    db,
@@ -49,11 +54,22 @@ func InitDB(cfg *Config) (*DBConnection, error) {
 	}, nil
 }
 
-// Close 关闭数据库连接
+// Close 关闭数据库和Redis连接
 func (conn *DBConnection) Close() error {
 	sqlDB, err := conn.DB.DB()
 	if err != nil {
 		return err
 	}
-	return sqlDB.Close()
+
+	if err := sqlDB.Close(); err != nil {
+		return err
+	}
+
+	if conn.Redis != nil {
+		if err := conn.Redis.Close(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -3,10 +3,12 @@ package controllers
 import (
 	"strconv"
 
+	"shop-backend/cache"
 	"shop-backend/errors"
 	"shop-backend/services"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // SpecificationController 规格控制器
@@ -16,9 +18,9 @@ type SpecificationController struct {
 }
 
 // NewSpecificationController 创建规格控制器
-func NewSpecificationController(specService *services.SpecificationService) *SpecificationController {
+func NewSpecificationController(db *gorm.DB, cacheUtil *cache.CacheUtil) *SpecificationController {
 	return &SpecificationController{
-		specService: specService,
+		specService: services.NewSpecificationService(db, cacheUtil),
 	}
 }
 

@@ -3,10 +3,12 @@ package controllers
 import (
 	"strconv"
 
+	"shop-backend/cache"
 	"shop-backend/errors"
 	"shop-backend/services"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // ProductController 商品控制器
@@ -16,9 +18,9 @@ type ProductController struct {
 }
 
 // NewProductController 创建商品控制器实例
-func NewProductController(productService *services.ProductService) *ProductController {
+func NewProductController(db *gorm.DB, cacheUtil *cache.CacheUtil) *ProductController {
 	return &ProductController{
-		productService: productService,
+		productService: services.NewProductService(db, cacheUtil),
 	}
 }
 

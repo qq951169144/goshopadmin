@@ -8,6 +8,7 @@ import (
 	"shop-backend/utils"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CartController 购物车控制器
@@ -17,9 +18,9 @@ type CartController struct {
 }
 
 // NewCartController 创建购物车控制器实例
-func NewCartController(cartService *services.CartService) *CartController {
+func NewCartController(db *gorm.DB) *CartController {
 	return &CartController{
-		cartService: cartService,
+		cartService: services.NewCartService(db),
 	}
 }
 

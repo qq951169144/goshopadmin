@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // SKUController SKU控制器
@@ -16,9 +17,9 @@ type SKUController struct {
 }
 
 // NewSKUController 创建SKU控制器
-func NewSKUController(skuService *services.SKUService) *SKUController {
+func NewSKUController(db *gorm.DB) *SKUController {
 	return &SKUController{
-		skuService: skuService,
+		skuService: services.NewSKUService(db),
 	}
 }
 

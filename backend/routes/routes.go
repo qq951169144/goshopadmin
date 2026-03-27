@@ -2,12 +2,10 @@ package routes
 
 import (
 	"context"
-	"fmt"
 	"goshopadmin/cache"
 	"goshopadmin/config"
 	"goshopadmin/controllers"
 	"goshopadmin/middleware"
-	"goshopadmin/services"
 	"goshopadmin/utils"
 
 	"github.com/gin-gonic/gin"
@@ -29,26 +27,9 @@ type Dependencies struct {
 }
 
 // SetupRoutes 设置所有路由
-func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
-	// 初始化Redis客户端
-	redisAddr := fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort)
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
-		Password: cfg.RedisPassword,
-		DB:       cfg.RedisDB,
-	})
-
-	// 测试Redis连接
-	ctx := context.Background()
-	_, err := redisClient.Ping(ctx).Result()
-	if err != nil {
-		// 记录错误但不中断启动
-		utils.Error("Redis连接失败: %v", err)
-	} else {
-		utils.Info("Redis连接成功")
-	}
-
+func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Config) {
 	// 初始化缓存工具并预热布隆过滤器
+	ctx := context.Background()
 	cacheUtil := cache.NewCacheUtil(db, redisClient)
 	if err := cacheUtil.InitBloomFilters(ctx); err != nil {
 		// 记录错误但不中断启动
@@ -56,10 +37,6 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	} else {
 		utils.Info("布隆过滤器初始化成功并预热完成")
 	}
-
-	// 创建服务实例
-	specService := services.NewSpecificationService(db)
-	skuService := services.NewSKUService(db)
 
 	// 创建控制器实例
 	deps := &Dependencies{
@@ -70,8 +47,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 		PermissionController:    controllers.NewPermissionController(db, cfg.JWTSecret, cfg.JWTExpireHour),
 		MerchantController:      controllers.NewMerchantController(db),
 		ProductController:       controllers.NewProductController(db, redisClient),
-		SpecificationController: controllers.NewSpecificationController(specService),
-		SKUController:           controllers.NewSKUController(skuService),
+		SpecificationController: controllers.NewSpecificationController(db),
+		SKUController:           controllers.NewSKUController(db),
 	}
 
 	// 1. 通用路由（无需认证）

@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"shop-backend/errors"
 	"shop-backend/services"
+	"gorm.io/gorm"
 )
 
 // CustomerController 客户控制器
@@ -15,9 +16,9 @@ type CustomerController struct {
 }
 
 // NewCustomerController 创建客户控制器实例
-func NewCustomerController(customerService *services.CustomerService) *CustomerController {
+func NewCustomerController(db *gorm.DB) *CustomerController {
 	return &CustomerController{
-		customerService: customerService,
+		customerService: services.NewCustomerService(db),
 	}
 }
 

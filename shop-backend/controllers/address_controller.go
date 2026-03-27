@@ -7,6 +7,7 @@ import (
 	"shop-backend/services"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // AddressController 地址控制器
@@ -16,9 +17,9 @@ type AddressController struct {
 }
 
 // NewAddressController 创建地址控制器实例
-func NewAddressController(addressService *services.AddressService) *AddressController {
+func NewAddressController(db *gorm.DB) *AddressController {
 	return &AddressController{
-		addressService: addressService,
+		addressService: services.NewAddressService(db),
 	}
 }
 

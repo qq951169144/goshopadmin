@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"shop-backend/cache"
 	"shop-backend/errors"
 	"shop-backend/services"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // OrderController 订单控制器
@@ -14,9 +16,9 @@ type OrderController struct {
 }
 
 // NewOrderController 创建订单控制器实例
-func NewOrderController(orderService *services.OrderService) *OrderController {
+func NewOrderController(db *gorm.DB, cacheUtil *cache.CacheUtil) *OrderController {
 	return &OrderController{
-		orderService: orderService,
+		orderService: services.NewOrderService(db, cacheUtil),
 	}
 }
 

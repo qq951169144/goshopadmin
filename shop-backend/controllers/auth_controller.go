@@ -7,6 +7,8 @@ import (
 	"shop-backend/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"gorm.io/gorm"
 )
 
 // AuthController 认证控制器
@@ -16,9 +18,9 @@ type AuthController struct {
 }
 
 // NewAuthController 创建认证控制器实例
-func NewAuthController(authService *services.AuthService) *AuthController {
+func NewAuthController(db *gorm.DB, redisClient *redis.Client, jwtSecret string, jwtExpireHour int) *AuthController {
 	return &AuthController{
-		authService: authService,
+		authService: services.NewAuthService(db, services.NewCaptchaService(redisClient), jwtSecret, jwtExpireHour),
 	}
 }
 

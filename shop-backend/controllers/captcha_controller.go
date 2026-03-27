@@ -5,6 +5,7 @@ import (
 	"shop-backend/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 )
 
 // CaptchaController 验证码控制器
@@ -14,9 +15,9 @@ type CaptchaController struct {
 }
 
 // NewCaptchaController 创建验证码控制器实例
-func NewCaptchaController(captchaService *services.CaptchaService) *CaptchaController {
+func NewCaptchaController(redisClient *redis.Client) *CaptchaController {
 	return &CaptchaController{
-		captchaService: captchaService,
+		captchaService: services.NewCaptchaService(redisClient),
 	}
 }
 
