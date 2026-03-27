@@ -2,11 +2,13 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"goshopadmin/cache"
 	"goshopadmin/constants"
 	"goshopadmin/models"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
@@ -56,23 +58,86 @@ func (s *ProductService) GetMerchantIDByUserID(userID int) (int, error) {
 	return merchantUser.MerchantID, nil
 }
 
-// GetProductsByMerchantID 获取商户的商品列表
+// GetProductsByMerchantID 获取商户的商品列表（带缓存）
 func (s *ProductService) GetProductsByMerchantID(merchantID int) ([]models.Product, error) {
+	ctx := context.Background()
+
+	// 生成缓存键（基于商户ID）
+	cacheKey := fmt.Sprintf("product:list:merchant:%d", merchantID)
+
+	// 查询缓存
+	val, err := s.Redis.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var products []models.Product
+		if json.Unmarshal([]byte(val), &products) == nil {
+			return products, nil
+		}
+	}
+
+	// 缓存未命中，查询数据库
 	var products []models.Product
 	result := s.DB.Where("merchant_id = ?", merchantID).Preload("Category").Preload("Images").Find(&products)
 	if result.Error != nil {
 		return nil, result.Error
 	}
+
+	// 将查询结果写入缓存
+	if len(products) > 0 {
+		jsonData, _ := json.Marshal(products)
+		s.Redis.Set(ctx, cacheKey, jsonData, 30*time.Minute)
+	}
+
 	return products, nil
 }
 
-// GetProductByID 根据ID获取商品详情
+// GetProductByID 根据ID获取商品详情（带缓存）
 func (s *ProductService) GetProductByID(id int, merchantID int) (models.Product, error) {
+	ctx := context.Background()
+
+	// 1. 检查空值缓存
+	nullKey := fmt.Sprintf("product:null:%d", id)
+	nullExists, err := s.CacheUtil.GetNullValue(ctx, nullKey)
+	if err == nil && nullExists {
+		return models.Product{}, errors.New("商品不存在")
+	}
+
+	// 2. 检查布隆过滤器
+	exists, err := s.CacheUtil.CheckProductExists(ctx, id)
+	if err == nil && !exists {
+		// 缓存空值
+		s.CacheUtil.SetNullValue(ctx, nullKey)
+		return models.Product{}, errors.New("商品不存在")
+	}
+
+	// 3. 查询缓存
+	cachedData, err := s.CacheUtil.GetProductCache(ctx, id)
+	if err == nil && cachedData != nil && !s.CacheUtil.IsCacheExpired(cachedData) {
+		if productData, ok := cachedData.Data.(map[string]interface{}); ok {
+			// 检查商品是否属于该商户
+			if merchantIDFloat, ok := productData["MerchantID"].(float64); ok {
+				if int(merchantIDFloat) == merchantID {
+					// 转换回Product对象
+					var product models.Product
+					jsonData, _ := json.Marshal(productData)
+					json.Unmarshal(jsonData, &product)
+					return product, nil
+				}
+			}
+		}
+	}
+
+	// 4. 缓存未命中，查询数据库
 	var product models.Product
 	result := s.DB.Where("id = ? AND merchant_id = ?", id, merchantID).Preload("Category").Preload("Images").Preload("SKUs").First(&product)
 	if result.Error != nil {
+		// 缓存空值
+		s.CacheUtil.SetNullValue(ctx, nullKey)
 		return models.Product{}, result.Error
 	}
+
+	// 5. 将查询结果写入缓存
+	s.CacheUtil.SetProductCache(ctx, id, product)
+
 	return product, nil
 }
 

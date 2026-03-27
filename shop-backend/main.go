@@ -50,7 +50,7 @@ func main() {
 	cartService := services.NewCartService(conn.DB)
 	orderService := services.NewOrderService(conn.DB, cacheUtil)
 	addressService := services.NewAddressService(conn.DB)
-	specificationService := services.NewSpecificationService(conn.DB)
+	specificationService := services.NewSpecificationService(conn.DB, cacheUtil)
 
 	// 6. 创建控制器实例（依赖注入）
 	deps := &routes.Dependencies{

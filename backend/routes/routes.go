@@ -3,10 +3,12 @@ package routes
 import (
 	"context"
 	"fmt"
+	"goshopadmin/cache"
 	"goshopadmin/config"
 	"goshopadmin/controllers"
 	"goshopadmin/middleware"
 	"goshopadmin/services"
+	"goshopadmin/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -41,7 +43,18 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	_, err := redisClient.Ping(ctx).Result()
 	if err != nil {
 		// 记录错误但不中断启动
-		// TODO: 添加日志记录
+		utils.Error("Redis连接失败: %v", err)
+	} else {
+		utils.Info("Redis连接成功")
+	}
+
+	// 初始化缓存工具并预热布隆过滤器
+	cacheUtil := cache.NewCacheUtil(db, redisClient)
+	if err := cacheUtil.InitBloomFilters(ctx); err != nil {
+		// 记录错误但不中断启动
+		utils.Error("布隆过滤器初始化失败: %v", err)
+	} else {
+		utils.Info("布隆过滤器初始化成功并预热完成")
 	}
 
 	// 创建服务实例

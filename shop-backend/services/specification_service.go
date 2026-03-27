@@ -1,23 +1,34 @@
 package services
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"math/rand"
+	"shop-backend/cache"
 	"shop-backend/constants"
 	"shop-backend/models"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 // SpecificationService 规格服务
 type SpecificationService struct {
-	db *gorm.DB
+	db        *gorm.DB
+	cacheUtil *cache.CacheUtil
 }
 
 // NewSpecificationService 创建规格服务实例
-func NewSpecificationService(db *gorm.DB) *SpecificationService {
-	return &SpecificationService{db: db}
+func NewSpecificationService(db *gorm.DB, cacheUtil *cache.CacheUtil) *SpecificationService {
+	return &SpecificationService{
+		db:        db,
+		cacheUtil: cacheUtil,
+	}
 }
 
 // SpecificationInfo 规格信息结构
@@ -67,8 +78,99 @@ type PriceRange struct {
 	Max float64 `json:"max"`
 }
 
-// GetProductDetailWithSpecs 获取带规格信息的商品详情
+// GetProductDetailWithSpecs 获取带规格信息的商品详情（带缓存策略）
+// 缓存策略：布隆过滤器 + 缓存 + 分布式锁
 func (s *SpecificationService) GetProductDetailWithSpecs(productID int) (*ProductDetailWithSpecs, error) {
+	ctx := context.Background()
+
+	// 1. 检查空值缓存（防止缓存穿透）
+	nullKey := fmt.Sprintf("product:null:%d", productID)
+	nullExists, err := s.cacheUtil.GetNullValue(ctx, nullKey)
+	if err == nil && nullExists {
+		return nil, errors.New("商品不存在")
+	}
+
+	// 2. 检查布隆过滤器（快速判断商品是否存在）
+	exists, err := s.cacheUtil.CheckProductExists(ctx, productID)
+	if err == nil && !exists {
+		// 布隆过滤器判断不存在，设置空值缓存
+		s.cacheUtil.SetNullValue(ctx, nullKey)
+		return nil, errors.New("商品不存在")
+	}
+
+	// 3. 尝试从缓存获取数据
+	cacheKey := s.cacheUtil.GetProductCacheKey(productID)
+	cachedData, err := s.cacheUtil.GetProductCache(ctx, productID)
+	if err == nil && cachedData != nil {
+		// 缓存命中，检查是否逻辑过期
+		if !s.cacheUtil.IsCacheExpired(cachedData) {
+			// 缓存未过期，直接返回
+			if data, ok := cachedData.Data.(*ProductDetailWithSpecs); ok {
+				return data, nil
+			}
+			// 类型不匹配，尝试解析JSON
+			jsonData, _ := json.Marshal(cachedData.Data)
+			var result ProductDetailWithSpecs
+			if err := json.Unmarshal(jsonData, &result); err == nil {
+				return &result, nil
+			}
+		}
+		// 缓存已过期，继续执行后续逻辑（返回旧数据并后台更新）
+		if data, ok := cachedData.Data.(*ProductDetailWithSpecs); ok {
+			// 后台异步更新缓存
+			go s.rebuildProductCache(productID)
+			return data, nil
+		}
+	}
+
+	// 4. 获取分布式锁（防止缓存击穿）
+	lockKey := s.cacheUtil.GetProductLockKey(productID)
+	lockValue := uuid.New().String()
+	distributedLock := cache.NewDistributedLockFromCacheUtil(s.cacheUtil, lockKey, lockValue)
+
+	lockAcquired, err := distributedLock.Acquire(ctx, cache.LockExpiration)
+	if err != nil {
+		// 获取锁失败，直接查询数据库
+		return s.queryProductDetailFromDB(productID)
+	}
+
+	if !lockAcquired {
+		// 未获取到锁，说明其他进程正在重建缓存，短暂等待后重试读取缓存
+		time.Sleep(100 * time.Millisecond)
+		cachedData, err := s.cacheUtil.GetProductCache(ctx, productID)
+		if err == nil && cachedData != nil {
+			if data, ok := cachedData.Data.(*ProductDetailWithSpecs); ok {
+				return data, nil
+			}
+		}
+		// 缓存仍未命中，直接查询数据库
+		return s.queryProductDetailFromDB(productID)
+	}
+
+	// 获取到锁，查询数据库并重建缓存
+	defer distributedLock.Release(ctx)
+
+	// 5. 查询数据库
+	result, err := s.queryProductDetailFromDB(productID)
+	if err != nil {
+		// 商品不存在，设置空值缓存
+		if err.Error() == "商品不存在" {
+			s.cacheUtil.SetNullValue(ctx, nullKey)
+		}
+		return nil, err
+	}
+
+	// 6. 将查询结果写入缓存，添加随机过期时间防止缓存雪崩
+	physicalExpiration := cache.ProductDetailExpiration + time.Duration(rand.Int63n(int64(cache.ProductDetailExpirationOffset)))
+	s.cacheUtil.SetProductCache(ctx, productID, result)
+	// 更新实际过期时间
+	s.cacheUtil.Redis.Expire(ctx, cacheKey, physicalExpiration)
+
+	return result, nil
+}
+
+// queryProductDetailFromDB 从数据库查询商品详情
+func (s *SpecificationService) queryProductDetailFromDB(productID int) (*ProductDetailWithSpecs, error) {
 	var product models.Product
 	result := s.db.First(&product, productID)
 	if result.RowsAffected == 0 {
@@ -184,6 +286,34 @@ func (s *SpecificationService) GetProductDetailWithSpecs(productID int) (*Produc
 		Sales:        0,
 		ReviewsCount: 0,
 	}, nil
+}
+
+// rebuildProductCache 后台重建商品缓存
+func (s *SpecificationService) rebuildProductCache(productID int) {
+	ctx := context.Background()
+
+	// 获取分布式锁
+	lockKey := s.cacheUtil.GetProductLockKey(productID)
+	lockValue := uuid.New().String()
+	distributedLock := cache.NewDistributedLockFromCacheUtil(s.cacheUtil, lockKey, lockValue)
+
+	lockAcquired, err := distributedLock.Acquire(ctx, cache.LockExpiration)
+	if err != nil || !lockAcquired {
+		return // 获取锁失败，放弃重建
+	}
+	defer distributedLock.Release(ctx)
+
+	// 查询数据库
+	result, err := s.queryProductDetailFromDB(productID)
+	if err != nil {
+		return // 查询失败，放弃重建
+	}
+
+	// 更新缓存
+	physicalExpiration := cache.ProductDetailExpiration + time.Duration(rand.Int63n(int64(cache.ProductDetailExpirationOffset)))
+	s.cacheUtil.SetProductCache(ctx, productID, result)
+	cacheKey := s.cacheUtil.GetProductCacheKey(productID)
+	s.cacheUtil.Redis.Expire(ctx, cacheKey, physicalExpiration)
 }
 
 // GetSKUsByProductID 获取商品的SKU列表
