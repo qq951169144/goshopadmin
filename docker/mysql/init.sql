@@ -359,16 +359,7 @@ CREATE TABLE IF NOT EXISTS activities (
     INDEX idx_activities_created_by (created_by)
 );
 
--- 创建活动规则表
-CREATE TABLE IF NOT EXISTS activity_rules (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    activity_id INT NOT NULL,
-    rule_type VARCHAR(20) NOT NULL,
-    rule_value JSON NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_activity_rules_activity_id (activity_id)
-);
+
 
 -- 创建活动商品表
 CREATE TABLE IF NOT EXISTS activity_products (
