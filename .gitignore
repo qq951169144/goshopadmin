@@ -71,6 +71,8 @@ temp/
 
 # Trae IDE 配置目录
 .trae/
+!.trae/rules/frontend_rules.md
+!.trae/rules/project_rules.md
 
 # Docker数据目录
 docker/data/
