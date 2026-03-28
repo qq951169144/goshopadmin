@@ -194,13 +194,17 @@ CREATE TABLE IF NOT EXISTS product_skus (
     price DECIMAL(10,2) NOT NULL,
     original_price DECIMAL(10,2) DEFAULT 0 COMMENT '原价',
     stock INT NOT NULL,
+    is_activity TINYINT(1) DEFAULT 0 COMMENT '是否为活动专用SKU：0-否，1-是',
+    activity_id INT DEFAULT NULL COMMENT '关联活动ID（当is_activity=1时有效）',
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE INDEX unique_sku_code (sku_code),
     INDEX idx_product_skus_product_id (product_id),
     INDEX idx_product_skus_merchant_id (merchant_id),
-    INDEX idx_product_skus_status (status)
+    INDEX idx_product_skus_status (status),
+    INDEX idx_product_skus_is_activity (is_activity),
+    INDEX idx_product_skus_activity_id (activity_id)
 );
 
 -- 创建商品规格表
@@ -348,7 +352,7 @@ CREATE TABLE IF NOT EXISTS activities (
     id INT AUTO_INCREMENT PRIMARY KEY,
     merchant_id INT NOT NULL,
     name VARCHAR(100) NOT NULL,
-    type VARCHAR(20) NOT NULL,
+    type ENUM('seckill', 'redeem_code') NOT NULL COMMENT '活动类型：seckill-秒杀商品，redeem_code-兑换码兑换',
     start_time DATETIME NOT NULL,
     end_time DATETIME NOT NULL,
     status enum('active','inactive') DEFAULT 'active',
@@ -371,12 +375,14 @@ CREATE TABLE IF NOT EXISTS activity_products (
     original_price DECIMAL(10,2) NOT NULL,
     activity_price DECIMAL(10,2) NOT NULL,
     stock INT NOT NULL,
+    product_type ENUM('seckill', 'redeem') DEFAULT 'seckill' COMMENT '商品在活动中的类型：seckill-秒杀商品，redeem-兑换商品',
     status enum('active','inactive') DEFAULT 'active',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_activity_products_activity_id (activity_id),
     INDEX idx_activity_products_product_id (product_id),
-    INDEX idx_activity_products_merchant_id (merchant_id)
+    INDEX idx_activity_products_merchant_id (merchant_id),
+    INDEX idx_activity_products_product_type (product_type)
 );
 
 -- 创建活动效果统计表
@@ -391,6 +397,68 @@ CREATE TABLE IF NOT EXISTS activity_stats (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_activity_stats_activity_id (activity_id)
 );
+
+-- 创建兑换码表
+CREATE TABLE IF NOT EXISTS redeem_codes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    activity_id INT NOT NULL COMMENT '关联活动ID',
+    merchant_id INT NOT NULL COMMENT '商户ID',
+    code VARCHAR(50) NOT NULL COMMENT '兑换码',
+    phone VARCHAR(20) DEFAULT NULL COMMENT '用户手机号（导入时使用）',
+    status ENUM('unused', 'used', 'expired', 'disabled') DEFAULT 'unused' COMMENT '状态：unused-未使用，used-已使用，expired-已过期，disabled-已禁用',
+    used_by INT DEFAULT NULL COMMENT '使用人ID（customer_id）',
+    used_at DATETIME DEFAULT NULL COMMENT '使用时间',
+    valid_start_time DATETIME DEFAULT NULL COMMENT '有效期开始时间',
+    valid_end_time DATETIME DEFAULT NULL COMMENT '有效期结束时间',
+    created_by INT NOT NULL COMMENT '创建人ID',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE INDEX unique_redeem_code (code),
+    INDEX idx_redeem_codes_activity_id (activity_id),
+    INDEX idx_redeem_codes_merchant_id (merchant_id),
+    INDEX idx_redeem_codes_status (status),
+    INDEX idx_redeem_codes_used_by (used_by),
+    INDEX idx_redeem_codes_phone (phone)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='兑换码表';
+
+-- 创建兑换码活动配置表
+CREATE TABLE IF NOT EXISTS activity_redeem_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    activity_id INT NOT NULL COMMENT '关联活动ID',
+    merchant_id INT NOT NULL COMMENT '商户ID',
+    code_type VARCHAR(20) NOT NULL DEFAULT 'alphanumeric' COMMENT '兑换码类型：numeric-纯数字，alpha-纯字母，alphanumeric-数字+字母',
+    code_length INT NOT NULL DEFAULT 8 COMMENT '兑换码长度',
+    exclude_chars VARCHAR(20) DEFAULT 'IO10' COMMENT '排除的字符（如IO10，避免混淆）',
+    total_quantity INT NOT NULL DEFAULT 0 COMMENT '兑换码总数量',
+    limit_per_user INT DEFAULT 1 COMMENT '每人限兑次数（0表示不限）',
+    need_verify TINYINT(1) DEFAULT 1 COMMENT '是否需要后台核销：0-否，1-是',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE INDEX unique_activity_redeem_setting (activity_id),
+    INDEX idx_activity_redeem_settings_merchant_id (merchant_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='兑换码活动配置表';
+
+-- 创建兑换码核销记录表
+CREATE TABLE IF NOT EXISTS redeem_code_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    redeem_code_id INT NOT NULL COMMENT '兑换码ID',
+    activity_id INT NOT NULL COMMENT '活动ID',
+    merchant_id INT NOT NULL COMMENT '商户ID',
+    customer_id INT NOT NULL COMMENT '客户ID',
+    code VARCHAR(50) NOT NULL COMMENT '兑换码',
+    verify_by INT DEFAULT NULL COMMENT '核销人ID（后台管理员）',
+    verify_at DATETIME DEFAULT NULL COMMENT '核销时间',
+    status ENUM('pending', 'verified', 'rejected') DEFAULT 'pending' COMMENT '核销状态：pending-待核销，verified-已核销，rejected-已拒绝',
+    remark VARCHAR(255) DEFAULT NULL COMMENT '备注',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_redeem_code_logs_redeem_code_id (redeem_code_id),
+    INDEX idx_redeem_code_logs_activity_id (activity_id),
+    INDEX idx_redeem_code_logs_merchant_id (merchant_id),
+    INDEX idx_redeem_code_logs_customer_id (customer_id),
+    INDEX idx_redeem_code_logs_status (status),
+    INDEX idx_redeem_code_logs_verify_by (verify_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='兑换码核销记录表';
 
 -- 创建物流表
 CREATE TABLE IF NOT EXISTS shipping (

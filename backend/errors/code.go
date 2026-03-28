@@ -37,6 +37,25 @@ const (
 	CodeDBError       = 5001 // 数据库错误
 	CodeCacheError    = 5002 // 缓存错误
 	CodeExternalError = 5003 // 外部服务错误
+
+	// 4050 - 活动相关错误
+	CodeActivityNotFound      = 4050 // 活动不存在
+	CodeActivityInvalidStatus = 4051 // 活动状态无效
+	CodeActivityExpired       = 4052 // 活动已过期
+
+	// 4060 - 兑换码相关错误
+	CodeRedeemCodeNotFound    = 4060 // 兑换码不存在
+	CodeRedeemCodeUsed        = 4061 // 兑换码已被使用
+	CodeRedeemCodeExpired     = 4062 // 兑换码已过期
+	CodeRedeemCodeInvalid     = 4063 // 兑换码无效
+	CodeRedeemCodeDisabled    = 4064 // 兑换码已禁用
+	CodeRedeemCodeGenerateFailed = 4065 // 兑换码生成失败
+	CodeRedeemCodeAlreadyExists = 4066 // 兑换码已存在
+
+	// 4070 - 秒杀相关错误
+	CodeSeckillStockInsufficient = 4070 // 秒杀库存不足
+	CodeSeckillNotStarted        = 4071 // 秒杀未开始
+	CodeSeckillEnded             = 4072 // 秒杀已结束
 )
 
 // ErrorMessage 错误码对应的前端友好提示
@@ -61,6 +80,19 @@ var ErrorMessage = map[int]string{
 	CodeDBError:         "数据操作失败",
 	CodeCacheError:      "缓存服务异常",
 	CodeExternalError:   "外部服务调用失败",
+	CodeActivityNotFound:      "活动不存在",
+	CodeActivityInvalidStatus: "活动状态无效",
+	CodeActivityExpired:       "活动已过期",
+	CodeRedeemCodeNotFound:    "兑换码不存在",
+	CodeRedeemCodeUsed:        "兑换码已被使用",
+	CodeRedeemCodeExpired:     "兑换码已过期",
+	CodeRedeemCodeInvalid:     "兑换码无效",
+	CodeRedeemCodeDisabled:    "兑换码已禁用",
+	CodeRedeemCodeGenerateFailed: "兑换码生成失败",
+	CodeRedeemCodeAlreadyExists: "兑换码已存在",
+	CodeSeckillStockInsufficient: "秒杀库存不足",
+	CodeSeckillNotStarted:        "秒杀活动未开始",
+	CodeSeckillEnded:             "秒杀活动已结束",
 }
 
 // GetErrorMessage 获取错误码对应的友好提示

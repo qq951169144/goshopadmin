@@ -110,3 +110,60 @@ const (
 	// ShippingStatusReturned 已退回状态
 	ShippingStatusReturned = "returned"
 )
+
+// ActivityType 活动类型常量
+const (
+	// ActivityTypeSeckill 秒杀活动
+	ActivityTypeSeckill = "seckill"
+	
+	// ActivityTypeRedeemCode 兑换码活动
+	ActivityTypeRedeemCode = "redeem_code"
+)
+
+// RedeemCodeStatus 兑换码状态常量
+const (
+	// RedeemCodeStatusUnused 未使用
+	RedeemCodeStatusUnused = "unused"
+	
+	// RedeemCodeStatusUsed 已使用
+	RedeemCodeStatusUsed = "used"
+	
+	// RedeemCodeStatusExpired 已过期
+	RedeemCodeStatusExpired = "expired"
+	
+	// RedeemCodeStatusDisabled 已禁用
+	RedeemCodeStatusDisabled = "disabled"
+)
+
+// RedeemCodeType 兑换码类型常量
+const (
+	// RedeemCodeTypeNumeric 纯数字
+	RedeemCodeTypeNumeric = "numeric"
+	
+	// RedeemCodeTypeAlpha 纯字母
+	RedeemCodeTypeAlpha = "alpha"
+	
+	// RedeemCodeTypeAlphanumeric 数字+字母
+	RedeemCodeTypeAlphanumeric = "alphanumeric"
+)
+
+// RedeemCodeLogStatus 兑换码核销状态常量
+const (
+	// RedeemCodeLogStatusPending 待核销
+	RedeemCodeLogStatusPending = "pending"
+	
+	// RedeemCodeLogStatusVerified 已核销
+	RedeemCodeLogStatusVerified = "verified"
+	
+	// RedeemCodeLogStatusRejected 已拒绝
+	RedeemCodeLogStatusRejected = "rejected"
+)
+
+// SKUActivityType SKU活动类型常量
+const (
+	// SKUActivityTypeNormal 普通SKU
+	SKUActivityTypeNormal = 0
+	
+	// SKUActivityTypeActivity 活动专用SKU
+	SKUActivityTypeActivity = 1
+)

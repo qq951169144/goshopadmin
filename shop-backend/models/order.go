@@ -10,8 +10,11 @@ type Order struct {
 	OrderNo       string      `json:"order_no" gorm:"size:32;unique;not null"`
 	CustomerID    int         `json:"customer_id" gorm:"not null;index"`
 	MerchantID    int         `json:"merchant_id" gorm:"not null;index"`
+	ActivityID    int         `json:"activity_id" gorm:"default:0;index"`
 	TotalAmount   float64     `json:"total_amount" gorm:"type:decimal(10,2);not null"`
 	Status        string      `json:"status" gorm:"size:191;not null;default:pending;index"`
+	PaymentStatus string      `json:"payment_status" gorm:"size:20;not null;default:pending"`
+	ShippingStatus string     `json:"shipping_status" gorm:"size:20;not null;default:pending"`
 	AddressID     int         `json:"address_id" gorm:"not null;index"`
 	CreatedAt     time.Time   `json:"created_at" gorm:"type:datetime(3)"`
 	UpdatedAt     time.Time   `json:"updated_at" gorm:"type:datetime(3)"`

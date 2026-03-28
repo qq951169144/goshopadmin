@@ -24,6 +24,8 @@ type Dependencies struct {
 	ProductController       *controllers.ProductController
 	SpecificationController *controllers.SpecificationController
 	SKUController           *controllers.SKUController
+	ActivityController      *controllers.ActivityController
+	RedeemCodeController    *controllers.RedeemCodeController
 }
 
 // SetupRoutes 设置所有路由
@@ -49,6 +51,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 		ProductController:       controllers.NewProductController(db, redisClient),
 		SpecificationController: controllers.NewSpecificationController(db),
 		SKUController:           controllers.NewSKUController(db),
+		ActivityController:      controllers.NewActivityController(db),
+		RedeemCodeController:    controllers.NewRedeemCodeController(db),
 	}
 
 	// 1. 通用路由（无需认证）
@@ -200,6 +204,31 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			{
 				skuRoutes.PUT("/:id", deps.SKUController.UpdateSKU)
 				skuRoutes.DELETE("/:id", deps.SKUController.DeleteSKU)
+			}
+
+			// 活动管理路由
+			activities := protected.Group("/activities")
+			{
+				activities.GET("", deps.ActivityController.GetActivities)
+				activities.GET("/:id", deps.ActivityController.GetActivity)
+				activities.POST("", deps.ActivityController.CreateActivity)
+				activities.PUT("/:id", deps.ActivityController.UpdateActivity)
+				activities.DELETE("/:id", deps.ActivityController.DeleteActivity)
+				activities.PUT("/:id/status", deps.ActivityController.UpdateActivityStatus)
+
+				// 活动兑换码管理路由
+				activities.POST("/:id/redeem-codes/generate", deps.RedeemCodeController.GenerateRedeemCodes)
+				activities.GET("/:id/redeem-codes", deps.RedeemCodeController.GetRedeemCodes)
+				activities.GET("/:id/redeem-codes/export", deps.RedeemCodeController.ExportRedeemCodes)
+				activities.POST("/:id/redeem-codes/import", deps.RedeemCodeController.ImportRedeemCodes)
+			}
+
+			// 兑换码管理路由
+			redeemCodes := protected.Group("/redeem-codes")
+			{
+				redeemCodes.POST("/verify", deps.RedeemCodeController.VerifyRedeemCode)
+				redeemCodes.GET("/logs", deps.RedeemCodeController.GetRedeemCodeLogs)
+				redeemCodes.PUT("/:id/status", deps.RedeemCodeController.UpdateRedeemCodeStatus)
 			}
 		}
 	}

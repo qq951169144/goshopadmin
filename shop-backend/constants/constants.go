@@ -113,3 +113,24 @@ const (
 	// ShippingStatusReturned 已退回状态
 	ShippingStatusReturned = "returned"
 )
+
+// RedeemCodeStatus 兑换码状态常量
+const (
+	// RedeemCodeStatusActive 兑换码可用状态
+	RedeemCodeStatusActive = "active"
+
+	// RedeemCodeStatusUsed 兑换码已使用状态
+	RedeemCodeStatusUsed = "used"
+
+	// RedeemCodeStatusExpired 兑换码已过期状态
+	RedeemCodeStatusExpired = "expired"
+)
+
+// RedeemLogStatus 兑换记录状态常量
+const (
+	// RedeemLogStatusSuccess 兑换成功状态
+	RedeemLogStatusSuccess = "success"
+
+	// RedeemLogStatusFailed 兑换失败状态
+	RedeemLogStatusFailed = "failed"
+)

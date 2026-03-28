@@ -25,6 +25,9 @@ type Dependencies struct {
 	PaymentController       *controllers.PaymentController
 	AddressController       *controllers.AddressController
 	SpecificationController *controllers.SpecificationController
+	ActivityController      *controllers.ActivityController
+	RedeemCodeController    *controllers.RedeemCodeController
+	ActivityOrderController *controllers.ActivityOrderController
 }
 
 // SetupRoutes 设置所有路由
@@ -50,6 +53,9 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 		PaymentController:       controllers.NewPaymentController(db, cacheUtil),
 		AddressController:       controllers.NewAddressController(db),
 		SpecificationController: controllers.NewSpecificationController(db, cacheUtil),
+		ActivityController:      controllers.NewActivityController(db),
+		RedeemCodeController:    controllers.NewRedeemCodeController(db),
+		ActivityOrderController: controllers.NewActivityOrderController(db),
 	}
 
 	// 1. 健康检查
@@ -157,6 +163,45 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			// 路径: /api/payment/fake-pay, /api/payment/callback
 			payment.GET("/fake-pay", deps.PaymentController.FakePay)
 			payment.POST("/callback", deps.PaymentController.PaymentCallback)
+		}
+
+		// 2.9 活动路由
+		// 路径前缀: /api/activities
+		activities := api.Group("/activities")
+		{
+			// 路径: /api/activities, /api/activities/:id
+			activities.GET("", deps.ActivityController.GetActiveActivities)
+			activities.GET("/:id", deps.ActivityController.GetActivity)
+			activities.GET("/:id/products", deps.ActivityController.GetActivityProducts)
+			activities.GET("/:id/products/:product_id/skus", deps.ActivityController.GetActivityProductSKUs)
+		}
+
+		// 2.10 兑换码路由
+		// 路径前缀: /api/redeem-codes
+		redeemCodes := api.Group("/redeem-codes")
+		{
+			// 路径: /api/redeem-codes/verify
+			redeemCodes.POST("/verify", deps.RedeemCodeController.VerifyRedeemCode)
+
+			// 需要认证的兑换码路由
+			redeemProtected := redeemCodes.Group("/")
+			redeemProtected.Use(middleware.Auth())
+			{
+				redeemProtected.POST("/redeem", deps.RedeemCodeController.RedeemCode)
+				redeemProtected.GET("/logs", deps.RedeemCodeController.GetRedeemCodeLogs)
+			}
+		}
+
+		// 2.11 活动订单路由（需要认证）
+		// 路径前缀: /api/activity-orders
+		activityOrders := api.Group("/activity-orders")
+		activityOrders.Use(middleware.Auth())
+		{
+			// 路径: /api/activity-orders, /api/activity-orders/:id
+			activityOrders.POST("", deps.ActivityOrderController.CreateActivityOrder)
+			activityOrders.GET("", deps.ActivityOrderController.GetActivityOrders)
+			activityOrders.GET("/:id", deps.ActivityOrderController.GetActivityOrder)
+			activityOrders.PUT("/:id/cancel", deps.ActivityOrderController.CancelActivityOrder)
 		}
 	}
 }

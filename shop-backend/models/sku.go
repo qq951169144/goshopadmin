@@ -8,6 +8,7 @@ import (
 type ProductSKU struct {
 	ID            int       `json:"id" gorm:"primaryKey"`
 	ProductID     int       `json:"product_id" gorm:"not null;index"`
+	ActivityID    int       `json:"activity_id" gorm:"default:0;index"`
 	SKUCode       string    `json:"sku_code" gorm:"size:50;not null;uniqueIndex"`
 	Price         float64   `json:"price" gorm:"type:decimal(10,2);not null"`
 	OriginalPrice float64   `json:"original_price" gorm:"type:decimal(10,2);default:0"`

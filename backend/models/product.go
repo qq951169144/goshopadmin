@@ -50,6 +50,8 @@ type ProductSKU struct {
 	Price         float64   `json:"price" gorm:"type:decimal(10,2);not null"`
 	OriginalPrice float64   `json:"original_price" gorm:"type:decimal(10,2);default:0"`
 	Stock         int       `json:"stock" gorm:"not null"`
+	IsActivity    int       `json:"is_activity" gorm:"type:tinyint(1);default:0"` // 0-普通SKU，1-活动专用SKU
+	ActivityID    int       `json:"activity_id" gorm:"default:0"`                 // 关联活动ID
 	Status        string    `json:"status" gorm:"type:enum('active','inactive');default:'active'"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`

@@ -29,12 +29,31 @@ const (
 	CodeCartNotFound    = 4043 // 购物车不存在
 	CodeOrderNotFound   = 4044 // 订单不存在
 
+	// 4050 - 活动相关错误
+	CodeActivityNotFound      = 4050 // 活动不存在
+	CodeActivityInvalidStatus = 4051 // 活动状态无效
+	CodeActivityExpired       = 4052 // 活动已过期
+
+	// 4060 - 兑换码相关错误
+	CodeRedeemCodeNotFound       = 4060 // 兑换码不存在
+	CodeRedeemCodeUsed           = 4061 // 兑换码已被使用
+	CodeRedeemCodeExpired        = 4062 // 兑换码已过期
+	CodeRedeemCodeInvalid        = 4063 // 兑换码无效
+	CodeRedeemCodeDisabled       = 4064 // 兑换码已禁用
+	CodeRedeemCodeGenerateFailed = 4065 // 兑换码生成失败
+	CodeRedeemCodeAlreadyExists  = 4066 // 兑换码已存在
+
+	// 4070 - 秒杀相关错误
+	CodeSeckillStockInsufficient = 4070 // 秒杀库存不足
+	CodeSeckillNotStarted        = 4071 // 秒杀未开始
+	CodeSeckillEnded             = 4072 // 秒杀已结束
+
 	// 4090 - 业务冲突
-	CodeConflict       = 4090 // 资源冲突
-	CodeDuplicate      = 4091 // 数据重复
+	CodeConflict          = 4090 // 资源冲突
+	CodeDuplicate         = 4091 // 数据重复
 	CodeStockInsufficient = 4092 // 库存不足
-	CodeCaptchaError   = 4093 // 验证码错误
-	CodeUserExists     = 4094 // 用户名已存在
+	CodeCaptchaError      = 4093 // 验证码错误
+	CodeUserExists        = 4094 // 用户名已存在
 
 	// 5000 - 服务器错误 (5xx 服务端错误)
 	CodeInternalError = 5000 // 内部错误
@@ -45,31 +64,44 @@ const (
 
 // ErrorMessage 错误码对应的前端友好提示
 var ErrorMessage = map[int]string{
-	CodeSuccess:           "操作成功",
-	CodeParamError:        "请求参数错误",
-	CodeParamMissing:      "缺少必要参数",
-	CodeParamInvalid:      "参数格式不正确",
-	CodeParamOutOfRange:   "参数超出有效范围",
-	CodeUnauthorized:      "请先登录",
-	CodeTokenExpired:      "登录已过期，请重新登录",
-	CodeTokenInvalid:      "登录状态无效",
-	CodeLoginFailed:       "用户名或密码错误",
-	CodeForbidden:         "没有权限执行此操作",
-	CodeResourceDenied:    "无权访问该资源",
-	CodeNotFound:          "请求的资源不存在",
-	CodeUserNotFound:      "用户不存在",
-	CodeProductNotFound:   "商品不存在",
-	CodeCartNotFound:      "购物车不存在",
-	CodeOrderNotFound:     "订单不存在",
-	CodeConflict:          "资源冲突",
-	CodeDuplicate:         "数据已存在",
-	CodeStockInsufficient: "库存不足",
-	CodeCaptchaError:      "验证码错误",
-	CodeUserExists:        "用户名已存在",
-	CodeInternalError:     "系统繁忙，请稍后重试",
-	CodeDBError:           "数据操作失败",
-	CodeCacheError:        "缓存服务异常",
-	CodeExternalError:     "外部服务调用失败",
+	CodeSuccess:                  "操作成功",
+	CodeParamError:               "请求参数错误",
+	CodeParamMissing:             "缺少必要参数",
+	CodeParamInvalid:             "参数格式不正确",
+	CodeParamOutOfRange:          "参数超出有效范围",
+	CodeUnauthorized:             "请先登录",
+	CodeTokenExpired:             "登录已过期，请重新登录",
+	CodeTokenInvalid:             "登录状态无效",
+	CodeLoginFailed:              "用户名或密码错误",
+	CodeForbidden:                "没有权限执行此操作",
+	CodeResourceDenied:           "无权访问该资源",
+	CodeNotFound:                 "请求的资源不存在",
+	CodeUserNotFound:             "用户不存在",
+	CodeProductNotFound:          "商品不存在",
+	CodeCartNotFound:             "购物车不存在",
+	CodeOrderNotFound:            "订单不存在",
+	CodeActivityNotFound:         "活动不存在",
+	CodeActivityInvalidStatus:    "活动状态无效",
+	CodeActivityExpired:          "活动已过期",
+	CodeRedeemCodeNotFound:       "兑换码不存在",
+	CodeRedeemCodeUsed:           "兑换码已被使用",
+	CodeRedeemCodeExpired:        "兑换码已过期",
+	CodeRedeemCodeInvalid:        "兑换码无效",
+	CodeRedeemCodeDisabled:       "兑换码已禁用",
+	CodeRedeemCodeGenerateFailed: "兑换码生成失败",
+	CodeRedeemCodeAlreadyExists:  "兑换码已存在",
+	CodeSeckillStockInsufficient: "秒杀库存不足",
+	CodeSeckillNotStarted:        "秒杀活动未开始",
+	CodeSeckillEnded:             "秒杀活动已结束",
+	CodeConflict:                 "资源冲突",
+	CodeDuplicate:                "数据已存在",
+	CodeStockInsufficient:        "库存不足",
+	CodeCaptchaError:             "验证码错误",
+	CodeUserExists:               "用户名已存在",
+	CodeInternalError:            "系统繁忙，请稍后重试",
+	CodeDBError:                  "数据操作失败",
+	CodeCacheError:               "缓存服务异常",
+	CodeExternalError:            "外部服务调用失败",
 }
 
 // GetErrorMessage 获取错误码对应的友好提示
