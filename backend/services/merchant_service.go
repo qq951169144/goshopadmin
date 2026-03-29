@@ -356,3 +356,16 @@ func (s *MerchantService) DeleteMerchant(id int) error {
 	result = s.DB.Save(&merchant)
 	return result.Error
 }
+
+// GetMerchantIDByUserID 根据用户ID获取商户ID
+func (s *MerchantService) GetMerchantIDByUserID(userID int) (int, error) {
+	var merchantUser models.MerchantUser
+	result := s.DB.Where("user_id = ? AND status = ?", userID, "active").First(&merchantUser)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return 0, errors.New("用户未关联商户")
+		}
+		return 0, result.Error
+	}
+	return merchantUser.MerchantID, nil
+}

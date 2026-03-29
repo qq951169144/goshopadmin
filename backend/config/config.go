@@ -35,6 +35,9 @@ type Config struct {
 	MQUser     string
 	MQPassword string
 	MQVHost    string
+
+	// 布隆过滤器配置
+	EnableBloomFilter bool
 }
 
 // LoadConfig 加载配置，返回配置实例
@@ -74,6 +77,12 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("invalid MQ_PORT: %v", err)
 	}
 
+	// 布隆过滤器配置
+	enableBloomFilter, err := strconv.ParseBool(getEnv("ENABLE_BLOOM_FILTER", "true"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid ENABLE_BLOOM_FILTER: %v", err)
+	}
+
 	// 返回配置实例
 	return &Config{
 		// 服务器配置
@@ -103,6 +112,9 @@ func LoadConfig() (*Config, error) {
 		MQUser:     getEnv("MQ_USER", "guest"),
 		MQPassword: getEnv("MQ_PASSWORD", "guest"),
 		MQVHost:    getEnv("MQ_VHOST", "/"),
+
+		// 布隆过滤器配置
+		EnableBloomFilter: enableBloomFilter,
 	}, nil
 }
 

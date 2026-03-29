@@ -6,21 +6,24 @@ import (
 	"goshopadmin/services"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
 // AuthController 认证控制器
 type AuthController struct {
 	BaseController
-	authService    *services.AuthService
-	captchaService *services.CaptchaService
+	authService       *services.AuthService
+	captchaService    *services.CaptchaService
+	permissionService *services.PermissionService
 }
 
 // NewAuthController 创建认证控制器实例
-func NewAuthController(db *gorm.DB, jwtSecret string, jwtExpireHour int) *AuthController {
+func NewAuthController(db *gorm.DB, jwtSecret string, jwtExpireHour int, redisClient *redis.Client) *AuthController {
 	return &AuthController{
-		authService:    services.NewAuthService(db, jwtSecret, jwtExpireHour),
-		captchaService: services.NewCaptchaService(),
+		authService:       services.NewAuthService(db, jwtSecret, jwtExpireHour),
+		captchaService:    services.NewCaptchaService(),
+		permissionService: services.NewPermissionService(db, redisClient),
 	}
 }
 
@@ -68,6 +71,12 @@ func (c *AuthController) Login(ctx *gin.Context) {
 
 // Logout 用户登出
 func (c *AuthController) Logout(ctx *gin.Context) {
+	// 清除用户权限缓存
+	userID, exists := ctx.Get("userID")
+	if exists && c.permissionService != nil {
+		c.permissionService.ClearUserPermissionCache(userID.(int))
+	}
+
 	// 由于使用JWT，登出只需客户端删除token即可
 	c.ResponseSuccess(ctx, nil)
 }
@@ -93,6 +102,7 @@ func (c *AuthController) RefreshToken(ctx *gin.Context) {
 func (c *AuthController) GetCurrentUser(ctx *gin.Context) {
 	userID, ok := c.GetUserID(ctx)
 	if !ok {
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
 	}
 

@@ -35,6 +35,12 @@ func main() {
 	// 3. 设置JWT密钥到中间件
 	middleware.SetJWTSecret(cfg.JWTSecret)
 
+	// 4. 设置数据库连接到中间件
+	middleware.SetDB(conn.DB)
+
+	// 5. 设置Redis客户端到中间件
+	middleware.SetRedis(conn.Redis)
+
 	// 5. 创建Gin引擎
 	r := gin.New()
 

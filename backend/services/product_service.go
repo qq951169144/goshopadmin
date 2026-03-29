@@ -8,6 +8,7 @@ import (
 	"goshopadmin/cache"
 	"goshopadmin/constants"
 	"goshopadmin/models"
+	"goshopadmin/utils"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -46,16 +47,6 @@ func (s *ProductService) DeleteProductCache(ctx context.Context, productID int) 
 func (s *ProductService) AddProductToBloomFilter(ctx context.Context, productID int) error {
 	// 使用缓存工具添加商品到布隆过滤器
 	return s.CacheUtil.AddProductToBloomFilter(ctx, productID)
-}
-
-// GetMerchantIDByUserID 根据用户ID获取商户ID
-func (s *ProductService) GetMerchantIDByUserID(userID int) (int, error) {
-	var merchantUser models.MerchantUser
-	result := s.DB.Where("user_id = ?", userID).First(&merchantUser)
-	if result.Error != nil {
-		return 0, errors.New("用户不属于任何商户")
-	}
-	return merchantUser.MerchantID, nil
 }
 
 // GetProductsByMerchantID 获取商户的商品列表（带缓存）
@@ -97,16 +88,18 @@ func (s *ProductService) GetProductByID(id int, merchantID int) (models.Product,
 	// 1. 检查空值缓存
 	nullKey := fmt.Sprintf("product:null:%d", id)
 	nullExists, err := s.CacheUtil.GetNullValue(ctx, nullKey)
+	utils.Info("空值检查nullKey = %s, nullExists = %s error", nullKey, nullExists, err)
 	if err == nil && nullExists {
-		return models.Product{}, errors.New("商品不存在")
+		return models.Product{}, err
 	}
 
 	// 2. 检查布隆过滤器
 	exists, err := s.CacheUtil.CheckProductExists(ctx, id)
+	utils.Info("空值检查exists = %s, error = %s", exists, err)
 	if err == nil && !exists {
 		// 缓存空值
 		s.CacheUtil.SetNullValue(ctx, nullKey)
-		return models.Product{}, errors.New("商品不存在")
+		return models.Product{}, err
 	}
 
 	// 3. 查询缓存

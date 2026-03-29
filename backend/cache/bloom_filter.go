@@ -39,9 +39,28 @@ func (bf *BloomFilter) Exists(ctx context.Context, item string) (bool, error) {
 	return result.(int64) == 1, nil
 }
 
+// ExistsFilter 检查布隆过滤器本身是否存在（在Redis中）
+func (bf *BloomFilter) ExistsFilter(ctx context.Context) (bool, error) {
+	result, err := bf.client.Exists(ctx, bf.key).Result()
+	if err != nil {
+		return false, fmt.Errorf("check bloom filter exists error: %w", err)
+	}
+	return result == 1, nil
+}
+
 // Reserve 初始化布隆过滤器
 func (bf *BloomFilter) Reserve(ctx context.Context, size int64, errorRate float64) error {
-	_, err := bf.client.Do(ctx, "BF.RESERVE", bf.key, errorRate, size).Result()
+	// 先检查布隆过滤器是否已存在
+	exists, err := bf.ExistsFilter(ctx)
+	if err != nil {
+		return err
+	}
+	// 如果已存在，则跳过创建
+	if exists {
+		return nil
+	}
+
+	_, err = bf.client.Do(ctx, "BF.RESERVE", bf.key, errorRate, size).Result()
 	if err != nil {
 		return fmt.Errorf("reserve bloom filter error: %w", err)
 	}

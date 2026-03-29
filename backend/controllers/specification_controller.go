@@ -13,27 +13,28 @@ import (
 // SpecificationController 规格控制器
 type SpecificationController struct {
 	BaseController
-	specService *services.SpecificationService
+	specService     *services.SpecificationService
+	merchantService *services.MerchantService
 }
 
 // NewSpecificationController 创建规格控制器
 func NewSpecificationController(db *gorm.DB) *SpecificationController {
 	return &SpecificationController{
-		specService: services.NewSpecificationService(db),
+		specService:     services.NewSpecificationService(db),
+		merchantService: services.NewMerchantService(db),
 	}
 }
 
 // CreateSpecification 创建商品规格
 func (c *SpecificationController) CreateSpecification(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -69,15 +70,14 @@ func (c *SpecificationController) CreateSpecification(ctx *gin.Context) {
 
 // UpdateSpecification 更新规格
 func (c *SpecificationController) UpdateSpecification(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -107,15 +107,14 @@ func (c *SpecificationController) UpdateSpecification(ctx *gin.Context) {
 
 // DeleteSpecification 删除规格
 func (c *SpecificationController) DeleteSpecification(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -135,15 +134,14 @@ func (c *SpecificationController) DeleteSpecification(ctx *gin.Context) {
 
 // CreateSpecificationValue 创建规格值
 func (c *SpecificationController) CreateSpecificationValue(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -181,15 +179,14 @@ func (c *SpecificationController) CreateSpecificationValue(ctx *gin.Context) {
 
 // UpdateSpecificationValue 更新规格值
 func (c *SpecificationController) UpdateSpecificationValue(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -225,15 +222,14 @@ func (c *SpecificationController) UpdateSpecificationValue(ctx *gin.Context) {
 
 // DeleteSpecificationValue 删除规格值
 func (c *SpecificationController) DeleteSpecificationValue(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -253,15 +249,14 @@ func (c *SpecificationController) DeleteSpecificationValue(ctx *gin.Context) {
 
 // GetSpecificationsByProductID 获取商品的规格列表
 func (c *SpecificationController) GetSpecificationsByProductID(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -278,11 +273,4 @@ func (c *SpecificationController) GetSpecificationsByProductID(ctx *gin.Context)
 	}
 
 	c.ResponseSuccess(ctx, specs)
-}
-
-// getMerchantIDByUserID 根据用户ID获取商户ID
-func (c *SpecificationController) getMerchantIDByUserID(userID int) (int, error) {
-	// 这里需要调用merchantService来获取商户ID
-	// 暂时返回一个模拟值，实际应该从service获取
-	return 1, nil
 }
