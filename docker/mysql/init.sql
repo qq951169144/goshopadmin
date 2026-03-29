@@ -299,8 +299,11 @@ CREATE TABLE IF NOT EXISTS orders (
     order_no VARCHAR(32) NOT NULL UNIQUE,
     customer_id INT NOT NULL,
     merchant_id INT NOT NULL,
+    activity_id INT DEFAULT 0,
     total_amount DECIMAL(10,2) NOT NULL,
     status enum('pending','paid','shipped','completed','cancelled') NOT NULL DEFAULT 'pending',
+    payment_status enum('pending','success','failed') NOT NULL DEFAULT 'pending',
+    shipping_status enum('pending','shipped','delivered','returned') NOT NULL DEFAULT 'pending',
     address_id INT NOT NULL,
     created_at datetime(3) DEFAULT NULL,
     updated_at datetime(3) DEFAULT NULL,
@@ -312,8 +315,11 @@ CREATE TABLE IF NOT EXISTS orders (
     cancelled_at DATETIME DEFAULT NULL,
     INDEX idx_orders_customer_id (customer_id),
     INDEX idx_orders_merchant_id (merchant_id),
+    INDEX idx_orders_activity_id (activity_id),
     INDEX idx_orders_address_id (address_id),
-    INDEX idx_orders_status (status)
+    INDEX idx_orders_status (status),
+    INDEX idx_orders_payment_status (payment_status),
+    INDEX idx_orders_shipping_status (shipping_status)
 );
 
 -- 创建订单明细表
