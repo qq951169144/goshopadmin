@@ -128,7 +128,7 @@ func (s *ProductService) GetProductByID(id int, merchantID int) (models.Product,
 
 	// 4. 缓存未命中，查询数据库
 	var product models.Product
-	result := s.DB.Where("id = ? AND merchant_id = ?", id, merchantID).Preload("Category").Preload("Images").Preload("SKUs").First(&product)
+	result := s.DB.Where("id = ? AND merchant_id = ?", id, merchantID).Preload("Category").Preload("Images").Preload("Skus").First(&product)
 	if result.Error != nil {
 		// 缓存空值
 		s.CacheUtil.SetNullValue(ctx, nullKey)

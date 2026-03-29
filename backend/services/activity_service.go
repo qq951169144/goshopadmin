@@ -49,7 +49,7 @@ func (s *ActivityService) CreateActivity(activity *models.Activity, products []m
 				"is_activity": 1,
 				"activity_id": activity.ID,
 			}
-			err := tx.Model(&models.ProductSKU{}).
+			err := tx.Model(&models.ProductSku{}).
 				Where("id = ?", products[i].SkuID).
 				Updates(updates).Error
 			if err != nil {
@@ -83,7 +83,7 @@ func (s *ActivityService) GetActivityByID(id int, merchantID int) (*models.Activ
 	query := s.db.Where("merchant_id = ?", merchantID).
 		Preload("Products").
 		Preload("Products.Product").
-		Preload("Products.SKU").
+		Preload("Products.Sku").
 		Preload("RedeemSetting")
 
 	err := query.First(&activity, id).Error

@@ -17,7 +17,7 @@ type ActivityController struct {
 	BaseController
 	activityService   *services.ActivityService
 	redeemCodeService *services.RedeemCodeService
-	skuService        *services.SKUService
+	skuService        *services.SkuService
 	merchantService   *services.MerchantService
 	DB                *gorm.DB
 }
@@ -55,7 +55,7 @@ func NewActivityController(db *gorm.DB) *ActivityController {
 	return &ActivityController{
 		activityService:   services.NewActivityService(db),
 		redeemCodeService: services.NewRedeemCodeService(db),
-		skuService:        services.NewSKUService(db),
+		skuService:        services.NewSkuService(db),
 		merchantService:   services.NewMerchantService(db),
 		DB:                db,
 	}
@@ -363,8 +363,8 @@ func (c *ActivityController) GetActivity(ctx *gin.Context) {
 		}
 
 		// 获取SKU编码
-		if product.SKU.ID != 0 {
-			productResponse.SkuCode = product.SKU.SkuCode
+		if product.Sku.ID != 0 {
+			productResponse.SkuCode = product.Sku.SkuCode
 		}
 
 		response.Products = append(response.Products, productResponse)

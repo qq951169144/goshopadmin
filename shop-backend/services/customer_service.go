@@ -117,9 +117,9 @@ func (s *CustomerService) GetOrders(customerID int, page, limit int, status stri
 			// 查询SKU编码
 			skuCode := ""
 			if item.SkuID > 0 {
-				var sku models.ProductSKU
+				var sku models.ProductSku
 				if err := s.db.Where("id = ?", item.SkuID).First(&sku).Error; err == nil {
-					skuCode = sku.SKUCode
+					skuCode = sku.SkuCode
 				}
 			}
 

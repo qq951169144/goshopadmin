@@ -127,8 +127,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			// 路径: /api/products, /api/products/:id
 			products.GET("", deps.ProductController.GetProducts)
 			products.GET("/:id", deps.SpecificationController.GetProductDetail)
-			products.GET("/:id/skus", deps.SpecificationController.GetProductSKUs)
-			products.GET("/:id/sku", deps.SpecificationController.GetSKUBySpecCombination)
+			products.GET("/:id/skus", deps.SpecificationController.GetProductSkus)
+			products.GET("/:id/sku", deps.SpecificationController.GetSkuBySpecCombination)
 		}
 
 		// 2.6 购物车路由（需要认证）
@@ -173,7 +173,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			activities.GET("", deps.ActivityController.GetActiveActivities)
 			activities.GET("/:id", deps.ActivityController.GetActivity)
 			activities.GET("/:id/products", deps.ActivityController.GetActivityProducts)
-			activities.GET("/:id/products/:product_id/skus", deps.ActivityController.GetActivityProductSKUs)
+			activities.GET("/:id/products/:product_id/skus", deps.ActivityController.GetActivityProductSkus)
 		}
 
 		// 2.10 兑换码路由

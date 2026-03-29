@@ -146,7 +146,7 @@
         <el-table-column prop="name" label="商品名称"></el-table-column>
         <el-table-column label="操作" width="120">
           <template #default="scope">
-            <el-button size="small" @click="showSKUSelector(scope.row)">选择SKU</el-button>
+            <el-button size="small" @click="showSkuSelector(scope.row)">选择SKU</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -158,22 +158,23 @@
     
     <!-- SKU选择器 -->
     <el-dialog
-      v-model="showSKUSelectorDialog"
+      v-model="showSkuSelectorDialog"
       :title="`选择${currentProduct?.name}的SKU`"
-      width="60%"
+      width="600px"
     >
-      <el-table :data="skuList" style="width: 100%" @selection-change="handleSKUSelectChange">
+      <el-table :data="skuList" style="width: 100%" @selection-change="handleSkuSelectChange">
         <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="id" label="SKU ID" width="100"></el-table-column>
         <el-table-column prop="sku_code" label="SKU名称"></el-table-column>
-        <el-table-column prop="price" label="原价" width="100"></el-table-column>
+        <el-table-column prop="price" label="价格" width="100"></el-table-column>
         <el-table-column prop="stock" label="库存" width="100"></el-table-column>
       </el-table>
-
-      <div class="dialog-footer">
-        <el-button @click="showSKUSelectorDialog = false">取消</el-button>
-        <el-button type="primary" @click="confirmSKUSelect">确定</el-button>
-      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showSkuSelectorDialog = false">取消</el-button>
+          <el-button type="primary" @click="confirmSkuSelect">确定</el-button>
+        </span>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -233,10 +234,10 @@ export default {
         name: ''
       },
       productsList: [],
-      showSKUSelectorDialog: false,
+      showSkuSelectorDialog: false,
       currentProduct: null,
       skuList: [],
-      selectedSKUIds: []
+      selectedSkuIds: []
     }
   },
   mounted() {
@@ -311,12 +312,12 @@ export default {
     },
     
     // 显示SKU选择器
-    showSKUSelector(product) {
+    showSkuSelector(product) {
       this.currentProduct = product;
       try {
-        productApi.getProductSKUs(product.id).then(response => {
+        productApi.getProductSkus(product.id).then(response => {
           this.skuList = response || [];
-          this.showSKUSelectorDialog = true;
+          this.showSkuSelectorDialog = true;
         }).catch(error => {
           console.error('获取SKU列表失败:', error);
           this.$message.error('获取SKU列表失败');
@@ -328,18 +329,18 @@ export default {
     },
     
     // 处理SKU选择变化
-    handleSKUSelectChange(selection) {
-      this.selectedSKUIds = selection.map(sku => sku.id);
+    handleSkuSelectChange(selection) {
+      this.selectedSkuIds = selection.map(sku => sku.id);
     },
     
     // 确认选择SKU
-    confirmSKUSelect() {
-      if (this.selectedSKUIds.length === 0) {
+    confirmSkuSelect() {
+      if (this.selectedSkuIds.length === 0) {
         this.$message.warning('请选择至少一个SKU');
         return;
       }
       
-      const selectedRows = this.skuList.filter(sku => this.selectedSKUIds.includes(sku.id));
+      const selectedRows = this.skuList.filter(sku => this.selectedSkuIds.includes(sku.id));
       selectedRows.forEach(sku => {
         this.selectedProducts.push({
           product_id: this.currentProduct.id,
@@ -351,10 +352,10 @@ export default {
         });
       });
       
-      this.showSKUSelectorDialog = false;
+      this.showSkuSelectorDialog = false;
       this.currentProduct = null;
       this.skuList = [];
-      this.selectedSKUIds = [];
+      this.selectedSkuIds = [];
     },
     
     // 移除商品

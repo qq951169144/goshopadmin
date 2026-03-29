@@ -45,10 +45,10 @@ type SpecificationValueInfo struct {
 	Image string `json:"image"`
 }
 
-// SKUInfoWithSpecs 带规格信息的SKU
-type SKUInfoWithSpecs struct {
+// SkuInfoWithSpecs 带规格信息的SKU
+type SkuInfoWithSpecs struct {
 	ID              int            `json:"id"`
-	SKUCode         string         `json:"sku_code"`
+	SkuCode         string         `json:"sku_code"`
 	Price           float64        `json:"price"`
 	OriginalPrice   float64        `json:"original_price"`
 	Stock           int            `json:"stock"`
@@ -66,7 +66,7 @@ type ProductDetailWithSpecs struct {
 	Image          string              `json:"image"`
 	Images         []string            `json:"images"`
 	Specifications []SpecificationInfo `json:"specifications"`
-	SKUs           []SKUInfoWithSpecs  `json:"sku_list"`
+	Skus           []SkuInfoWithSpecs  `json:"sku_list"`
 	PriceRange     PriceRange          `json:"price_range"`
 	Sales          int                 `json:"sales"`
 	ReviewsCount   int                 `json:"reviews_count"`
@@ -220,14 +220,14 @@ func (s *SpecificationService) queryProductDetailFromDB(productID int) (*Product
 	}
 
 	// 查询SKU列表
-	var skus []models.ProductSKU
+	var skus []models.ProductSku
 	s.db.Where("product_id = ?", productID).Find(&skus)
 
-	var skuInfos []SKUInfoWithSpecs
+	var skuInfos []SkuInfoWithSpecs
 	var minPrice, maxPrice float64
 	for i, sku := range skus {
 		// 查询SKU的规格组合
-		var skuSpecs []models.ProductSKUSpec
+		var skuSpecs []models.ProductSkuSpec
 		s.db.Where("sku_id = ?", sku.ID).Find(&skuSpecs)
 
 		specCombination := make(map[string]int)
@@ -235,9 +235,9 @@ func (s *SpecificationService) queryProductDetailFromDB(productID int) (*Product
 			specCombination[strconv.Itoa(skuSpec.SpecID)] = skuSpec.SpecValueID
 		}
 
-		skuInfos = append(skuInfos, SKUInfoWithSpecs{
+		skuInfos = append(skuInfos, SkuInfoWithSpecs{
 			ID:              sku.ID,
-			SKUCode:         sku.SKUCode,
+			SkuCode:         sku.SkuCode,
 			Price:           sku.Price,
 			OriginalPrice:   sku.OriginalPrice,
 			Stock:           sku.Stock,
@@ -256,9 +256,9 @@ func (s *SpecificationService) queryProductDetailFromDB(productID int) (*Product
 
 	// 如果没有SKU，使用商品默认价格
 	if len(skuInfos) == 0 {
-		skuInfos = append(skuInfos, SKUInfoWithSpecs{
+		skuInfos = append(skuInfos, SkuInfoWithSpecs{
 			ID:              0,
-			SKUCode:         "default",
+			SkuCode:         "default",
 			Price:           product.Price,
 			OriginalPrice:   0,
 			Stock:           product.Stock,
@@ -278,7 +278,7 @@ func (s *SpecificationService) queryProductDetailFromDB(productID int) (*Product
 		Image:          mainImage,
 		Images:         images,
 		Specifications: specInfos,
-		SKUs:           skuInfos,
+		Skus:           skuInfos,
 		PriceRange: PriceRange{
 			Min: minPrice,
 			Max: maxPrice,
@@ -316,15 +316,15 @@ func (s *SpecificationService) rebuildProductCache(productID int) {
 	s.cacheUtil.Redis.Expire(ctx, cacheKey, physicalExpiration)
 }
 
-// GetSKUsByProductID 获取商品的SKU列表
-func (s *SpecificationService) GetSKUsByProductID(productID int) ([]SKUInfoWithSpecs, error) {
-	var skus []models.ProductSKU
+// GetSkusByProductID 获取商品的SKU列表
+func (s *SpecificationService) GetSkusByProductID(productID int) ([]SkuInfoWithSpecs, error) {
+	var skus []models.ProductSku
 	s.db.Where("product_id = ?", productID).Find(&skus)
 
-	var skuInfos []SKUInfoWithSpecs
+	var skuInfos []SkuInfoWithSpecs
 	for _, sku := range skus {
 		// 查询SKU的规格组合
-		var skuSpecs []models.ProductSKUSpec
+		var skuSpecs []models.ProductSkuSpec
 		s.db.Where("sku_id = ?", sku.ID).Find(&skuSpecs)
 
 		specCombination := make(map[string]int)
@@ -332,9 +332,9 @@ func (s *SpecificationService) GetSKUsByProductID(productID int) ([]SKUInfoWithS
 			specCombination[strconv.Itoa(skuSpec.SpecID)] = skuSpec.SpecValueID
 		}
 
-		skuInfos = append(skuInfos, SKUInfoWithSpecs{
+		skuInfos = append(skuInfos, SkuInfoWithSpecs{
 			ID:              sku.ID,
-			SKUCode:         sku.SKUCode,
+			SkuCode:         sku.SkuCode,
 			Price:           sku.Price,
 			OriginalPrice:   sku.OriginalPrice,
 			Stock:           sku.Stock,
@@ -346,8 +346,8 @@ func (s *SpecificationService) GetSKUsByProductID(productID int) ([]SKUInfoWithS
 	return skuInfos, nil
 }
 
-// GetSKUBySpecCombination 根据规格组合查询SKU
-func (s *SpecificationService) GetSKUBySpecCombination(productID int, specQuery string) (*SKUInfoWithSpecs, error) {
+// GetSkuBySpecCombination 根据规格组合查询SKU
+func (s *SpecificationService) GetSkuBySpecCombination(productID int, specQuery string) (*SkuInfoWithSpecs, error) {
 	// 解析规格查询参数，格式: "1:1,2:4" 表示 spec_id=1 对应 spec_value_id=1, spec_id=2 对应 spec_value_id=4
 	specPairs := strings.Split(specQuery, ",")
 	if len(specPairs) == 0 {
@@ -373,12 +373,12 @@ func (s *SpecificationService) GetSKUBySpecCombination(productID int, specQuery 
 	}
 
 	// 查询所有SKU
-	var skus []models.ProductSKU
+	var skus []models.ProductSku
 	s.db.Where("product_id = ?", productID).Find(&skus)
 
 	// 查找匹配的SKU
 	for _, sku := range skus {
-		var skuSpecs []models.ProductSKUSpec
+		var skuSpecs []models.ProductSkuSpec
 		s.db.Where("sku_id = ?", sku.ID).Find(&skuSpecs)
 
 		// 检查是否匹配所有规格条件
@@ -403,9 +403,9 @@ func (s *SpecificationService) GetSKUBySpecCombination(productID int, specQuery 
 				specCombination[strconv.Itoa(skuSpec.SpecID)] = skuSpec.SpecValueID
 			}
 
-			return &SKUInfoWithSpecs{
+			return &SkuInfoWithSpecs{
 				ID:              sku.ID,
-				SKUCode:         sku.SKUCode,
+				SkuCode:         sku.SkuCode,
 				Price:           sku.Price,
 				OriginalPrice:   sku.OriginalPrice,
 				Stock:           sku.Stock,

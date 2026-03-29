@@ -106,11 +106,11 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 		itemPrice := product.Price
 
 		if skuID > 0 {
-			var sku models.ProductSKU
+			var sku models.ProductSku
 			if err := tx.Where("id = ? AND product_id = ?", skuID, item.ProductID).First(&sku).Error; err == nil {
 				itemPrice = sku.Price
 				// 查询SKU规格属性
-				var skuSpecs []models.ProductSKUSpec
+				var skuSpecs []models.ProductSkuSpec
 				tx.Where("sku_id = ?", skuID).Find(&skuSpecs)
 				if len(skuSpecs) > 0 {
 					attrs := make(map[string]string)
@@ -310,9 +310,9 @@ func (s *OrderService) GetOrderDetail(orderNo string, customerID int) (map[strin
 		// 查询SKU编码
 		skuCode := ""
 		if item.SkuID > 0 {
-			var sku models.ProductSKU
+			var sku models.ProductSku
 			if err := s.db.Where("id = ?", item.SkuID).First(&sku).Error; err == nil {
-				skuCode = sku.SKUCode
+				skuCode = sku.SkuCode
 			}
 		}
 

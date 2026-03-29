@@ -4,12 +4,12 @@ import (
 	"time"
 )
 
-// ProductSKU 商品SKU模型
-type ProductSKU struct {
+// ProductSku 商品SKU模型
+type ProductSku struct {
 	ID            int       `json:"id" gorm:"primaryKey"`
 	ProductID     int       `json:"product_id" gorm:"not null;index"`
 	ActivityID    int       `json:"activity_id" gorm:"default:0;index"`
-	SKUCode       string    `json:"sku_code" gorm:"size:50;not null;uniqueIndex"`
+	SkuCode       string    `json:"sku_code" gorm:"size:50;not null;uniqueIndex"`
 	Price         float64   `json:"price" gorm:"type:decimal(10,2);not null"`
 	OriginalPrice float64   `json:"original_price" gorm:"type:decimal(10,2);default:0"`
 	Stock         int       `json:"stock" gorm:"not null;default:0"`
@@ -19,6 +19,6 @@ type ProductSKU struct {
 }
 
 // TableName 设置表名
-func (ProductSKU) TableName() string {
+func (ProductSku) TableName() string {
 	return "product_skus"
 }

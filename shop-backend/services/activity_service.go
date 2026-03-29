@@ -73,9 +73,9 @@ func (s *ActivityService) GetActivityProducts(activityID int) ([]models.Activity
 	return products, nil
 }
 
-// GetActivityProductSKUs 获取活动商品的SKU列表
-func (s *ActivityService) GetActivityProductSKUs(activityID int, productID int) ([]models.ProductSKU, error) {
-	var skus []models.ProductSKU
+// GetActivityProductSkus 获取活动商品的SKU列表
+func (s *ActivityService) GetActivityProductSkus(activityID int, productID int) ([]models.ProductSku, error) {
+	var skus []models.ProductSku
 
 	result := s.DB.Where("activity_id = ? AND product_id = ? AND status = ?", activityID, productID, constants.StatusActive).Find(&skus)
 	if result.Error != nil {
@@ -88,7 +88,7 @@ func (s *ActivityService) GetActivityProductSKUs(activityID int, productID int) 
 
 // CheckActivityStock 检查活动商品库存
 func (s *ActivityService) CheckActivityStock(activityID int, productID int, skuID int, quantity int) error {
-	var sku models.ProductSKU
+	var sku models.ProductSku
 
 	result := s.DB.Where("id = ? AND activity_id = ? AND status = ?", skuID, activityID, constants.StatusActive).First(&sku)
 	if result.Error != nil {
@@ -114,7 +114,7 @@ func (s *ActivityService) ReduceActivityStock(activityID int, productID int, sku
 		}
 	}()
 
-	var sku models.ProductSKU
+	var sku models.ProductSku
 	result := tx.Where("id = ? AND activity_id = ? AND status = ? AND stock >= ?", skuID, activityID, constants.StatusActive, quantity).First(&sku)
 	if result.Error != nil {
 		tx.Rollback()

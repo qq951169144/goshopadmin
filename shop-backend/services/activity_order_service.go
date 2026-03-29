@@ -72,7 +72,7 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 			return nil, err
 		}
 
-		var sku models.ProductSKU
+		var sku models.ProductSku
 		result := tx.First(&sku, item.SkuID)
 		if result.Error != nil {
 			tx.Rollback()
@@ -209,7 +209,7 @@ func (s *ActivityOrderService) CancelActivityOrder(orderID int, customerID int) 
 	}
 
 	for _, item := range items {
-		var sku models.ProductSKU
+		var sku models.ProductSku
 		result := tx.First(&sku, item.SkuID)
 		if result.Error != nil {
 			tx.Rollback()

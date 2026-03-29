@@ -23,7 +23,7 @@ type Dependencies struct {
 	MerchantController      *controllers.MerchantController
 	ProductController       *controllers.ProductController
 	SpecificationController *controllers.SpecificationController
-	SKUController           *controllers.SKUController
+	SkuController           *controllers.SkuController
 	ActivityController      *controllers.ActivityController
 	RedeemCodeController    *controllers.RedeemCodeController
 }
@@ -56,7 +56,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 		MerchantController:      controllers.NewMerchantController(db),
 		ProductController:       controllers.NewProductController(db, redisClient),
 		SpecificationController: controllers.NewSpecificationController(db),
-		SKUController:           controllers.NewSKUController(db),
+		SkuController:           controllers.NewSkuController(db),
 		ActivityController:      controllers.NewActivityController(db),
 		RedeemCodeController:    controllers.NewRedeemCodeController(db),
 	}
@@ -168,10 +168,10 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 
 				// SKU管理路由（新）
 				// 路径: /api/products/:id/skus
-				products.POST("/:id/skus", deps.SKUController.CreateSKU)
-				products.POST("/:id/skus/batch", deps.SKUController.BatchCreateSKU)
-				products.GET("/:id/skus", deps.SKUController.GetSKUsByProductID)
-				products.POST("/:id/skus/generate", deps.SKUController.GenerateSKUsFromSpecs)
+				products.POST("/:id/skus", deps.SkuController.CreateSku)
+				products.POST("/:id/skus/batch", deps.SkuController.BatchCreateSku)
+				products.GET("/:id/skus", deps.SkuController.GetSkusByProductID)
+				products.POST("/:id/skus/generate", deps.SkuController.GenerateSkusFromSpecs)
 			}
 
 			// 商品分类管理路由 - 需要 product:manage 权限
@@ -218,8 +218,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			skuRoutes := protected.Group("/skus")
 			skuRoutes.Use(middleware.PermissionMiddleware("product:manage"))
 			{
-				skuRoutes.PUT("/:id", deps.SKUController.UpdateSKU)
-				skuRoutes.DELETE("/:id", deps.SKUController.DeleteSKU)
+				skuRoutes.PUT("/:id", deps.SkuController.UpdateSku)
+				skuRoutes.DELETE("/:id", deps.SkuController.DeleteSku)
 			}
 
 			// 活动管理路由

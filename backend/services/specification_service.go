@@ -70,7 +70,7 @@ func (s *SpecificationService) DeleteSpecification(specID int, merchantID int) e
 
 	// 检查规格是否被SKU使用
 	var count int64
-	s.DB.Model(&models.ProductSKUSpec{}).Where("spec_id = ?", specID).Count(&count)
+	s.DB.Model(&models.ProductSkuSpec{}).Where("spec_id = ?", specID).Count(&count)
 	if count > 0 {
 		return errors.New("规格已被SKU使用，无法删除")
 	}
@@ -190,7 +190,7 @@ func (s *SpecificationService) DeleteSpecificationValue(valueID int, merchantID 
 
 	// 检查规格值是否被SKU使用
 	var count int64
-	s.DB.Model(&models.ProductSKUSpec{}).Where("spec_value_id = ?", valueID).Count(&count)
+	s.DB.Model(&models.ProductSkuSpec{}).Where("spec_value_id = ?", valueID).Count(&count)
 	if count > 0 {
 		return errors.New("规格值已被SKU使用，无法删除")
 	}
@@ -202,13 +202,13 @@ func (s *SpecificationService) DeleteSpecificationValue(valueID int, merchantID 
 // CheckSpecificationUsed 检查规格是否被SKU使用
 func (s *SpecificationService) CheckSpecificationUsed(specID int) bool {
 	var count int64
-	s.DB.Model(&models.ProductSKUSpec{}).Where("spec_id = ?", specID).Count(&count)
+	s.DB.Model(&models.ProductSkuSpec{}).Where("spec_id = ?", specID).Count(&count)
 	return count > 0
 }
 
 // CheckSpecificationValueUsed 检查规格值是否被SKU使用
 func (s *SpecificationService) CheckSpecificationValueUsed(valueID int) bool {
 	var count int64
-	s.DB.Model(&models.ProductSKUSpec{}).Where("spec_value_id = ?", valueID).Count(&count)
+	s.DB.Model(&models.ProductSkuSpec{}).Where("spec_value_id = ?", valueID).Count(&count)
 	return count > 0
 }

@@ -340,17 +340,17 @@ export const productApi = {
   // 删除规格值
   deleteSpecificationValue: (id) => api.delete(`/specification-values/${id}`),
   // 获取商品SKU列表
-  getProductSKUs: (productId) => api.get(`/products/${productId}/skus`),
+  getProductSkus: (productId) => api.get(`/products/${productId}/skus`),
   // 创建SKU
-  createProductSKU: (productId, data) => api.post(`/products/${productId}/skus`, data),
+  createProductSku: (productId, data) => api.post(`/products/${productId}/skus`, data),
   // 批量创建SKU
-  batchCreateSKUs: (productId, data) => api.post(`/products/${productId}/skus/batch`, data),
+  batchCreateSkus: (productId, data) => api.post(`/products/${productId}/skus/batch`, data),
   // 更新SKU
-  updateSKU: (id, data) => api.put(`/skus/${id}`, data),
+  updateSku: (id, data) => api.put(`/skus/${id}`, data),
   // 删除SKU
-  deleteSKU: (id) => api.delete(`/skus/${id}`),
+  deleteSku: (id) => api.delete(`/skus/${id}`),
   // 自动生成SKU组合
-  generateSKUs: (productId, data) => api.post(`/products/${productId}/skus/generate`, data)
+  generateSkus: (productId, data) => api.post(`/products/${productId}/skus/generate`, data)
 };
 
 // 活动相关API

@@ -119,7 +119,7 @@ func (s *ProductService) GetProducts(req GetProductsRequest) (*GetProductsRespon
 		var productList []ProductInfo
 		for _, p := range products {
 			// 查询默认SKU价格（取第一个SKU的价格）
-			var defaultSku models.ProductSKU
+			var defaultSku models.ProductSku
 			s.db.Where("product_id = ?", p.ID).Order("id ASC").First(&defaultSku)
 
 			defaultSkuPrice := p.Price

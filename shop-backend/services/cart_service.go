@@ -48,7 +48,7 @@ func (s *CartService) GetCart(customerID int) (*CartInfo, error) {
 	var cartItems []models.CartItem
 	err := s.db.Where("cart_id = ?", cart.ID).
 		Preload("Product").
-		Preload("SKU").
+		Preload("Sku").
 		Find(&cartItems).Error
 	if err != nil {
 		return nil, err
@@ -92,8 +92,8 @@ func (s *CartService) GetCart(customerID int) (*CartInfo, error) {
 		}
 
 		// 设置SKU编码
-		if item.SKU.ID != 0 {
-			cartItemInfo.SkuCode = item.SKU.SKUCode
+		if item.Sku.ID != 0 {
+			cartItemInfo.SkuCode = item.Sku.SkuCode
 		}
 
 		items = append(items, cartItemInfo)

@@ -88,7 +88,7 @@
               :has-permission="hasPermission" 
               @refresh="handleRefresh"
               @manage-specifications="handleManageSpecifications"
-              @manage-skus="handleManageSKUs"
+              @manage-skus="handleManageSkus"
             />
             
             <!-- 商品分类管理 -->
@@ -103,7 +103,7 @@
             />
             
             <!-- SKU管理 -->
-            <ProductSKUs 
+            <ProductSkus 
               v-else-if="currentView === 'skus' && hasPermission('product:manage')" 
               :product-id="currentProduct?.id"
               :product-name="currentProduct?.name"
@@ -196,7 +196,7 @@ import Merchants from './merchants/Merchants.vue';
 import Products from './products/Products.vue';
 import ProductCategories from './products/ProductCategories.vue';
 import ProductSpecifications from './products/ProductSpecifications.vue';
-import ProductSKUs from './products/ProductSKUs.vue';
+import ProductSkus from './products/ProductSkus.vue';
 import Activities from './activities/Activities.vue';
 import ActivityForm from './activities/ActivityForm.vue';
 import ActivityDetail from './activities/ActivityDetail.vue';
@@ -242,7 +242,7 @@ const handleManageSpecifications = (product) => {
 };
 
 // 处理管理SKU
-const handleManageSKUs = (product) => {
+const handleManageSkus = (product) => {
   currentProduct.value = product;
   currentView.value = 'skus';
 };

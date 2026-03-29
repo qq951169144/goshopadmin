@@ -9,7 +9,7 @@
           </div>
           <div class="header-right">
             <el-button type="success" @click="handleGenerateSKUs">自动生成SKU组合</el-button>
-            <el-button type="primary" @click="handleAddSKU">手动添加SKU</el-button>
+            <el-button type="primary" @click="handleAddSku">手动添加SKU</el-button>
           </div>
         </div>
       </template>
@@ -61,8 +61,8 @@
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="scope">
-            <el-button size="small" @click="handleEditSKU(scope.row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDeleteSKU(scope.row)">禁用</el-button>
+            <el-button size="small" @click="handleEditSku(scope.row)">编辑</el-button>
+            <el-button size="small" type="danger" @click="handleDeleteSku(scope.row)">禁用</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -161,9 +161,9 @@
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="skuDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSaveSKU">保存</el-button>
-        </span>
+            <el-button @click="skuDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="handleSaveSku">保存</el-button>
+          </span>
       </template>
     </el-dialog>
   </div>
@@ -173,7 +173,7 @@
 import { productApi, activityApi } from '@/api/auth'
 
 export default {
-  name: 'ProductSKUs',
+  name: 'ProductSkus',
   props: {
     productId: {
       type: Number,
@@ -243,14 +243,14 @@ export default {
         this.localProductId = this.productId
         this.localProductName = this.productName
         this.getSpecifications()
-        this.getSKUs()
+        this.getSkus()
         this.getActivities()
       } else if (this.$route.params.id) {
         // 通过路由参数传入（兼容旧方式）
         this.localProductId = parseInt(this.$route.params.id)
         this.getProductInfo()
         this.getSpecifications()
-        this.getSKUs()
+        this.getSkus()
         this.getActivities()
       }
     },
@@ -289,9 +289,9 @@ export default {
       }).catch(() => {})
     },
     // 获取SKU列表
-    getSKUs() {
+    getSkus() {
       this.loading = true
-      productApi.getProductSKUs(this.effectiveProductId).then(data => {
+      productApi.getProductSkus(this.effectiveProductId).then(data => {
         this.skus = data || []
         this.loading = false
       }).catch(() => {
@@ -336,7 +336,7 @@ export default {
     },
     // 预览生成SKU
     handlePreviewGenerate() {
-      productApi.generateSKUs(this.effectiveProductId, this.generateForm).then(data => {
+      productApi.generateSkus(this.effectiveProductId, this.generateForm).then(data => {
         this.generatedSKUs = data || []
         if (this.generatedSKUs.length === 0) {
           this.$message.warning('无法生成SKU组合，请检查规格配置')
@@ -350,14 +350,14 @@ export default {
         return
       }
 
-      productApi.batchCreateSKUs(this.effectiveProductId, { skus: this.generatedSKUs }).then(() => {
+      productApi.batchCreateSkus(this.effectiveProductId, { skus: this.generatedSKUs }).then(() => {
         this.$message.success('SKU生成成功')
         this.generateDialogVisible = false
-        this.getSKUs()
+        this.getSkus()
       }).catch(() => {})
     },
     // 添加SKU
-    handleAddSKU() {
+    handleAddSku() {
       this.skuForm = {
         id: null,
         sku_code: '',
@@ -372,7 +372,7 @@ export default {
       this.skuDialogVisible = true
     },
     // 编辑SKU
-    handleEditSKU(sku) {
+    handleEditSku(sku) {
       this.skuForm = {
         id: sku.id,
         sku_code: sku.sku_code,
@@ -386,15 +386,15 @@ export default {
       this.skuDialogVisible = true
     },
     // 保存SKU
-    handleSaveSKU() {
+    handleSaveSku() {
       this.$refs.skuFormRef.validate(valid => {
         if (valid) {
           if (this.skuForm.id) {
             // 更新
-            productApi.updateSKU(this.skuForm.id, this.skuForm).then(() => {
+            productApi.updateSku(this.skuForm.id, this.skuForm).then(() => {
               this.$message.success('更新SKU成功')
               this.skuDialogVisible = false
-              this.getSKUs()
+              this.getSkus()
             }).catch(() => {})
           } else {
             // 创建
@@ -414,25 +414,25 @@ export default {
               spec_combinations: specCombinations
             }
             
-            productApi.createProductSKU(this.effectiveProductId, data).then(() => {
+            productApi.createProductSku(this.effectiveProductId, data).then(() => {
               this.$message.success('添加SKU成功')
               this.skuDialogVisible = false
-              this.getSKUs()
+              this.getSkus()
             }).catch(() => {})
           }
         }
       })
     },
     // 删除SKU
-    handleDeleteSKU(sku) {
+    handleDeleteSku(sku) {
       this.$confirm(`确定要禁用SKU "${sku.sku_code}" 吗？`, '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        productApi.deleteSKU(sku.id).then(() => {
+        productApi.deleteSku(sku.id).then(() => {
           this.$message.success('禁用SKU成功')
-          this.getSKUs()
+          this.getSkus()
         }).catch(() => {})
       }).catch(() => {})
     }

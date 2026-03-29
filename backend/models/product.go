@@ -21,7 +21,7 @@ type Product struct {
 	// 关联
 	Category ProductCategory `json:"category" gorm:"foreignKey:CategoryID"`
 	Images   []ProductImage  `json:"images" gorm:"foreignKey:ProductID"`
-	SKUs     []ProductSKU    `json:"skus" gorm:"foreignKey:ProductID"`
+	Skus     []ProductSku    `json:"skus" gorm:"foreignKey:ProductID"`
 }
 
 // ProductCategory 商品分类模型
@@ -40,12 +40,12 @@ type ProductCategory struct {
 	Products []Product `json:"products" gorm:"foreignKey:CategoryID"`
 }
 
-// ProductSKU 商品SKU模型
-type ProductSKU struct {
+// ProductSku 商品SKU模型
+type ProductSku struct {
 	ID            int       `json:"id" gorm:"primaryKey"`
 	ProductID     int       `json:"product_id" gorm:"not null"`
 	MerchantID    int       `json:"merchant_id" gorm:"not null"`
-	SKUCode       string    `json:"sku_code" gorm:"size:50;not null;uniqueIndex"`
+	SkuCode       string    `json:"sku_code" gorm:"size:50;not null;uniqueIndex"`
 	Attributes    string    `json:"attributes" gorm:"type:json;"` // [已废弃] 请使用Specs关联表存储规格关系
 	Price         float64   `json:"price" gorm:"type:decimal(10,2);not null"`
 	OriginalPrice float64   `json:"original_price" gorm:"type:decimal(10,2);default:0"`
@@ -58,7 +58,7 @@ type ProductSKU struct {
 
 	// 关联
 	Product Product          `json:"product" gorm:"foreignKey:ProductID"`
-	Specs   []ProductSKUSpec `json:"specs" gorm:"foreignKey:SkuID"`
+	Specs   []ProductSkuSpec `json:"specs" gorm:"foreignKey:SkuID"`
 }
 
 // ProductSpecification 商品规格表
@@ -99,8 +99,8 @@ func (ProductSpecificationValue) TableName() string {
 	return "product_specification_values"
 }
 
-// ProductSKUSpec SKU规格关联表
-type ProductSKUSpec struct {
+// ProductSkuSpec SKU规格关联表
+type ProductSkuSpec struct {
 	ID          int       `json:"id" gorm:"primaryKey"`
 	SkuID       int       `json:"sku_id" gorm:"not null;index"`
 	SpecID      int       `json:"spec_id" gorm:"not null;index"`
@@ -108,13 +108,13 @@ type ProductSKUSpec struct {
 	CreatedAt   time.Time `json:"created_at"`
 
 	// 关联
-	SKU       ProductSKU                `json:"sku" gorm:"foreignKey:SkuID"`
+	Sku       ProductSku                `json:"sku" gorm:"foreignKey:SkuID"`
 	Spec      ProductSpecification      `json:"spec" gorm:"foreignKey:SpecID"`
 	SpecValue ProductSpecificationValue `json:"spec_value" gorm:"foreignKey:SpecValueID"`
 }
 
 // TableName 设置表名
-func (ProductSKUSpec) TableName() string {
+func (ProductSkuSpec) TableName() string {
 	return "product_sku_specs"
 }
 

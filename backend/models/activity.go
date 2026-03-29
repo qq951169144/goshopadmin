@@ -41,7 +41,7 @@ type ActivityProduct struct {
 	// 关联
 	Activity Activity   `json:"activity" gorm:"foreignKey:ActivityID"`
 	Product  Product    `json:"product" gorm:"foreignKey:ProductID"`
-	SKU      ProductSKU `json:"sku" gorm:"foreignKey:SkuID"`
+	Sku      ProductSku `json:"sku" gorm:"foreignKey:SkuID"`
 }
 
 // ActivityRedeemSetting 兑换码活动配置模型

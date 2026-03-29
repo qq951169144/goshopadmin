@@ -43,8 +43,8 @@ func (c *SpecificationController) GetProductDetail(ctx *gin.Context) {
 	c.ResponseSuccess(ctx, product)
 }
 
-// GetProductSKUs 获取商品的SKU列表
-func (c *SpecificationController) GetProductSKUs(ctx *gin.Context) {
+// GetProductSkus 获取商品的SKU列表
+func (c *SpecificationController) GetProductSkus(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -52,7 +52,7 @@ func (c *SpecificationController) GetProductSKUs(ctx *gin.Context) {
 		return
 	}
 
-	skus, err := c.specService.GetSKUsByProductID(id)
+	skus, err := c.specService.GetSkusByProductID(id)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
@@ -63,8 +63,8 @@ func (c *SpecificationController) GetProductSKUs(ctx *gin.Context) {
 	})
 }
 
-// GetSKUBySpecCombination 根据规格组合查询SKU
-func (c *SpecificationController) GetSKUBySpecCombination(ctx *gin.Context) {
+// GetSkuBySpecCombination 根据规格组合查询SKU
+func (c *SpecificationController) GetSkuBySpecCombination(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -78,7 +78,7 @@ func (c *SpecificationController) GetSKUBySpecCombination(ctx *gin.Context) {
 		return
 	}
 
-	sku, err := c.specService.GetSKUBySpecCombination(id, specs)
+	sku, err := c.specService.GetSkuBySpecCombination(id, specs)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeProductNotFound, err)
 		return

@@ -4,8 +4,8 @@ import (
 	"time"
 )
 
-// ProductSKUSpec SKU规格关联表
-type ProductSKUSpec struct {
+// ProductSkuSpec SKU规格关联表
+type ProductSkuSpec struct {
 	ID          int       `json:"id" gorm:"primaryKey"`
 	SkuID       int       `json:"sku_id" gorm:"not null;index"`
 	SpecID      int       `json:"spec_id" gorm:"not null;index"`
@@ -14,6 +14,6 @@ type ProductSKUSpec struct {
 }
 
 // TableName 设置表名
-func (ProductSKUSpec) TableName() string {
+func (ProductSkuSpec) TableName() string {
 	return "product_sku_specs"
 }

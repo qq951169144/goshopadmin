@@ -10,7 +10,7 @@ import Merchants from '../views/merchants/Merchants.vue'
 import Products from '../views/products/Products.vue'
 import ProductCategories from '../views/products/ProductCategories.vue'
 import ProductSpecifications from '../views/products/ProductSpecifications.vue'
-import ProductSKUs from '../views/products/ProductSKUs.vue'
+import ProductSkus from '../views/products/ProductSkus.vue'
 
 const routes = [
   {
@@ -76,8 +76,8 @@ const routes = [
       },
       {
         path: 'products/:id/skus',
-        name: 'ProductSKUs',
-        component: ProductSKUs,
+        name: 'ProductSkus',
+        component: ProductSkus,
         meta: { requiresPermission: 'product:manage' }
       },
       {

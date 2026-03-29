@@ -159,11 +159,11 @@ const (
 	RedeemCodeLogStatusRejected = "rejected"
 )
 
-// SKUActivityType SKU活动类型常量
+// SkuActivityType SKU活动类型常量
 const (
-	// SKUActivityTypeNormal 普通SKU
-	SKUActivityTypeNormal = 0
+	// SkuActivityTypeNormal 普通SKU
+	SkuActivityTypeNormal = 0
 	
-	// SKUActivityTypeActivity 活动专用SKU
-	SKUActivityTypeActivity = 1
+	// SkuActivityTypeActivity 活动专用SKU
+	SkuActivityTypeActivity = 1
 )

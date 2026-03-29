@@ -69,8 +69,8 @@ func (c *ActivityController) GetActivityProducts(ctx *gin.Context) {
 	c.ResponseSuccess(ctx, products)
 }
 
-// GetActivityProductSKUs 获取活动商品的SKU列表
-func (c *ActivityController) GetActivityProductSKUs(ctx *gin.Context) {
+// GetActivityProductSkus 获取活动商品的SKU列表
+func (c *ActivityController) GetActivityProductSkus(ctx *gin.Context) {
 	activityID, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeParamError, err)
@@ -83,7 +83,7 @@ func (c *ActivityController) GetActivityProductSKUs(ctx *gin.Context) {
 		return
 	}
 
-	skus, err := c.activityService.GetActivityProductSKUs(activityID, productID)
+	skus, err := c.activityService.GetActivityProductSkus(activityID, productID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeInternalError, err)
 		return
