@@ -21,8 +21,10 @@ CREATE TABLE IF NOT EXISTS permissions (
     code VARCHAR(50) NOT NULL,
     description VARCHAR(200),
     status enum('active','inactive') DEFAULT 'active',
+    category VARCHAR(50) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_permissions_category (category)
 );
 
 -- 创建角色权限关联表
@@ -30,6 +32,7 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     role_id INT NOT NULL,
     permission_id INT NOT NULL,
     PRIMARY KEY (role_id, permission_id),
+    INDEX idx_role_permissions_role_id (role_id),
     INDEX idx_role_permissions_permission_id (permission_id)
 );
 
@@ -533,21 +536,21 @@ INSERT INTO roles (name, description) VALUES
 ('商户账号', '商户管理权限');
 
 -- 插入默认权限
-INSERT INTO permissions (name, code, description) VALUES
-('用户管理', 'user:manage', '管理用户账号'),
-('角色管理', 'role:manage', '管理角色权限'),
-('商品管理', 'product:manage', '管理商品信息'),
-('订单管理', 'order:manage', '管理订单信息'),
-('活动管理', 'activity:manage', '管理活动信息'),
-('物流管理', 'shipping:manage', '管理物流信息'),
-('商户管理', 'merchant:manage', '管理商户信息'),
-('商户审核', 'merchant:audit', '审核商户注册和信息更新'),
-('商户财务', 'merchant:finance', '管理商户提现和对账'),
-('商户查看', 'merchant:view', '查看商户信息'),
-('商品分类管理', 'product:category', '管理商品分类'),
-('商品SKU管理', 'product:sku', '管理商品SKU'),
-('支付管理', 'order:payment', '管理订单支付'),
-('活动统计', 'activity:stats', '查看活动统计数据');
+INSERT INTO permissions (name, code, description, category) VALUES
+('用户管理', 'user:manage', '管理用户账号', 'user'),
+('角色管理', 'role:manage', '管理角色权限', 'role'),
+('商品管理', 'product:manage', '管理商品信息', 'product'),
+('订单管理', 'order:manage', '管理订单信息', 'order'),
+('活动管理', 'activity:manage', '管理活动信息', 'activity'),
+('物流管理', 'shipping:manage', '管理物流信息', 'shipping'),
+('商户管理', 'merchant:manage', '管理商户信息', 'merchant'),
+('商户审核', 'merchant:audit', '审核商户注册和信息更新', 'merchant'),
+('商户财务', 'merchant:finance', '管理商户提现和对账', 'merchant'),
+('商户查看', 'merchant:view', '查看商户信息', 'merchant'),
+('商品分类管理', 'product:category', '管理商品分类', 'product'),
+('商品SKU管理', 'product:sku', '管理商品SKU', 'product'),
+('支付管理', 'order:payment', '管理订单支付', 'order'),
+('活动统计', 'activity:stats', '查看活动统计数据', 'activity');
 
 -- 为超级管理员分配所有权限
 INSERT INTO role_permissions (role_id, permission_id) VALUES

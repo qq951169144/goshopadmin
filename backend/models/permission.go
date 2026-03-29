@@ -11,6 +11,7 @@ type Permission struct {
 	Code        string    `json:"code" gorm:"size:50;not null"`
 	Description string    `json:"description" gorm:"size:200"`
 	Status      string    `json:"status" gorm:"size:20;default:active"`
+	Category    string    `json:"category" gorm:"size:50;default:null"`
 	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 	// 关联关系：权限被多个角色拥有（多对多）

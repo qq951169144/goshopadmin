@@ -2,25 +2,30 @@ package controllers
 
 import (
 	stderrors "errors"
+	"goshopadmin/errors"
+	"goshopadmin/services"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"goshopadmin/errors"
-	"goshopadmin/services"
 	"gorm.io/gorm"
 )
 
 // BaseController 基础控制器
 type BaseController struct{}
 
-// GetUserID 从上下文获取用户ID，如果不存在则返回错误
+// GetUserID 从上下文获取用户ID，如果不存在或无效则返回错误
 func (c *BaseController) GetUserID(ctx *gin.Context) (int, bool) {
 	userID, exists := ctx.Get("userID")
 	if !exists {
-		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return 0, false
 	}
-	return userID.(int), true
+
+	userIDInt, ok := userID.(int)
+	if !ok || userIDInt <= 0 {
+		return 0, false
+	}
+
+	return userIDInt, true
 }
 
 // GetMerchantIDFromContext 从上下文获取商户ID
@@ -109,4 +114,16 @@ func (c *BaseController) ResponseErrorWithMessage(ctx *gin.Context, bizCode int,
 		Message: message,
 		Data:    nil,
 	})
+}
+
+// GetMerchantIDFromContext 从上下文获取商户ID
+func (c *BaseController) GetMerchantIDFromContext(ctx *gin.Context, merchantService *services.MerchantService) (int, error) {
+	// 从上下文获取用户ID
+	userID, ok := c.GetUserID(ctx)
+	if !ok {
+		return 0, stderrors.New(errors.GetErrorMessage(errors.CodeUnauthorized))
+	}
+
+	// 获取商户ID
+	return merchantService.GetMerchantIDByUserID(userID)
 }

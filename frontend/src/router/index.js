@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { usePermissionStore } from '../store/modules/permission'
 import Login from '../views/Login.vue'
 import Home from '../views/Home.vue'
 import Dashboard from '../views/dashboard/Dashboard.vue'
@@ -34,42 +35,50 @@ const routes = [
       {
         path: 'users',
         name: 'Users',
-        component: Users
+        component: Users,
+        meta: { requiresPermission: 'user:manage' }
       },
       {
         path: 'roles',
         name: 'Roles',
-        component: Roles
+        component: Roles,
+        meta: { requiresPermission: 'role:manage' }
       },
       {
         path: 'permissions',
         name: 'Permissions',
-        component: Permissions
+        component: Permissions,
+        meta: { requiresPermission: 'role:manage' }
       },
       {
         path: 'merchants',
         name: 'Merchants',
-        component: Merchants
+        component: Merchants,
+        meta: { requiresPermission: 'merchant:manage' }
       },
       {
         path: 'products',
         name: 'Products',
-        component: Products
+        component: Products,
+        meta: { requiresPermission: 'product:manage' }
       },
       {
         path: 'product-categories',
         name: 'ProductCategories',
-        component: ProductCategories
+        component: ProductCategories,
+        meta: { requiresPermission: 'product:manage' }
       },
       {
         path: 'products/:id/specifications',
         name: 'ProductSpecifications',
-        component: ProductSpecifications
+        component: ProductSpecifications,
+        meta: { requiresPermission: 'product:manage' }
       },
       {
         path: 'products/:id/skus',
         name: 'ProductSKUs',
-        component: ProductSKUs
+        component: ProductSKUs,
+        meta: { requiresPermission: 'product:manage' }
       },
       {
         path: 'activities',
@@ -121,15 +130,34 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token')
+  
   if (to.path === '/login') {
     next()
   } else {
-    if (token) {
-      next()
-    } else {
+    if (!token) {
       next('/login')
+      return
+    }
+    
+    const permissionStore = usePermissionStore()
+    
+    // 确保权限已加载
+    if (permissionStore.permissions.length === 0) {
+      await permissionStore.fetchPermissions()
+    }
+    
+    // 检查路由权限
+    if (to.meta.requiresPermission) {
+      if (permissionStore.hasPermission(to.meta.requiresPermission)) {
+        next()
+      } else {
+        // 无权限，重定向到首页
+        next('/home/dashboard')
+      }
+    } else {
+      next()
     }
   }
 })

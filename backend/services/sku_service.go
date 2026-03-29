@@ -415,7 +415,19 @@ func (s *SKUService) GenerateSKUsFromSpecs(productID int, basePrice float64, mer
 	}
 	generateCombinations(0, []models.ProductSpecificationValue{})
 
-	// 生成SKU列表
+	// 获取已存在的SKU编码
+	var existingSKUs []models.ProductSKU
+	if err := s.DB.Where("product_id = ?", productID).Select("sku_code").Find(&existingSKUs).Error; err != nil {
+		return nil, err
+	}
+
+	// 创建已存在SKU编码的映射，用于快速查找
+	existingSKUMap := make(map[string]bool)
+	for _, sku := range existingSKUs {
+		existingSKUMap[sku.SKUCode] = true
+	}
+
+	// 生成SKU列表，过滤掉已存在的SKU
 	var skus []SKUWithSpecCombinations
 	for _, combo := range combinations {
 		// 生成SKU编码
@@ -425,6 +437,12 @@ func (s *SKUService) GenerateSKUsFromSpecs(productID int, basePrice float64, mer
 			skuCodeParts = append(skuCodeParts, value.Value)
 		}
 		skuCode := strings.Join(skuCodeParts, "-")
+
+		// 检查SKU编码是否已存在，如果存在则跳过
+		if existingSKUMap[skuCode] {
+			continue
+		}
+
 
 		sku := models.ProductSKU{
 			ProductID:     productID,

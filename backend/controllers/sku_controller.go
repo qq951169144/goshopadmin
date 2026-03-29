@@ -13,27 +13,28 @@ import (
 // SKUController SKU控制器
 type SKUController struct {
 	BaseController
-	skuService *services.SKUService
+	skuService      *services.SKUService
+	merchantService *services.MerchantService
 }
 
 // NewSKUController 创建SKU控制器
 func NewSKUController(db *gorm.DB) *SKUController {
 	return &SKUController{
-		skuService: services.NewSKUService(db),
+		skuService:      services.NewSKUService(db),
+		merchantService: services.NewMerchantService(db),
 	}
 }
 
 // CreateSKU 创建单个SKU
 func (c *SKUController) CreateSKU(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -80,15 +81,14 @@ func (c *SKUController) CreateSKU(ctx *gin.Context) {
 
 // BatchCreateSKU 批量创建SKU
 func (c *SKUController) BatchCreateSKU(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -128,15 +128,14 @@ func (c *SKUController) BatchCreateSKU(ctx *gin.Context) {
 
 // UpdateSKU 更新SKU
 func (c *SKUController) UpdateSKU(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -183,15 +182,14 @@ func (c *SKUController) UpdateSKU(ctx *gin.Context) {
 
 // DeleteSKU 删除SKU
 func (c *SKUController) DeleteSKU(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -211,15 +209,14 @@ func (c *SKUController) DeleteSKU(ctx *gin.Context) {
 
 // GetSKUsByProductID 获取商品的SKU列表
 func (c *SKUController) GetSKUsByProductID(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -240,15 +237,14 @@ func (c *SKUController) GetSKUsByProductID(ctx *gin.Context) {
 
 // GenerateSKUsFromSpecs 根据规格组合自动生成SKU
 func (c *SKUController) GenerateSKUsFromSpecs(ctx *gin.Context) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return
-	}
-
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDByUserID(userID)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeForbidden, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -274,11 +270,4 @@ func (c *SKUController) GenerateSKUsFromSpecs(ctx *gin.Context) {
 	}
 
 	c.ResponseSuccess(ctx, skus)
-}
-
-// getMerchantIDByUserID 根据用户ID获取商户ID
-func (c *SKUController) getMerchantIDByUserID(userID int) (int, error) {
-	// 这里需要调用merchantService来获取商户ID
-	// 暂时返回一个模拟值，实际应该从service获取
-	return 1, nil
 }

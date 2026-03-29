@@ -73,6 +73,7 @@ func (c *MerchantController) CreateMerchant(ctx *gin.Context) {
 	// 获取当前用户ID
 	userID, ok := c.GetUserID(ctx)
 	if !ok {
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
 	}
 
@@ -124,6 +125,7 @@ func (c *MerchantController) UpdateMerchant(ctx *gin.Context) {
 	// 获取当前用户ID
 	userID, ok := c.GetUserID(ctx)
 	if !ok {
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
 	}
 
@@ -171,6 +173,7 @@ func (c *MerchantController) AuditMerchant(ctx *gin.Context) {
 	// 获取当前用户ID
 	userID, ok := c.GetUserID(ctx)
 	if !ok {
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
 		return
 	}
 

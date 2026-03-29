@@ -179,17 +179,11 @@ function handleAuthError(code, message) {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
 
-  // 显示提示并跳转
-  ElMessageBox.confirm(msg, '提示', {
-    confirmButtonText: '重新登录',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    const { default: router } = await import('../router');
-    router.push('/login');
-  }).catch(() => {
-    // 用户取消
-  });
+  // 显示提示消息
+  ElMessage.warning(msg);
+
+  // 直接跳转到登录页面
+  window.location.href = '/login';
 }
 
 // 处理权限错误

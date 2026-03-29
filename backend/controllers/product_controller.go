@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	stderrors "errors"
 	"fmt"
 	"goshopadmin/errors"
 	"goshopadmin/models"
@@ -17,24 +16,8 @@ import (
 // ProductController 商品控制器
 type ProductController struct {
 	BaseController
-	productService *services.ProductService
-}
-
-// getMerchantIDFromContext 从上下文获取商户ID（私有方法）
-func (c *ProductController) getMerchantIDFromContext(ctx *gin.Context) (int, error) {
-	// 从上下文获取用户ID
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return 0, stderrors.New("未授权")
-	}
-
-	// 获取商户ID
-	merchantID, err := c.productService.GetMerchantIDByUserID(userID)
-	if err != nil {
-		return 0, err
-	}
-
-	return merchantID, nil
+	productService  *services.ProductService
+	merchantService *services.MerchantService
 }
 
 // CreateProductRequest 创建商品请求
@@ -102,7 +85,8 @@ type UpdateProductImageRequest struct {
 // NewProductController 创建商品控制器实例
 func NewProductController(db *gorm.DB, redisClient *redis.Client) *ProductController {
 	return &ProductController{
-		productService: services.NewProductService(db, redisClient),
+		productService:  services.NewProductService(db, redisClient),
+		merchantService: services.NewMerchantService(db),
 	}
 }
 
@@ -116,9 +100,13 @@ func NewProductController(db *gorm.DB, redisClient *redis.Client) *ProductContro
 // @Router /api/products [get]
 func (c *ProductController) GetProducts(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -143,9 +131,13 @@ func (c *ProductController) GetProducts(ctx *gin.Context) {
 // @Router /api/products/{id} [get]
 func (c *ProductController) GetProduct(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -178,9 +170,13 @@ func (c *ProductController) GetProduct(ctx *gin.Context) {
 // @Router /api/products [post]
 func (c *ProductController) CreateProduct(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -224,9 +220,13 @@ func (c *ProductController) CreateProduct(ctx *gin.Context) {
 // @Router /api/products/{id} [put]
 func (c *ProductController) UpdateProduct(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -283,9 +283,13 @@ func (c *ProductController) UpdateProduct(ctx *gin.Context) {
 // @Router /api/products/{id} [delete]
 func (c *ProductController) DeleteProduct(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -316,9 +320,13 @@ func (c *ProductController) DeleteProduct(ctx *gin.Context) {
 // @Router /api/product-categories [get]
 func (c *ProductController) GetCategories(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -343,9 +351,13 @@ func (c *ProductController) GetCategories(ctx *gin.Context) {
 // @Router /api/product-categories/{id} [get]
 func (c *ProductController) GetCategory(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -378,9 +390,13 @@ func (c *ProductController) GetCategory(ctx *gin.Context) {
 // @Router /api/product-categories [post]
 func (c *ProductController) CreateCategory(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -422,9 +438,13 @@ func (c *ProductController) CreateCategory(ctx *gin.Context) {
 // @Router /api/product-categories/{id} [put]
 func (c *ProductController) UpdateCategory(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -474,9 +494,13 @@ func (c *ProductController) UpdateCategory(ctx *gin.Context) {
 // @Router /api/product-categories/{id} [delete]
 func (c *ProductController) DeleteCategory(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -511,9 +535,13 @@ func (c *ProductController) DeleteCategory(ctx *gin.Context) {
 // @Router /api/product-images [post]
 func (c *ProductController) AddProductImage(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -572,9 +600,13 @@ func (c *ProductController) AddProductImage(ctx *gin.Context) {
 // @Router /api/product-images/{id} [delete]
 func (c *ProductController) DeleteProductImage(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -607,9 +639,13 @@ func (c *ProductController) DeleteProductImage(ctx *gin.Context) {
 // @Router /api/product-images/{id} [put]
 func (c *ProductController) UpdateProductImage(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.getMerchantIDFromContext(ctx)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
