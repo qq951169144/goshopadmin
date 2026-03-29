@@ -57,124 +57,115 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { activityApi } from '../../api/auth';
+<script>
+import { activityApi } from '../../api/auth'
 
-const router = useRouter();
-const route = useRoute();
-const formRef = ref(null);
-
-// 活动ID
-const activityId = route.params.id;
-
-// 生成表单
-const generateForm = reactive({
-  count: 100,
-  type: 'mixed',
-  length: 12,
-  exclude_chars: ''
-});
-
-// 表单规则
-const rules = {
-  count: [
-    { required: true, message: '请输入生成数量', trigger: 'blur' },
-    { type: 'number', min: 1, max: 10000, message: '生成数量必须在 1-10000 之间', trigger: 'blur' }
-  ],
-  type: [
-    { required: true, message: '请选择兑换码类型', trigger: 'change' }
-  ],
-  length: [
-    { required: true, message: '请输入兑换码长度', trigger: 'blur' },
-    { type: 'number', min: 6, max: 20, message: '兑换码长度必须在 6-20 之间', trigger: 'blur' }
-  ]
-};
-
-// 加载状态
-const loading = ref(false);
-
-// 生成结果
-const generateResult = ref([]);
-
-// 生成兑换码
-const handleGenerate = async () => {
-  if (!formRef.value) return;
-  
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      loading.value = true;
-      try {
-        const data = {
-          count: generateForm.count,
-          type: generateForm.type,
-          length: generateForm.length,
-          exclude_chars: generateForm.exclude_chars
-        };
-        const response = await activityApi.generateRedeemCodes(activityId, data);
-        generateResult.value = response.codes || [];
-        ElMessage.success(`成功生成 ${generateResult.value.length} 个兑换码`);
-      } catch (error) {
-        console.error('生成兑换码失败:', error);
-        ElMessage.error('生成兑换码失败');
-      } finally {
-        loading.value = false;
-      }
+export default {
+  name: 'RedeemCodeGenerate',
+  computed: {
+    activityId() {
+      return parseInt(this.$route.params.id);
     }
-  });
-};
-
-// 复制单个兑换码
-const handleCopyCode = (code) => {
-  navigator.clipboard.writeText(code).then(() => {
-    ElMessage.success('复制成功');
-  }).catch(() => {
-    ElMessage.error('复制失败');
-  });
-};
-
-// 复制所有兑换码
-const handleCopyCodes = () => {
-  const codes = generateResult.value.map(item => item.code).join('\n');
-  navigator.clipboard.writeText(codes).then(() => {
-    ElMessage.success('复制成功');
-  }).catch(() => {
-    ElMessage.error('复制失败');
-  });
-};
-
-// 导出兑换码
-const handleExportCodes = () => {
-  if (generateResult.value.length === 0) {
-    ElMessage.warning('没有可导出的兑换码');
-    return;
+  },
+  data() {
+    return {
+      generateForm: {
+        count: 100,
+        type: 'mixed',
+        length: 12,
+        exclude_chars: ''
+      },
+      rules: {
+        count: [
+          { required: true, message: '请输入生成数量', trigger: 'blur' },
+          { type: 'number', min: 1, max: 10000, message: '生成数量必须在 1-10000 之间', trigger: 'blur' }
+        ],
+        type: [
+          { required: true, message: '请选择兑换码类型', trigger: 'change' }
+        ],
+        length: [
+          { required: true, message: '请输入兑换码长度', trigger: 'blur' },
+          { type: 'number', min: 6, max: 20, message: '兑换码长度必须在 6-20 之间', trigger: 'blur' }
+        ]
+      },
+      loading: false,
+      generateResult: []
+    }
+  },
+  mounted() {
+    // 可以在这里加载活动信息，获取默认的兑换码规则
+  },
+  methods: {
+    // 生成兑换码
+    handleGenerate() {
+      this.$refs.formRef.validate((valid) => {
+        if (valid) {
+          this.loading = true;
+          const data = {
+            count: this.generateForm.count,
+            type: this.generateForm.type,
+            length: this.generateForm.length,
+            exclude_chars: this.generateForm.exclude_chars
+          };
+          activityApi.generateRedeemCodes(this.activityId, data).then(response => {
+            this.generateResult = response.codes || [];
+            this.$message.success(`成功生成 ${this.generateResult.length} 个兑换码`);
+          }).catch(error => {
+            console.error('生成兑换码失败:', error);
+            this.$message.error('生成兑换码失败');
+          }).finally(() => {
+            this.loading = false;
+          });
+        }
+      });
+    },
+    
+    // 复制单个兑换码
+    handleCopyCode(code) {
+      navigator.clipboard.writeText(code).then(() => {
+        this.$message.success('复制成功');
+      }).catch(() => {
+        this.$message.error('复制失败');
+      });
+    },
+    
+    // 复制所有兑换码
+    handleCopyCodes() {
+      const codes = this.generateResult.map(item => item.code).join('\n');
+      navigator.clipboard.writeText(codes).then(() => {
+        this.$message.success('复制成功');
+      }).catch(() => {
+        this.$message.error('复制失败');
+      });
+    },
+    
+    // 导出兑换码
+    handleExportCodes() {
+      if (this.generateResult.length === 0) {
+        this.$message.warning('没有可导出的兑换码');
+        return;
+      }
+      
+      // 这里应该调用导出API，暂时使用前端导出
+      const codes = this.generateResult.map(item => item.code).join('\n');
+      const blob = new Blob([codes], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `redeem_codes_${new Date().getTime()}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      this.$message.success('导出成功');
+    },
+    
+    // 取消
+    handleBack() {
+      this.$emit('back');
+    }
   }
-  
-  // 这里应该调用导出API，暂时使用前端导出
-  const codes = generateResult.value.map(item => item.code).join('\n');
-  const blob = new Blob([codes], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `redeem_codes_${new Date().getTime()}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  ElMessage.success('导出成功');
-};
-
-// 取消
-const handleBack = () => {
-  router.push(`/home/activities/${activityId}/redeem-codes`);
-};
-
-// 初始加载
-onMounted(() => {
-  // 可以在这里加载活动信息，获取默认的兑换码规则
-});
+}
 </script>
 
 <style scoped>

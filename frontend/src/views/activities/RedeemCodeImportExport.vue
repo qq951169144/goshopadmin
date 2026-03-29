@@ -65,120 +65,106 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { activityApi } from '../../api/auth';
+<script>
+import { activityApi } from '../../api/auth'
 
-const router = useRouter();
-const route = useRoute();
-const exportFormRef = ref(null);
-const importFormRef = ref(null);
-
-// 活动ID
-const activityId = route.params.id;
-
-// 导出表单
-const exportForm = reactive({
-  count: 100,
-  status: ''
-});
-
-// 导出表单规则
-const exportRules = {
-  count: [
-    { required: true, message: '请输入导出数量', trigger: 'blur' },
-    { type: 'number', min: 1, max: 10000, message: '导出数量必须在 1-10000 之间', trigger: 'blur' }
-  ]
-};
-
-// 导入表单
-const importForm = reactive({
-  file: null,
-  fileName: ''
-});
-
-// 导入表单规则
-const importRules = {
-  file: [
-    { required: true, message: '请选择文件', trigger: 'change' }
-  ]
-};
-
-// 加载状态
-const exportLoading = ref(false);
-const importLoading = ref(false);
-
-// 处理文件选择
-const handleFileChange = (file) => {
-  importForm.file = file.raw;
-  importForm.fileName = file.name;
-};
-
-// 导出兑换码
-const handleExport = async () => {
-  if (!exportFormRef.value) return;
-  
-  await exportFormRef.value.validate(async (valid) => {
-    if (valid) {
-      exportLoading.value = true;
-      try {
-        const params = {
-          count: exportForm.count,
-          status: exportForm.status
-        };
-        const response = await activityApi.exportRedeemCodes(activityId, params);
-        
-        // 处理文件下载
-        const blob = new Blob([response], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `redeem_codes_${new Date().getTime()}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        ElMessage.success('导出成功');
-      } catch (error) {
-        console.error('导出兑换码失败:', error);
-        ElMessage.error('导出兑换码失败');
-      } finally {
-        exportLoading.value = false;
-      }
+export default {
+  name: 'RedeemCodeImportExport',
+  computed: {
+    activityId() {
+      return parseInt(this.$route.params.id);
     }
-  });
-};
-
-// 导入兑换码
-const handleImport = async () => {
-  if (!importFormRef.value) return;
-  
-  await importFormRef.value.validate(async (valid) => {
-    if (valid) {
-      importLoading.value = true;
-      try {
-        const formData = new FormData();
-        formData.append('file', importForm.file);
-        
-        const response = await activityApi.importRedeemCodes(activityId, formData);
-        ElMessage.success(`成功导入 ${response.success_count} 个兑换码，失败 ${response.failed_count} 个`);
-      } catch (error) {
-        console.error('导入兑换码失败:', error);
-        ElMessage.error('导入兑换码失败');
-      } finally {
-        importLoading.value = false;
-      }
+  },
+  data() {
+    return {
+      exportForm: {
+        count: 100,
+        status: ''
+      },
+      exportRules: {
+        count: [
+          { required: true, message: '请输入导出数量', trigger: 'blur' },
+          { type: 'number', min: 1, max: 10000, message: '导出数量必须在 1-10000 之间', trigger: 'blur' }
+        ]
+      },
+      importForm: {
+        file: null,
+        fileName: ''
+      },
+      importRules: {
+        file: [
+          { required: true, message: '请选择文件', trigger: 'change' }
+        ]
+      },
+      exportLoading: false,
+      importLoading: false
     }
-  });
-};
-
-// 返回列表
-const handleBack = () => {
-  router.push(`/home/activities/${activityId}/redeem-codes`);
-};
+  },
+  methods: {
+    // 处理文件选择
+    handleFileChange(file) {
+      this.importForm.file = file.raw;
+      this.importForm.fileName = file.name;
+    },
+    
+    // 导出兑换码
+    handleExport() {
+      this.$refs.exportFormRef.validate((valid) => {
+        if (valid) {
+          this.exportLoading = true;
+          const params = {
+            count: this.exportForm.count,
+            status: this.exportForm.status
+          };
+          activityApi.exportRedeemCodes(this.activityId, params).then(response => {
+            // 处理文件下载
+            const blob = new Blob([response], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `redeem_codes_${new Date().getTime()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.$message.success('导出成功');
+          }).catch(error => {
+            console.error('导出兑换码失败:', error);
+            this.$message.error('导出兑换码失败');
+          }).finally(() => {
+            this.exportLoading = false;
+          });
+        }
+      });
+    },
+    
+    // 导入兑换码
+    handleImport() {
+      this.$refs.importFormRef.validate((valid) => {
+        if (valid) {
+          this.importLoading = true;
+          const formData = new FormData();
+          formData.append('file', this.importForm.file);
+          
+          activityApi.importRedeemCodes(this.activityId, formData).then(response => {
+            this.$message.success(`成功导入 ${response.success_count} 个兑换码，失败 ${response.failed_count} 个`);
+          }).catch(error => {
+            console.error('导入兑换码失败:', error);
+            this.$message.error('导入兑换码失败');
+          }).finally(() => {
+            this.importLoading = false;
+          });
+        }
+      });
+    },
+    
+    // 返回列表
+    handleBack() {
+      this.$emit('back');
+    }
+  }
+}
 </script>
 
 <style scoped>

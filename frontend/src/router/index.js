@@ -83,42 +83,50 @@ const routes = [
       {
         path: 'activities',
         name: 'Activities',
-        component: () => import('../views/activities/Activities.vue')
+        component: () => import('../views/activities/Activities.vue'),
+        meta: { requiresPermission: 'activity:manage' }
       },
       {
         path: 'activities/create',
         name: 'ActivityCreate',
-        component: () => import('../views/activities/ActivityForm.vue')
+        component: () => import('../views/activities/ActivityForm.vue'),
+        meta: { requiresPermission: 'activity:manage' }
       },
       {
         path: 'activities/:id/edit',
         name: 'ActivityEdit',
-        component: () => import('../views/activities/ActivityForm.vue')
+        component: () => import('../views/activities/ActivityForm.vue'),
+        meta: { requiresPermission: 'activity:manage' }
       },
       {
         path: 'activities/:id/redeem-codes',
         name: 'RedeemCodes',
-        component: () => import('../views/activities/RedeemCodes.vue')
+        component: () => import('../views/activities/RedeemCodes.vue'),
+        meta: { requiresPermission: 'activity:manage' }
       },
       {
         path: 'activities/:id/redeem-codes/generate',
         name: 'RedeemCodeGenerate',
-        component: () => import('../views/activities/RedeemCodeGenerate.vue')
+        component: () => import('../views/activities/RedeemCodeGenerate.vue'),
+        meta: { requiresPermission: 'activity:manage' }
       },
       {
         path: 'activities/:id/redeem-codes/import-export',
         name: 'RedeemCodeImportExport',
-        component: () => import('../views/activities/RedeemCodeImportExport.vue')
+        component: () => import('../views/activities/RedeemCodeImportExport.vue'),
+        meta: { requiresPermission: 'activity:manage' }
       },
       {
         path: 'activities/:id',
         name: 'ActivityDetail',
-        component: () => import('../views/activities/ActivityDetail.vue')
+        component: () => import('../views/activities/ActivityDetail.vue'),
+        meta: { requiresPermission: 'activity:manage' }
       },
       {
         path: 'redeem-codes/verify',
         name: 'RedeemCodeVerify',
-        component: () => import('../views/activities/RedeemCodeVerify.vue')
+        component: () => import('../views/activities/RedeemCodeVerify.vue'),
+        meta: { requiresPermission: 'activity:manage' }
       }
     ]
   }

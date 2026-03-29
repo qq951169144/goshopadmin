@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 // BaseController 基础控制器
@@ -26,17 +25,6 @@ func (c *BaseController) GetUserID(ctx *gin.Context) (int, bool) {
 	}
 
 	return userIDInt, true
-}
-
-// GetMerchantIDFromContext 从上下文获取商户ID
-func (c *BaseController) GetMerchantIDFromContext(ctx *gin.Context, db *gorm.DB) (int, error) {
-	userID, ok := c.GetUserID(ctx)
-	if !ok {
-		return 0, stderrors.New("未授权")
-	}
-	
-	productService := services.NewProductService(db, nil)
-	return productService.GetMerchantIDByUserID(userID)
 }
 
 // ResponseSuccess 返回成功响应

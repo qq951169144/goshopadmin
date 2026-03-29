@@ -13,6 +13,7 @@ import (
 type RedeemCodeController struct {
 	BaseController
 	redeemCodeService *services.RedeemCodeService
+	merchantService   *services.MerchantService
 	DB                *gorm.DB
 }
 
@@ -20,6 +21,7 @@ type RedeemCodeController struct {
 func NewRedeemCodeController(db *gorm.DB) *RedeemCodeController {
 	return &RedeemCodeController{
 		redeemCodeService: services.NewRedeemCodeService(db),
+		merchantService:   services.NewMerchantService(db),
 		DB:                db,
 	}
 }
@@ -44,13 +46,17 @@ type GenerateRedeemCodesRequest struct {
 // @Router /api/redeem-codes/generate [post]
 func (c *RedeemCodeController) GenerateRedeemCodes(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
-	createdBy, _ := ctx.Get("user_id")
+	createdBy, _ := ctx.Get("userID")
 
 	var req GenerateRedeemCodesRequest
 
@@ -104,9 +110,13 @@ func (c *RedeemCodeController) GenerateRedeemCodes(ctx *gin.Context) {
 // @Router /api/activities/{id}/redeem-codes [get]
 func (c *RedeemCodeController) GetRedeemCodes(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -153,9 +163,13 @@ func (c *RedeemCodeController) GetRedeemCodes(ctx *gin.Context) {
 // @Router /api/activities/{id}/redeem-codes/export [get]
 func (c *RedeemCodeController) ExportRedeemCodes(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -190,9 +204,13 @@ func (c *RedeemCodeController) ExportRedeemCodes(ctx *gin.Context) {
 // @Router /api/activities/{id}/redeem-codes/import [post]
 func (c *RedeemCodeController) ImportRedeemCodes(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -237,7 +255,7 @@ type VerifyRedeemCodeRequest struct {
 // @Success 200 {object} map[string]interface{}
 // @Router /api/redeem-codes/verify [post]
 func (c *RedeemCodeController) VerifyRedeemCode(ctx *gin.Context) {
-	verifyBy, _ := ctx.Get("user_id")
+	verifyBy, _ := ctx.Get("userID")
 
 	var req VerifyRedeemCodeRequest
 
@@ -275,9 +293,13 @@ func (c *RedeemCodeController) VerifyRedeemCode(ctx *gin.Context) {
 // @Router /api/redeem-code-logs [get]
 func (c *RedeemCodeController) GetRedeemCodeLogs(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -329,9 +351,13 @@ type UpdateRedeemCodeStatusRequest struct {
 // @Router /api/redeem-codes/{id}/status [put]
 func (c *RedeemCodeController) UpdateRedeemCodeStatus(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 

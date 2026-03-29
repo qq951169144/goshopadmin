@@ -356,7 +356,7 @@ func (c *BaseController) ResponseError(ctx *gin.Context, code int, message strin
 
 // GetUserID 从上下文获取用户ID
 func (c *BaseController) GetUserID(ctx *gin.Context) (uint, bool) {
-    userID, exists := ctx.Get("user_id")
+    userID, exists := ctx.Get("userID")
     if !exists {
         return 0, false
     }

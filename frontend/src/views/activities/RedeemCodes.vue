@@ -79,112 +79,109 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { activityApi } from '../../api/auth';
+<script>
+import { activityApi } from '../../api/auth'
 
-const router = useRouter();
-const route = useRoute();
-
-// 活动ID
-const activityId = route.params.id;
-
-// 搜索表单
-const searchForm = reactive({
-  status: '',
-  code: ''
-});
-
-// 兑换码列表
-const redeemCodesList = ref([]);
-
-// 分页信息
-const pagination = reactive({
-  currentPage: 1,
-  pageSize: 10,
-  total: 0
-});
-
-// 获取兑换码列表
-const getRedeemCodes = async () => {
-  try {
-    const params = {
-      page: pagination.currentPage,
-      page_size: pagination.pageSize,
-      status: searchForm.status,
-      code: searchForm.code
-    };
-    const response = await activityApi.getRedeemCodes(activityId, params);
-    redeemCodesList.value = response.list || [];
-    pagination.total = response.total || 0;
-  } catch (error) {
-    console.error('获取兑换码列表失败:', error);
-    ElMessage.error('获取兑换码列表失败');
-  }
-};
-
-// 搜索
-const handleSearch = () => {
-  pagination.currentPage = 1;
-  getRedeemCodes();
-};
-
-// 重置表单
-const resetForm = () => {
-  searchForm.status = '';
-  searchForm.code = '';
-  pagination.currentPage = 1;
-  getRedeemCodes();
-};
-
-// 分页大小变化
-const handleSizeChange = (size) => {
-  pagination.pageSize = size;
-  getRedeemCodes();
-};
-
-// 当前页变化
-const handleCurrentChange = (current) => {
-  pagination.currentPage = current;
-  getRedeemCodes();
-};
-
-// 生成兑换码
-const handleGenerateCodes = () => {
-  router.push(`/home/activities/${activityId}/redeem-codes/generate`);
-};
-
-// 导入导出兑换码
-const handleImportExportCodes = () => {
-  router.push(`/home/activities/${activityId}/redeem-codes/import-export`);
-};
-
-// 更新兑换码状态
-const handleUpdateStatus = async (id, status) => {
-  ElMessageBox.confirm('确定要作废这个兑换码吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await activityApi.updateRedeemCodeStatus(id, { status });
-      ElMessage.success('操作成功');
-      getRedeemCodes();
-    } catch (error) {
-      console.error('更新兑换码状态失败:', error);
-      ElMessage.error('更新兑换码状态失败');
+export default {
+  name: 'RedeemCodes',
+  computed: {
+    activityId() {
+      return parseInt(this.$route.params.id);
     }
-  }).catch(() => {
-    // 取消操作
-  });
-};
-
-// 初始加载
-onMounted(() => {
-  getRedeemCodes();
-});
+  },
+  data() {
+    return {
+      searchForm: {
+        status: '',
+        code: ''
+      },
+      redeemCodesList: [],
+      pagination: {
+        currentPage: 1,
+        pageSize: 10,
+        total: 0
+      }
+    }
+  },
+  mounted() {
+    this.getRedeemCodes()
+  },
+  methods: {
+    // 获取兑换码列表
+    getRedeemCodes() {
+      try {
+        const params = {
+          page: this.pagination.currentPage,
+          page_size: this.pagination.pageSize,
+          status: this.searchForm.status,
+          code: this.searchForm.code
+        };
+        activityApi.getRedeemCodes(this.activityId, params).then(response => {
+          this.redeemCodesList = response.list || [];
+          this.pagination.total = response.total || 0;
+        });
+      } catch (error) {
+        console.error('获取兑换码列表失败:', error);
+        this.$message.error('获取兑换码列表失败');
+      }
+    },
+    
+    // 搜索
+    handleSearch() {
+      this.pagination.currentPage = 1;
+      this.getRedeemCodes();
+    },
+    
+    // 重置表单
+    resetForm() {
+      this.searchForm.status = '';
+      this.searchForm.code = '';
+      this.pagination.currentPage = 1;
+      this.getRedeemCodes();
+    },
+    
+    // 分页大小变化
+    handleSizeChange(size) {
+      this.pagination.pageSize = size;
+      this.getRedeemCodes();
+    },
+    
+    // 当前页变化
+    handleCurrentChange(current) {
+      this.pagination.currentPage = current;
+      this.getRedeemCodes();
+    },
+    
+    // 生成兑换码
+    handleGenerateCodes() {
+      this.$emit('generate-redeem-codes', { id: this.activityId });
+    },
+    
+    // 导入导出兑换码
+    handleImportExportCodes() {
+      this.$emit('import-export-redeem-codes', { id: this.activityId });
+    },
+    
+    // 更新兑换码状态
+    handleUpdateStatus(id, status) {
+      this.$confirm('确定要作废这个兑换码吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        activityApi.updateRedeemCodeStatus(id, { status }).then(() => {
+          this.$message.success('操作成功');
+          this.getRedeemCodes();
+        }).catch(error => {
+          console.error('更新兑换码状态失败:', error);
+          this.$message.error('更新兑换码状态失败');
+        });
+      }).catch(() => {
+        // 取消操作
+      });
+    }
+  }
+}
 </script>
 
 <style scoped>

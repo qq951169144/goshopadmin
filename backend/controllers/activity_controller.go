@@ -18,7 +18,37 @@ type ActivityController struct {
 	activityService   *services.ActivityService
 	redeemCodeService *services.RedeemCodeService
 	skuService        *services.SKUService
+	merchantService   *services.MerchantService
 	DB                *gorm.DB
+}
+
+// ActivityProductResponse 活动商品响应结构体
+type ActivityProductResponse struct {
+	ProductID     int     `json:"product_id"`
+	ProductName   string  `json:"product_name"`
+	SkuID         int     `json:"sku_id"`
+	SkuCode       string  `json:"sku_code"`
+	ActivityPrice float64 `json:"activity_price"`
+	ActivityStock int     `json:"activity_stock"`
+}
+
+// RedeemCodeRulesResponse 兑换码规则响应结构体
+type RedeemCodeRulesResponse struct {
+	Type         string `json:"type"`
+	Length       int    `json:"length"`
+	ExcludeChars string `json:"exclude_chars"`
+}
+
+// ActivityDetailResponse 活动详情响应结构体
+type ActivityDetailResponse struct {
+	ID              int                       `json:"id"`
+	Name            string                    `json:"name"`
+	Type            string                    `json:"type"`
+	StartTime       time.Time                 `json:"start_time"`
+	EndTime         time.Time                 `json:"end_time"`
+	Status          string                    `json:"status"`
+	Products        []ActivityProductResponse `json:"products"`
+	RedeemCodeRules *RedeemCodeRulesResponse  `json:"redeem_code_rules,omitempty"`
 }
 
 func NewActivityController(db *gorm.DB) *ActivityController {
@@ -26,6 +56,7 @@ func NewActivityController(db *gorm.DB) *ActivityController {
 		activityService:   services.NewActivityService(db),
 		redeemCodeService: services.NewRedeemCodeService(db),
 		skuService:        services.NewSKUService(db),
+		merchantService:   services.NewMerchantService(db),
 		DB:                db,
 	}
 }
@@ -33,7 +64,7 @@ func NewActivityController(db *gorm.DB) *ActivityController {
 // CreateActivityProductRequest 创建活动商品请求结构体
 type CreateActivityProductRequest struct {
 	ProductID     int     `json:"product_id" binding:"required"`
-	SKUID         int     `json:"sku_id" binding:"required"`
+	SkuID         int     `json:"sku_id" binding:"required"`
 	OriginalPrice float64 `json:"original_price" binding:"required"`
 	ActivityPrice float64 `json:"activity_price" binding:"required"`
 	Stock         int     `json:"stock" binding:"required"`
@@ -72,13 +103,18 @@ type CreateActivityRequest struct {
 // @Router /api/activities [post]
 func (c *ActivityController) CreateActivity(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
+	// c.GetMerchantIDFromContext已经验证过了,可以直接取用
+	createdBy, _ := ctx.Get("userID")
 
-	createdBy, _ := ctx.Get("user_id")
 	var req CreateActivityRequest
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -122,7 +158,7 @@ func (c *ActivityController) CreateActivity(ctx *gin.Context) {
 		activityProducts = append(activityProducts, models.ActivityProduct{
 			ActivityID:    activity.ID,
 			ProductID:     p.ProductID,
-			SKUID:         p.SKUID,
+			SkuID:         p.SkuID,
 			MerchantID:    merchantID,
 			OriginalPrice: p.OriginalPrice,
 			ActivityPrice: p.ActivityPrice,
@@ -175,9 +211,13 @@ type UpdateActivityRequest struct {
 // @Router /api/activities/{id} [put]
 func (c *ActivityController) UpdateActivity(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -236,9 +276,13 @@ func (c *ActivityController) UpdateActivity(ctx *gin.Context) {
 // @Router /api/activities/{id} [delete]
 func (c *ActivityController) DeleteActivity(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -268,9 +312,13 @@ func (c *ActivityController) DeleteActivity(ctx *gin.Context) {
 // @Router /api/activities/{id} [get]
 func (c *ActivityController) GetActivity(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -280,13 +328,58 @@ func (c *ActivityController) GetActivity(ctx *gin.Context) {
 		return
 	}
 
+	// TODO:精简返回值
 	activity, err := c.activityService.GetActivityByID(activityID, merchantID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeActivityNotFound, err)
 		return
 	}
 
-	c.ResponseSuccess(ctx, activity)
+	// 构建响应数据
+	response := ActivityDetailResponse{
+		ID:        activity.ID,
+		Name:      activity.Name,
+		Type:      activity.Type,
+		StartTime: activity.StartTime,
+		EndTime:   activity.EndTime,
+		Status:    activity.Status,
+		Products:  make([]ActivityProductResponse, 0),
+	}
+
+	// 处理关联商品
+	for _, product := range activity.Products {
+		productResponse := ActivityProductResponse{
+			ProductID:     product.ProductID,
+			ProductName:   "",
+			SkuID:         product.SkuID,
+			SkuCode:       "",
+			ActivityPrice: product.ActivityPrice,
+			ActivityStock: product.Stock,
+		}
+
+		// 获取商品名称
+		if product.Product.ID != 0 {
+			productResponse.ProductName = product.Product.Name
+		}
+
+		// 获取SKU编码
+		if product.SKU.ID != 0 {
+			productResponse.SkuCode = product.SKU.SkuCode
+		}
+
+		response.Products = append(response.Products, productResponse)
+	}
+
+	// 处理兑换码规则
+	if activity.Type == "redeem_code" && activity.RedeemSetting != nil {
+		response.RedeemCodeRules = &RedeemCodeRulesResponse{
+			Type:         activity.RedeemSetting.CodeType,
+			Length:       activity.RedeemSetting.CodeLength,
+			ExcludeChars: activity.RedeemSetting.ExcludeChars,
+		}
+	}
+
+	c.ResponseSuccess(ctx, response)
 }
 
 // GetActivities 获取活动列表
@@ -303,9 +396,13 @@ func (c *ActivityController) GetActivity(ctx *gin.Context) {
 // @Router /api/activities [get]
 func (c *ActivityController) GetActivities(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 
@@ -357,9 +454,13 @@ type UpdateActivityStatusRequest struct {
 // @Router /api/activities/{id}/status [put]
 func (c *ActivityController) UpdateActivityStatus(ctx *gin.Context) {
 	// 获取商户ID
-	merchantID, err := c.GetMerchantIDFromContext(ctx, c.DB)
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
 	if err != nil {
-		c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
 		return
 	}
 

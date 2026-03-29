@@ -44,13 +44,13 @@ func (s *ActivityService) CreateActivity(activity *models.Activity, products []m
 		}
 
 		// 如果是活动专用SKU，更新SKU的活动标识
-		if products[i].SKUID > 0 {
+		if products[i].SkuID > 0 {
 			updates := map[string]interface{}{
 				"is_activity": 1,
 				"activity_id": activity.ID,
 			}
 			err := tx.Model(&models.ProductSKU{}).
-				Where("id = ?", products[i].SKUID).
+				Where("id = ?", products[i].SkuID).
 				Updates(updates).Error
 			if err != nil {
 				tx.Rollback()

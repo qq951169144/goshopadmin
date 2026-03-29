@@ -50,11 +50,11 @@ func (s *ProductService) AddProductToBloomFilter(ctx context.Context, productID 
 }
 
 // GetProductsByMerchantID 获取商户的商品列表（带缓存）
-func (s *ProductService) GetProductsByMerchantID(merchantID int) ([]models.Product, error) {
+func (s *ProductService) GetProductsByMerchantID(merchantID int, name string) ([]models.Product, error) {
 	ctx := context.Background()
 
-	// 生成缓存键（基于商户ID）
-	cacheKey := fmt.Sprintf("product:list:merchant:%d", merchantID)
+	// 生成缓存键（基于商户ID和名称关键字）
+	cacheKey := fmt.Sprintf("product:list:merchant:%d:name:%s", merchantID, name)
 
 	// 查询缓存
 	val, err := s.Redis.Get(ctx, cacheKey).Result()
@@ -67,7 +67,14 @@ func (s *ProductService) GetProductsByMerchantID(merchantID int) ([]models.Produ
 
 	// 缓存未命中，查询数据库
 	var products []models.Product
-	result := s.DB.Where("merchant_id = ?", merchantID).Preload("Category").Preload("Images").Find(&products)
+	query := s.DB.Where("merchant_id = ?", merchantID)
+
+	// 如果有名称关键字，添加模糊查询条件
+	if name != "" {
+		query = query.Where("name LIKE ?", "%"+name+"%")
+	}
+
+	result := query.Preload("Category").Preload("Images").Find(&products)
 	if result.Error != nil {
 		return nil, result.Error
 	}

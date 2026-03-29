@@ -76,111 +76,100 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onMounted } from 'vue';
-import { ElMessage } from 'element-plus';
-import { activityApi } from '../../api/auth';
+<script>
+import { activityApi } from '../../api/auth'
 
-const formRef = ref(null);
-
-// 核销表单
-const verifyForm = reactive({
-  code: ''
-});
-
-// 表单规则
-const rules = {
-  code: [
-    { required: true, message: '请输入兑换码', trigger: 'blur' }
-  ]
-};
-
-// 加载状态
-const loading = ref(false);
-
-// 核销结果
-const verifyResult = ref(null);
-
-// 核销记录
-const verifyLogs = ref([]);
-
-// 分页信息
-const pagination = reactive({
-  currentPage: 1,
-  pageSize: 10,
-  total: 0
-});
-
-// 核销兑换码
-const handleVerify = async () => {
-  if (!formRef.value) return;
-  
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      loading.value = true;
-      try {
-        const data = {
-          code: verifyForm.code
-        };
-        const response = await activityApi.verifyRedeemCode(data);
-        verifyResult.value = response;
-        
-        if (response.verify_success) {
-          ElMessage.success('核销成功');
-        } else {
-          ElMessage.error('核销失败: ' + response.verify_message);
-        }
-        
-        // 刷新核销记录
-        getVerifyLogs();
-      } catch (error) {
-        console.error('核销兑换码失败:', error);
-        ElMessage.error('核销兑换码失败');
-      } finally {
-        loading.value = false;
+export default {
+  name: 'RedeemCodeVerify',
+  data() {
+    return {
+      verifyForm: {
+        code: ''
+      },
+      rules: {
+        code: [
+          { required: true, message: '请输入兑换码', trigger: 'blur' }
+        ]
+      },
+      loading: false,
+      verifyResult: null,
+      verifyLogs: [],
+      pagination: {
+        currentPage: 1,
+        pageSize: 10,
+        total: 0
       }
     }
-  });
-};
-
-// 重置表单
-const resetForm = () => {
-  verifyForm.code = '';
-  verifyResult.value = null;
-};
-
-// 获取核销记录
-const getVerifyLogs = async () => {
-  try {
-    const params = {
-      page: pagination.currentPage,
-      page_size: pagination.pageSize
-    };
-    const response = await activityApi.getRedeemCodeLogs(params);
-    verifyLogs.value = response.list || [];
-    pagination.total = response.total || 0;
-  } catch (error) {
-    console.error('获取核销记录失败:', error);
-    ElMessage.error('获取核销记录失败');
+  },
+  mounted() {
+    this.getVerifyLogs()
+  },
+  methods: {
+    // 核销兑换码
+    handleVerify() {
+      this.$refs.formRef.validate((valid) => {
+        if (valid) {
+          this.loading = true;
+          const data = {
+            code: this.verifyForm.code
+          };
+          activityApi.verifyRedeemCode(data).then(response => {
+            this.verifyResult = response;
+            
+            if (response.verify_success) {
+              this.$message.success('核销成功');
+            } else {
+              this.$message.error('核销失败: ' + response.verify_message);
+            }
+            
+            // 刷新核销记录
+            this.getVerifyLogs();
+          }).catch(error => {
+            console.error('核销兑换码失败:', error);
+            this.$message.error('核销兑换码失败');
+          }).finally(() => {
+            this.loading = false;
+          });
+        }
+      });
+    },
+    
+    // 重置表单
+    resetForm() {
+      this.verifyForm.code = '';
+      this.verifyResult = null;
+    },
+    
+    // 获取核销记录
+    getVerifyLogs() {
+      try {
+        const params = {
+          page: this.pagination.currentPage,
+          page_size: this.pagination.pageSize
+        };
+        activityApi.getRedeemCodeLogs(params).then(response => {
+          this.verifyLogs = response.list || [];
+          this.pagination.total = response.total || 0;
+        });
+      } catch (error) {
+        console.error('获取核销记录失败:', error);
+        this.$message.error('获取核销记录失败');
+      }
+    },
+    
+    // 分页大小变化
+    handleSizeChange(size) {
+      this.pagination.pageSize = size;
+      this.getVerifyLogs();
+    },
+    
+    // 当前页变化
+    handleCurrentChange(current) {
+      this.pagination.currentPage = current;
+      this.getVerifyLogs();
+    }
   }
-};
-
-// 分页大小变化
-const handleSizeChange = (size) => {
-  pagination.pageSize = size;
-  getVerifyLogs();
-};
-
-// 当前页变化
-const handleCurrentChange = (current) => {
-  pagination.currentPage = current;
-  getVerifyLogs();
-};
-
-// 初始加载
-onMounted(() => {
-  getVerifyLogs();
-});
+}
 </script>
 
 <style scoped>

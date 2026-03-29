@@ -14,15 +14,13 @@
         <el-descriptions-item label="活动ID">{{ activityDetail.id }}</el-descriptions-item>
         <el-descriptions-item label="活动名称">{{ activityDetail.name }}</el-descriptions-item>
         <el-descriptions-item label="活动类型">
-          <el-tag v-if="activityDetail.type === 'flash_sale'" type="primary">秒杀活动</el-tag>
+          <el-tag v-if="activityDetail.type === 'seckill'" type="primary">秒杀活动</el-tag>
           <el-tag v-else-if="activityDetail.type === 'redeem_code'" type="success">兑换码活动</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="活动时间">{{ activityDetail.start_time }} 至 {{ activityDetail.end_time }}</el-descriptions-item>
         <el-descriptions-item label="活动状态">
-          <el-tag v-if="activityDetail.status === 'pending'" type="info">未开始</el-tag>
-          <el-tag v-else-if="activityDetail.status === 'active'" type="success">进行中</el-tag>
-          <el-tag v-else-if="activityDetail.status === 'ended'" type="warning">已结束</el-tag>
-          <el-tag v-else-if="activityDetail.status === 'cancelled'" type="danger">已取消</el-tag>
+          <el-tag v-if="activityDetail.status === 'active'" type="success">激活</el-tag>
+          <el-tag v-else-if="activityDetail.status === 'inactive'" type="info">禁用</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="活动描述">{{ activityDetail.description || '-' }}</el-descriptions-item>
       </el-descriptions>
@@ -111,95 +109,114 @@
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import { activityApi } from '../../api/auth';
+<script>
+import { activityApi } from '../../api/auth'
 
-const router = useRouter();
-const route = useRoute();
-
-// 活动详情
-const activityDetail = ref({});
-
-// 兑换码统计
-const redeemCodeStats = ref({
-  total: 0,
-  used: 0,
-  unused: 0,
-  expired: 0
-});
-
-// 获取活动详情
-const getActivityDetail = async () => {
-  try {
-    const activityId = route.params.id;
-    const activity = await activityApi.getActivity(activityId);
-    activityDetail.value = activity;
-    
-    // 如果是兑换码活动，获取兑换码统计
-    if (activity.type === 'redeem_code') {
-      getRedeemCodeStats(activityId);
+export default {
+  name: 'ActivityDetail',
+  props: {
+    activity: {
+      type: Object,
+      default: null
     }
-  } catch (error) {
-    console.error('获取活动详情失败:', error);
-    ElMessage.error('获取活动详情失败');
-  }
-};
-
-// 获取兑换码统计
-const getRedeemCodeStats = async (activityId) => {
-  try {
-    // 这里应该调用获取兑换码统计的API，暂时使用模拟数据
-    // const stats = await activityApi.getRedeemCodeStats(activityId);
-    // redeemCodeStats.value = stats;
+  },
+  data() {
+    return {
+      activityDetail: {},
+      redeemCodeStats: {
+        total: 0,
+        used: 0,
+        unused: 0,
+        expired: 0
+      }
+    }
+  },
+  computed: {
+    activityId() {
+      if (this.activity && this.activity.id) {
+        return this.activity.id;
+      }
+      const id = this.$route.params.id;
+      const parsedId = parseInt(id);
+      return isNaN(parsedId) ? null : parsedId;
+    }
+  },
+  mounted() {
+    this.getActivityDetail();
+  },
+  methods: {
+    // 获取活动详情
+    getActivityDetail() {
+      if (!this.activityId) {
+        console.error('活动ID无效');
+        this.$message.error('活动ID无效');
+        return;
+      }
+      
+      try {
+        activityApi.getActivity(this.activityId).then(activity => {
+          this.activityDetail = activity;
+          
+          // 如果是兑换码活动，获取兑换码统计
+          if (activity.type === 'redeem_code') {
+            this.getRedeemCodeStats(this.activityId);
+          }
+        }).catch(error => {
+          console.error('获取活动详情失败:', error);
+          this.$message.error('获取活动详情失败');
+        })
+      } catch (error) {
+        console.error('获取活动详情失败:', error);
+        this.$message.error('获取活动详情失败');
+      }
+    },
     
-    // 模拟数据
-    redeemCodeStats.value = {
-      total: 100,
-      used: 20,
-      unused: 75,
-      expired: 5
-    };
-  } catch (error) {
-    console.error('获取兑换码统计失败:', error);
+    // 获取兑换码统计
+    getRedeemCodeStats(activityId) {
+      try {
+        // 这里应该调用获取兑换码统计的API，暂时使用模拟数据
+        // activityApi.getRedeemCodeStats(activityId).then(stats => {
+        //   this.redeemCodeStats = stats;
+        // });
+        
+        // 模拟数据
+        this.redeemCodeStats = {
+          total: 100,
+          used: 20,
+          unused: 75,
+          expired: 5
+        };
+      } catch (error) {
+        console.error('获取兑换码统计失败:', error);
+      }
+    },
+    
+    // 编辑活动
+    handleEditActivity() {
+      this.$emit('edit-activity', this.activityDetail);
+    },
+    
+    // 返回列表
+    handleBack() {
+      this.$emit('back');
+    },
+    
+    // 生成兑换码
+    handleGenerateCodes() {
+      this.$emit('generate-redeem-codes', this.activityDetail);
+    },
+    
+    // 导入导出兑换码
+    handleImportExportCodes() {
+      this.$emit('import-export-redeem-codes', this.activityDetail);
+    },
+    
+    // 查看兑换码列表
+    handleViewCodes() {
+      this.$emit('manage-redeem-codes', this.activityDetail);
+    }
   }
-};
-
-// 编辑活动
-const handleEditActivity = () => {
-  const activityId = route.params.id;
-  router.push(`/home/activities/${activityId}/edit`);
-};
-
-// 返回列表
-const handleBack = () => {
-  router.push('/home/activities');
-};
-
-// 生成兑换码
-const handleGenerateCodes = () => {
-  const activityId = route.params.id;
-  router.push(`/home/activities/${activityId}/redeem-codes/generate`);
-};
-
-// 导入导出兑换码
-const handleImportExportCodes = () => {
-  const activityId = route.params.id;
-  router.push(`/home/activities/${activityId}/redeem-codes/import-export`);
-};
-
-// 查看兑换码列表
-const handleViewCodes = () => {
-  const activityId = route.params.id;
-  router.push(`/home/activities/${activityId}/redeem-codes`);
-};
-
-// 初始加载
-onMounted(() => {
-  getActivityDetail();
-});
+}
 </script>
 
 <style scoped>

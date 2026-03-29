@@ -124,14 +124,14 @@
             <!-- 活动创建 -->
             <ActivityForm 
               v-else-if="(currentView === 'activity-create' || currentView === 'activity-edit') && hasPermission('activity:manage')" 
-              :activity-id="currentActivity?.id"
+              :activity="currentActivity"
               @back="handleBackToActivities"
             />
             
             <!-- 活动详情 -->
             <ActivityDetail 
               v-else-if="currentView === 'activity-detail' && hasPermission('activity:manage')" 
-              :activity-id="currentActivity?.id"
+              :activity="currentActivity"
               @back="handleBackToActivities"
               @edit-activity="handleEditActivity"
               @manage-redeem-codes="handleManageRedeemCodes"
@@ -225,7 +225,7 @@ const userPermissions = computed(() => {
 
 // 检查用户是否有指定权限
 const hasPermission = (permissionCode) => {
-  return userPermissions.value.some(p => p.code === permissionCode);
+  return userPermissions.value.includes(permissionCode);
 };
 
 // 处理菜单选择
@@ -334,9 +334,13 @@ const loadUserPermissions = async () => {
   if (token) {
     try {
       const data = await authApi.getCurrentUser();
-      // 保存权限信息到localStorage
-      localStorage.setItem('permissions', JSON.stringify(data.permissions || []));
+      // 提取权限代码并保存到localStorage
+      const permissionCodes = data.permissions ? data.permissions.map(p => p.code) : [];
+      localStorage.setItem('permissions', JSON.stringify(permissionCodes));
     } catch (error) {
+      console.error('加载权限信息失败:', error);
+      // 只有在确实无法获取权限时才显示提示
+      // 避免重复显示提示
       ElMessage.warning('权限信息加载失败，部分功能可能受限');
     }
   }
@@ -344,9 +348,6 @@ const loadUserPermissions = async () => {
 
 // 初始化组件
 onMounted(async () => {
-  // 加载用户权限信息
-  await loadUserPermissions();
-  
   // 根据当前URL设置初始视图
   const path = window.location.pathname;
   if (path.includes('/home/dashboard')) {
@@ -398,6 +399,12 @@ watch(() => userInfo.value, async (newUser) => {
     user.value = newUser;
     // 获取用户权限信息
     await loadUserPermissions();
+  } else {
+    // 如果没有用户信息，但有token，也尝试加载权限
+    const token = localStorage.getItem('token');
+    if (token) {
+      await loadUserPermissions();
+    }
   }
 }, { immediate: true });
 </script>

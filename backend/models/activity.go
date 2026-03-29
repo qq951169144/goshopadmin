@@ -28,7 +28,7 @@ type ActivityProduct struct {
 	ID            int       `json:"id" gorm:"primaryKey"`
 	ActivityID    int       `json:"activity_id" gorm:"not null"`
 	ProductID     int       `json:"product_id" gorm:"not null"`
-	SKUID         int       `json:"sku_id" gorm:"not null"`
+	SkuID         int       `json:"sku_id" gorm:"column:sku_id;not null"`
 	MerchantID    int       `json:"merchant_id" gorm:"not null"`
 	OriginalPrice float64   `json:"original_price" gorm:"type:decimal(10,2);not null"`
 	ActivityPrice float64   `json:"activity_price" gorm:"type:decimal(10,2);not null"`
@@ -41,7 +41,7 @@ type ActivityProduct struct {
 	// 关联
 	Activity Activity   `json:"activity" gorm:"foreignKey:ActivityID"`
 	Product  Product    `json:"product" gorm:"foreignKey:ProductID"`
-	SKU      ProductSKU `json:"sku" gorm:"foreignKey:SKUID"`
+	SKU      ProductSKU `json:"sku" gorm:"foreignKey:SkuID"`
 }
 
 // ActivityRedeemSetting 兑换码活动配置模型

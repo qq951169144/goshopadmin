@@ -297,8 +297,8 @@ export const authApi = {
 
 // 商品相关API
 export const productApi = {
-  // 获取商品列表
-  getProducts: () => api.get('/products'),
+  // 获取商品列表，支持按名称关键字查询
+  getProducts: (params) => api.get('/products', { params }),
   // 获取商品详情
   getProduct: (id) => api.get(`/products/${id}`),
   // 创建商品

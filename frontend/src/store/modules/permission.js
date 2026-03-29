@@ -30,7 +30,8 @@ export const usePermissionStore = defineStore('permission', {
           // 从用户信息中获取权限
           // 或者调用API获取权限
           const response = await authApi.getCurrentUser()
-          this.permissions = response.permissions || []
+          // 提取权限代码并存储为字符串数组
+          this.permissions = response.permissions ? response.permissions.map(p => p.code) : []
           localStorage.setItem('permissions', JSON.stringify(this.permissions))
         }
       } catch (error) {

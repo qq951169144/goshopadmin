@@ -92,10 +92,11 @@ func NewProductController(db *gorm.DB, redisClient *redis.Client) *ProductContro
 
 // GetProducts 获取商品列表
 // @Summary 获取商品列表
-// @Description 获取当前商户的商品列表
+// @Description 获取当前商户的商品列表，支持按名称关键字查询
 // @Tags 商品管理
 // @Accept json
 // @Produce json
+// @Param name query string false "商品名称关键字"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/products [get]
 func (c *ProductController) GetProducts(ctx *gin.Context) {
@@ -110,8 +111,11 @@ func (c *ProductController) GetProducts(ctx *gin.Context) {
 		return
 	}
 
+	// 获取查询参数
+	name := ctx.Query("name")
+
 	// 获取商品列表
-	products, err := c.productService.GetProductsByMerchantID(merchantID)
+	products, err := c.productService.GetProductsByMerchantID(merchantID, name)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return

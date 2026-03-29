@@ -16,7 +16,7 @@
         
         <el-form-item label="活动类型" prop="type">
           <el-select v-model="activityForm.type" placeholder="选择活动类型" @change="handleTypeChange">
-            <el-option label="秒杀活动" value="flash_sale"></el-option>
+            <el-option label="秒杀活动" value="seckill"></el-option>
             <el-option label="兑换码活动" value="redeem_code"></el-option>
           </el-select>
         </el-form-item>
@@ -36,10 +36,8 @@
         
         <el-form-item label="活动状态" prop="status">
           <el-select v-model="activityForm.status" placeholder="选择活动状态">
-            <el-option label="未开始" value="pending"></el-option>
-            <el-option label="进行中" value="active"></el-option>
-            <el-option label="已结束" value="ended"></el-option>
-            <el-option label="已取消" value="cancelled"></el-option>
+            <el-option label="激活" value="active"></el-option>
+            <el-option label="禁用" value="inactive"></el-option>
           </el-select>
         </el-form-item>
         
@@ -53,7 +51,7 @@
         </el-form-item>
         
         <!-- 秒杀活动配置 -->
-        <template v-if="activityForm.type === 'flash_sale'">
+        <template v-if="activityForm.type === 'seckill'">
           <el-form-item label="关联商品" required>
             <el-button type="primary" @click="showProductSelector = true">选择商品</el-button>
             <el-table :data="selectedProducts" style="width: 100%; margin-top: 10px">
@@ -132,7 +130,7 @@
     <el-dialog
       v-model="showProductSelector"
       title="选择商品"
-      width="80%"
+      width="60%"
     >
       <el-form :inline="true" :model="productSearchForm" class="mb-4">
         <el-form-item label="商品名称">
@@ -142,19 +140,17 @@
           <el-button type="primary" @click="searchProducts">查询</el-button>
         </el-form-item>
       </el-form>
-      
+
       <el-table :data="productsList" style="width: 100%">
-        <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="id" label="商品ID" width="100"></el-table-column>
         <el-table-column prop="name" label="商品名称"></el-table-column>
-        <el-table-column prop="sku_count" label="SKU数量" width="100"></el-table-column>
-        <el-table-column label="操作" width="100">
+        <el-table-column label="操作" width="120">
           <template #default="scope">
             <el-button size="small" @click="showSKUSelector(scope.row)">选择SKU</el-button>
           </template>
         </el-table-column>
       </el-table>
-      
+
       <div class="dialog-footer">
         <el-button @click="showProductSelector = false">取消</el-button>
       </div>
@@ -169,11 +165,11 @@
       <el-table :data="skuList" style="width: 100%" @selection-change="handleSKUSelectChange">
         <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="id" label="SKU ID" width="100"></el-table-column>
-        <el-table-column prop="name" label="SKU名称"></el-table-column>
+        <el-table-column prop="sku_code" label="SKU名称"></el-table-column>
         <el-table-column prop="price" label="原价" width="100"></el-table-column>
         <el-table-column prop="stock" label="库存" width="100"></el-table-column>
       </el-table>
-      
+
       <div class="dialog-footer">
         <el-button @click="showSKUSelectorDialog = false">取消</el-button>
         <el-button type="primary" @click="confirmSKUSelect">确定</el-button>
@@ -182,210 +178,263 @@
   </div>
 </template>
 
-<script setup>
-import { ref, reactive, onMounted, computed } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import { activityApi, productApi } from '../../api/auth';
+<script>
+import { activityApi, productApi } from '../../api/auth'
 
-const router = useRouter();
-const route = useRoute();
-const formRef = ref(null);
-
-// 判断是否为编辑模式
-const isEdit = computed(() => route.path.includes('/edit'));
-const activityId = computed(() => route.params.id);
-
-// 活动表单
-const activityForm = reactive({
-  name: '',
-  type: '',
-  timeRange: [],
-  status: 'pending',
-  description: ''
-});
-
-// 表单规则
-const rules = {
-  name: [
-    { required: true, message: '请输入活动名称', trigger: 'blur' }
-  ],
-  type: [
-    { required: true, message: '请选择活动类型', trigger: 'change' }
-  ],
-  status: [
-    { required: true, message: '请选择活动状态', trigger: 'change' }
-  ]
-};
-
-// 秒杀活动商品
-const selectedProducts = ref([]);
-
-// 兑换码规则
-const redeemCodeRules = reactive({
-  type: 'mixed',
-  length: 12,
-  exclude_chars: ''
-});
-
-// 商品选择器
-const showProductSelector = ref(false);
-const productSearchForm = reactive({
-  name: ''
-});
-const productsList = ref([]);
-
-// SKU选择器
-const showSKUSelectorDialog = ref(false);
-const currentProduct = ref(null);
-const skuList = ref([]);
-
-// 获取活动详情（编辑模式）
-const getActivityDetail = async () => {
-  if (!isEdit.value) return;
-  
-  try {
-    const activity = await activityApi.getActivity(activityId.value);
-    activityForm.name = activity.name;
-    activityForm.type = activity.type;
-    activityForm.timeRange = [activity.start_time, activity.end_time];
-    activityForm.status = activity.status;
-    activityForm.description = activity.description;
-    
-    // 处理关联商品
-    if (activity.products) {
-      selectedProducts.value = activity.products;
+export default {
+  name: 'ActivityForm',
+  props: {
+    activity: {
+      type: Object,
+      default: null
     }
-    
-    // 处理兑换码规则
-    if (activity.type === 'redeem_code' && activity.redeem_code_rules) {
-      redeemCodeRules.type = activity.redeem_code_rules.type;
-      redeemCodeRules.length = activity.redeem_code_rules.length;
-      redeemCodeRules.exclude_chars = activity.redeem_code_rules.exclude_chars;
+  },
+  computed: {
+    activityId() {
+      if (this.activity && this.activity.id) {
+        return this.activity.id;
+      }
+      const id = this.$route.params.id;
+      const parsedId = parseInt(id);
+      return isNaN(parsedId) ? null : parsedId;
+    },
+    isEdit() {
+      return this.activityId !== null;
     }
-  } catch (error) {
-    console.error('获取活动详情失败:', error);
-    ElMessage.error('获取活动详情失败');
-  }
-};
-
-// 搜索商品
-const searchProducts = async () => {
-  try {
-    const response = await productApi.getProducts();
-    productsList.value = response || [];
-  } catch (error) {
-    console.error('搜索商品失败:', error);
-    ElMessage.error('搜索商品失败');
-  }
-};
-
-// 显示SKU选择器
-const showSKUSelector = async (product) => {
-  currentProduct.value = product;
-  try {
-    const response = await productApi.getProductSKUs(product.id);
-    skuList.value = response || [];
-    showSKUSelectorDialog.value = true;
-  } catch (error) {
-    console.error('获取SKU列表失败:', error);
-    ElMessage.error('获取SKU列表失败');
-  }
-};
-
-// 确认选择SKU
-const selectedSKUIds = ref([]);
-
-// 处理SKU选择变化
-const handleSKUSelectChange = (selection) => {
-  selectedSKUIds.value = selection.map(sku => sku.id);
-};
-
-// 确认选择SKU
-const confirmSKUSelect = () => {
-  if (selectedSKUIds.value.length === 0) {
-    ElMessage.warning('请选择至少一个SKU');
-    return;
-  }
-  
-  const selectedRows = skuList.value.filter(sku => selectedSKUIds.value.includes(sku.id));
-  selectedRows.forEach(sku => {
-    selectedProducts.value.push({
-      product_id: currentProduct.value.id,
-      product_name: currentProduct.value.name,
-      sku_id: sku.id,
-      sku_name: sku.name,
-      activity_price: sku.price,
-      activity_stock: sku.stock
-    });
-  });
-  
-  showSKUSelectorDialog.value = false;
-  currentProduct.value = null;
-  skuList.value = [];
-  selectedSKUIds.value = [];
-};
-
-// 移除商品
-const removeProduct = (index) => {
-  selectedProducts.value.splice(index, 1);
-};
-
-// 活动类型变化
-const handleTypeChange = () => {
-  selectedProducts.value = [];
-};
-
-// 提交表单
-const handleSubmit = async () => {
-  if (!formRef.value) return;
-  
-  await formRef.value.validate(async (valid) => {
-    if (valid) {
-      try {
-        // 构建请求数据
-        const data = {
-          name: activityForm.name,
-          type: activityForm.type,
-          start_time: activityForm.timeRange[0],
-          end_time: activityForm.timeRange[1],
-          status: activityForm.status,
-          description: activityForm.description,
-          products: selectedProducts.value
-        };
-        
-        // 如果是兑换码活动，添加兑换码规则
-        if (activityForm.type === 'redeem_code') {
-          data.redeem_code_rules = redeemCodeRules;
-        }
-        
-        let response;
-        if (isEdit.value) {
-          response = await activityApi.updateActivity(activityId.value, data);
-        } else {
-          response = await activityApi.createActivity(data);
-        }
-        
-        ElMessage.success(isEdit.value ? '编辑成功' : '创建成功');
-        router.push('/home/activities');
-      } catch (error) {
-        console.error(isEdit.value ? '编辑活动失败:' : '创建活动失败:', error);
-        ElMessage.error(isEdit.value ? '编辑活动失败' : '创建活动失败');
+  },
+  data() {
+    return {
+      activityForm: {
+        name: '',
+        type: '',
+        timeRange: [],
+        status: 'active',
+        description: ''
+      },
+      rules: {
+        name: [
+          { required: true, message: '请输入活动名称', trigger: 'blur' }
+        ],
+        type: [
+          { required: true, message: '请选择活动类型', trigger: 'change' }
+        ],
+        status: [
+          { required: true, message: '请选择活动状态', trigger: 'change' }
+        ]
+      },
+      selectedProducts: [],
+      redeemCodeRules: {
+        type: 'mixed',
+        length: 12,
+        exclude_chars: ''
+      },
+      showProductSelector: false,
+      productSearchForm: {
+        name: ''
+      },
+      productsList: [],
+      showSKUSelectorDialog: false,
+      currentProduct: null,
+      skuList: [],
+      selectedSKUIds: []
+    }
+  },
+  mounted() {
+    if (this.isEdit) {
+      this.getActivityDetail();
+    }
+  },
+  watch: {
+    showProductSelector(newVal) {
+      if (newVal) {
+        this.productSearchForm.name = ''
+        this.searchProducts()
       }
     }
-  });
-};
-
-// 取消
-const handleCancel = () => {
-  router.push('/home/activities');
-};
-
-// 初始加载
-onMounted(() => {
-  getActivityDetail();
-  searchProducts();
-});
+  },
+  methods: {
+    // 设置表单数据
+    setFormData(activity) {
+      this.activityForm.name = activity.name;
+      this.activityForm.type = activity.type;
+      this.activityForm.timeRange = [activity.start_time, activity.end_time];
+      this.activityForm.status = activity.status;
+      this.activityForm.description = activity.description;
+      
+      // 处理关联商品
+      if (activity.products) {
+        this.selectedProducts = activity.products;
+      }
+      
+      // 处理兑换码规则
+      if (activity.type === 'redeem_code' && activity.redeem_code_rules) {
+        this.redeemCodeRules.type = activity.redeem_code_rules.type;
+        this.redeemCodeRules.length = activity.redeem_code_rules.length;
+        this.redeemCodeRules.exclude_chars = activity.redeem_code_rules.exclude_chars;
+      }
+    },
+    
+    // 获取活动详情（编辑模式）
+    getActivityDetail() {
+      if (!this.isEdit) return;
+      
+      try {
+        activityApi.getActivity(this.activityId).then(activity => {
+          this.setFormData(activity);
+        }).catch(error => {
+          console.error('获取活动详情失败:', error);
+          this.$message.error('获取活动详情失败');
+        });
+      } catch (error) {
+        console.error('获取活动详情失败:', error);
+        this.$message.error('获取活动详情失败');
+      }
+    },
+    
+    // 搜索商品
+    searchProducts() {
+      try {
+        const params = {}
+        if (this.productSearchForm.name) {
+          params.name = this.productSearchForm.name
+        }
+        productApi.getProducts(params).then(response => {
+          this.productsList = response || [];
+        }).catch(error => {
+          console.error('搜索商品失败:', error);
+          this.$message.error('搜索商品失败');
+        });
+      } catch (error) {
+        console.error('搜索商品失败:', error);
+        this.$message.error('搜索商品失败');
+      }
+    },
+    
+    // 显示SKU选择器
+    showSKUSelector(product) {
+      this.currentProduct = product;
+      try {
+        productApi.getProductSKUs(product.id).then(response => {
+          this.skuList = response || [];
+          this.showSKUSelectorDialog = true;
+        }).catch(error => {
+          console.error('获取SKU列表失败:', error);
+          this.$message.error('获取SKU列表失败');
+        });
+      } catch (error) {
+        console.error('获取SKU列表失败:', error);
+        this.$message.error('获取SKU列表失败');
+      }
+    },
+    
+    // 处理SKU选择变化
+    handleSKUSelectChange(selection) {
+      this.selectedSKUIds = selection.map(sku => sku.id);
+    },
+    
+    // 确认选择SKU
+    confirmSKUSelect() {
+      if (this.selectedSKUIds.length === 0) {
+        this.$message.warning('请选择至少一个SKU');
+        return;
+      }
+      
+      const selectedRows = this.skuList.filter(sku => this.selectedSKUIds.includes(sku.id));
+      selectedRows.forEach(sku => {
+        this.selectedProducts.push({
+          product_id: this.currentProduct.id,
+          product_name: this.currentProduct.name,
+          sku_id: sku.id,
+          sku_name: sku.name,
+          activity_price: sku.price,
+          activity_stock: sku.stock
+        });
+      });
+      
+      this.showSKUSelectorDialog = false;
+      this.currentProduct = null;
+      this.skuList = [];
+      this.selectedSKUIds = [];
+    },
+    
+    // 移除商品
+    removeProduct(index) {
+      this.selectedProducts.splice(index, 1);
+    },
+    
+    // 活动类型变化
+    handleTypeChange() {
+      this.selectedProducts = [];
+    },
+    
+    // 提交表单
+    handleSubmit() {
+      this.$refs.formRef.validate((valid) => {
+        if (valid) {
+          try {
+            // 构建请求数据
+            const data = {
+              name: this.activityForm.name,
+              type: this.activityForm.type,
+              start_time: this.activityForm.timeRange[0],
+              end_time: this.activityForm.timeRange[1],
+              status: this.activityForm.status
+            };
+            
+            // 处理关联商品
+            if (this.selectedProducts.length > 0) {
+              data.products = this.selectedProducts.map(product => ({
+                product_id: product.product_id,
+                sku_id: product.sku_id,
+                original_price: product.activity_price,
+                activity_price: product.activity_price,
+                stock: product.activity_stock,
+                product_type: 'seckill'
+              }));
+            }
+            
+            // 如果是兑换码活动，添加兑换码规则
+            if (this.activityForm.type === 'redeem_code') {
+              data.redeem_setting = {
+                code_type: this.redeemCodeRules.type,
+                code_length: this.redeemCodeRules.length,
+                exclude_chars: this.redeemCodeRules.exclude_chars,
+                total_quantity: 100, // 默认值，可根据需要调整
+                limit_per_user: 1, // 默认值，可根据需要调整
+                need_verify: 0 // 默认值，可根据需要调整
+              };
+            }
+            
+            if (this.isEdit) {
+              activityApi.updateActivity(this.activityId, data).then(() => {
+                this.$message.success('编辑成功');
+                this.$emit('back');
+              }).catch(error => {
+                console.error('编辑活动失败:', error);
+                this.$message.error('编辑活动失败');
+              });
+            } else {
+              activityApi.createActivity(data).then(() => {
+                this.$message.success('创建成功');
+                this.$emit('back');
+              }).catch(error => {
+                console.error('创建活动失败:', error);
+                this.$message.error('创建活动失败');
+              });
+            }
+          } catch (error) {
+            console.error('提交表单失败:', error);
+            this.$message.error('提交失败');
+          }
+        }
+      });
+    },
+    // 取消
+    handleCancel() {
+      this.$emit('back');
+    }
+  }
+}
 </script>
 
 <style scoped>
