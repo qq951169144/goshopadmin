@@ -359,4 +359,30 @@ export const productApi = {
   generateSKUs: (productId, data) => api.post(`/products/${productId}/skus/generate`, data)
 };
 
+// 活动相关API
+export const activityApi = {
+  // 活动管理
+  getActivities: (params) => api.get('/activities', { params }),
+  getActivity: (id) => api.get(`/activities/${id}`),
+  createActivity: (data) => api.post('/activities', data),
+  updateActivity: (id, data) => api.put(`/activities/${id}`, data),
+  deleteActivity: (id) => api.delete(`/activities/${id}`),
+  updateActivityStatus: (id, data) => api.put(`/activities/${id}/status`, data),
+  
+  // 兑换码管理
+  generateRedeemCodes: (activityId, data) => api.post(`/activities/${activityId}/redeem-codes/generate`, data),
+  getRedeemCodes: (activityId, params) => api.get(`/activities/${activityId}/redeem-codes`, { params }),
+  exportRedeemCodes: (activityId, params) => api.get(`/activities/${activityId}/redeem-codes/export`, { params, responseType: 'blob' }),
+  importRedeemCodes: (activityId, formData) => api.post(`/activities/${activityId}/redeem-codes/import`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  }),
+  updateRedeemCodeStatus: (id, data) => api.put(`/redeem-codes/${id}/status`, data),
+  
+  // 兑换码核销
+  verifyRedeemCode: (data) => api.post('/redeem-codes/verify', data),
+  getRedeemCodeLogs: (params) => api.get('/redeem-codes/logs', { params })
+};
+
 export default api;

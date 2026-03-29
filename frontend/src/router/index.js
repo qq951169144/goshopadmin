@@ -14,7 +14,7 @@ import ProductSKUs from '../views/products/ProductSKUs.vue'
 const routes = [
   {
     path: '/',
-    redirect: '/login'
+    redirect: '/home/dashboard'
   },
   {
     path: '/login',
@@ -70,6 +70,46 @@ const routes = [
         path: 'products/:id/skus',
         name: 'ProductSKUs',
         component: ProductSKUs
+      },
+      {
+        path: 'activities',
+        name: 'Activities',
+        component: () => import('../views/activities/Activities.vue')
+      },
+      {
+        path: 'activities/create',
+        name: 'ActivityCreate',
+        component: () => import('../views/activities/ActivityForm.vue')
+      },
+      {
+        path: 'activities/:id/edit',
+        name: 'ActivityEdit',
+        component: () => import('../views/activities/ActivityForm.vue')
+      },
+      {
+        path: 'activities/:id/redeem-codes',
+        name: 'RedeemCodes',
+        component: () => import('../views/activities/RedeemCodes.vue')
+      },
+      {
+        path: 'activities/:id/redeem-codes/generate',
+        name: 'RedeemCodeGenerate',
+        component: () => import('../views/activities/RedeemCodeGenerate.vue')
+      },
+      {
+        path: 'activities/:id/redeem-codes/import-export',
+        name: 'RedeemCodeImportExport',
+        component: () => import('../views/activities/RedeemCodeImportExport.vue')
+      },
+      {
+        path: 'activities/:id',
+        name: 'ActivityDetail',
+        component: () => import('../views/activities/ActivityDetail.vue')
+      },
+      {
+        path: 'redeem-codes/verify',
+        name: 'RedeemCodeVerify',
+        component: () => import('../views/activities/RedeemCodeVerify.vue')
       }
     ]
   }
