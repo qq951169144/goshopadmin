@@ -63,6 +63,20 @@ func (bf *BloomFilter) Exists(ctx context.Context, item string) (bool, error) {
 	return result.(int64) == 1, nil
 }
 
+// ExistsFilter 检查布隆过滤器本身是否存在（在Redis中）
+// 参数：
+// - ctx: 上下文，用于控制操作超时
+// 返回：
+// - bool: true表示布隆过滤器存在，false表示不存在
+// - error: 操作错误信息
+func (bf *BloomFilter) ExistsFilter(ctx context.Context) (bool, error) {
+	result, err := bf.client.Exists(ctx, bf.key).Result()
+	if err != nil {
+		return false, fmt.Errorf("check bloom filter exists error: %w", err)
+	}
+	return result == 1, nil
+}
+
 // Reserve 初始化布隆过滤器
 // 参数：
 // - ctx: 上下文，用于控制操作超时
@@ -74,8 +88,18 @@ func (bf *BloomFilter) Exists(ctx context.Context, item string) (bool, error) {
 // 此方法需要在添加元素前调用，用于预分配布隆过滤器的空间
 // 误判率越低，需要的空间越大
 func (bf *BloomFilter) Reserve(ctx context.Context, size int64, errorRate float64) error {
+	// 先检查布隆过滤器是否已存在
+	exists, err := bf.ExistsFilter(ctx)
+	if err != nil {
+		return err
+	}
+	// 如果已存在，则跳过创建
+	if exists {
+		return nil
+	}
+
 	// 使用Redis的BF.RESERVE命令初始化布隆过滤器
-	_, err := bf.client.Do(ctx, "BF.RESERVE", bf.key, errorRate, size).Result()
+	_, err = bf.client.Do(ctx, "BF.RESERVE", bf.key, errorRate, size).Result()
 	if err != nil {
 		return fmt.Errorf("reserve bloom filter error: %w", err)
 	}

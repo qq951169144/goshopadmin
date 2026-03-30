@@ -35,11 +35,17 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 	// 初始化缓存工具并预热布隆过滤器
 	ctx := context.Background()
 	cacheUtil := cache.NewCacheUtil(db, redisClient)
-	if err := cacheUtil.InitBloomFilters(ctx); err != nil {
-		// 记录错误但不中断启动
-		utils.Error("布隆过滤器初始化失败: %v", err)
+
+	// 根据配置决定是否初始化布隆过滤器
+	if cfg.EnableBloomFilter {
+		if err := cacheUtil.InitBloomFilters(ctx); err != nil {
+			// 记录错误但不中断启动
+			utils.Error("布隆过滤器初始化失败: %v", err)
+		} else {
+			utils.Info("布隆过滤器初始化成功并预热完成")
+		}
 	} else {
-		utils.Info("布隆过滤器初始化成功并预热完成")
+		utils.Info("布隆过滤器已禁用")
 	}
 
 	// 创建控制器实例

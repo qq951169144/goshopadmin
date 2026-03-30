@@ -21,6 +21,15 @@ type Config struct {
 	RedisDB       int
 	JWTSecret     string
 	JWTExpireHour int
+	// RabbitMQ配置
+	MQHost     string
+	MQPort     int
+	MQUser     string
+	MQPassword string
+	MQVHost    string
+
+	// 布隆过滤器配置
+	EnableBloomFilter bool
 }
 
 // LoadConfig 返回配置实例（非全局变量）
@@ -29,6 +38,18 @@ func LoadConfig() (*Config, error) {
 
 	jwtExpireHour, _ := strconv.Atoi(getEnv("JWT_EXPIRE_HOUR", "24"))
 	redisDB, _ := strconv.Atoi(getEnv("REDIS_DB", "0"))
+
+	// RabbitMQ配置
+	mqPort, err := strconv.Atoi(getEnv("MQ_PORT", "5672"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid MQ_PORT: %v", err)
+	}
+
+	// 布隆过滤器配置
+	enableBloomFilter, err := strconv.ParseBool(getEnv("ENABLE_BLOOM_FILTER", "true"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid ENABLE_BLOOM_FILTER: %v", err)
+	}
 
 	return &Config{
 		ServerPort:    getEnv("SERVER_PORT", "8081"),
@@ -43,6 +64,16 @@ func LoadConfig() (*Config, error) {
 		RedisDB:       redisDB,
 		JWTSecret:     getEnv("JWT_SECRET", "1a4tx4pQczv8y1HMX9KytdUeP2rrVt9q"),
 		JWTExpireHour: jwtExpireHour,
+
+		// RabbitMQ配置
+		MQHost:     getEnv("MQ_HOST", "localhost"),
+		MQPort:     mqPort,
+		MQUser:     getEnv("MQ_USER", "guest"),
+		MQPassword: getEnv("MQ_PASSWORD", "guest"),
+		MQVHost:    getEnv("MQ_VHOST", "/"),
+
+		// 布隆过滤器配置
+		EnableBloomFilter: enableBloomFilter,
 	}, nil
 }
 
