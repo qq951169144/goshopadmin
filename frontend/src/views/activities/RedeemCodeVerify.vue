@@ -124,8 +124,7 @@ export default {
             
             // 刷新核销记录
             this.getVerifyLogs();
-          }).catch(error => {
-            console.error('核销兑换码失败:', error);
+          }).catch(() => {
             this.$message.error('核销兑换码失败');
           }).finally(() => {
             this.loading = false;
@@ -142,19 +141,16 @@ export default {
     
     // 获取核销记录
     getVerifyLogs() {
-      try {
-        const params = {
-          page: this.pagination.currentPage,
-          page_size: this.pagination.pageSize
-        };
-        activityApi.getRedeemCodeLogs(params).then(response => {
-          this.verifyLogs = response.list || [];
-          this.pagination.total = response.total || 0;
-        });
-      } catch (error) {
-        console.error('获取核销记录失败:', error);
+      const params = {
+        page: this.pagination.currentPage,
+        page_size: this.pagination.pageSize
+      };
+      activityApi.getRedeemCodeLogs(params).then(response => {
+        this.verifyLogs = response.list || [];
+        this.pagination.total = response.total || 0;
+      }).catch(() => {
         this.$message.error('获取核销记录失败');
-      }
+      })
     },
     
     // 分页大小变化

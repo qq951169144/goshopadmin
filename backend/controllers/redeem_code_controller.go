@@ -382,3 +382,61 @@ func (c *RedeemCodeController) UpdateRedeemCodeStatus(ctx *gin.Context) {
 
 	c.ResponseSuccess(ctx, gin.H{"message": "兑换码状态更新成功"})
 }
+
+type RedeemCodeStatsResponse struct {
+	Total   int `json:"total"`
+	Used    int `json:"used"`
+	Unused  int `json:"unused"`
+	Expired int `json:"expired"`
+}
+
+// GetRedeemCodeStats 获取兑换码统计
+// @Summary 获取兑换码统计
+// @Description 获取活动的兑换码统计数据
+// @Tags 兑换码管理
+// @Accept json
+// @Produce json
+// @Param id path int true "活动ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/activities/{id}/redeem-codes/stats [get]
+func (c *RedeemCodeController) GetRedeemCodeStats(ctx *gin.Context) {
+	// 获取商户ID
+	merchantID, err := c.GetMerchantIDFromContext(ctx, c.merchantService)
+	if err != nil {
+		if err.Error() == errors.GetErrorMessage(errors.CodeUnauthorized) {
+			c.ResponseError(ctx, errors.CodeUnauthorized, err)
+		} else {
+			c.ResponseError(ctx, errors.CodeForbidden, err)
+		}
+		return
+	}
+
+	activityID, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
+		return
+	}
+
+	statusCounts, err := c.redeemCodeService.GetRedeemCodeStats(activityID, merchantID)
+	if err != nil {
+		c.ResponseError(ctx, errors.CodeDBError, err)
+		return
+	}
+
+	// 构建响应数据
+	response := RedeemCodeStatsResponse{}
+
+	// 计算总数
+	for _, item := range statusCounts {
+		switch item.Status {
+		case "used":
+			response.Used = item.Count
+		case "unused":
+			response.Unused = item.Count
+		case "expired":
+			response.Expired = item.Count
+		}
+		response.Total += item.Count
+	}
+	c.ResponseSuccess(ctx, response)
+}

@@ -248,7 +248,7 @@ func (s *OrderService) GetOrderDetail(orderNo string, customerID int) (map[strin
 	// 1. 检查空值缓存
 	nullExists, err := s.cacheUtil.GetNullValue(ctx, nullKey)
 	if err == nil && nullExists {
-		return nil, errors.New("订单不存在")
+		return nil, fmt.Errorf("空值缓存存在,nullKey = %v", nullKey)
 	}
 
 	// 2. 检查缓存
@@ -265,7 +265,7 @@ func (s *OrderService) GetOrderDetail(orderNo string, customerID int) (map[strin
 	if err == nil && !exists {
 		// 布隆过滤器判断不存在，设置空值缓存
 		s.cacheUtil.SetNullValue(ctx, nullKey)
-		return nil, errors.New("订单不存在")
+		return nil, fmt.Errorf("布隆过滤器检测结果 = %v, 设置空值缓存 nullkey = %v", exists, nullKey)
 	}
 
 	// 4. 查询数据库

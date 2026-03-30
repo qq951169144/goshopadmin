@@ -15,9 +15,9 @@
         
         <el-form-item label="兑换码类型" prop="type">
           <el-select v-model="generateForm.type" placeholder="选择类型">
-            <el-option label="数字" value="number"></el-option>
-            <el-option label="字母" value="letter"></el-option>
-            <el-option label="混合" value="mixed"></el-option>
+            <el-option label="数字" value="numeric"></el-option>
+            <el-option label="字母" value="alpha"></el-option>
+            <el-option label="混合" value="alphanumeric"></el-option>
           </el-select>
         </el-form-item>
         
@@ -62,8 +62,17 @@ import { activityApi } from '../../api/auth'
 
 export default {
   name: 'RedeemCodeGenerate',
+  props: {
+    activityId: {
+      type: Number,
+      default: null
+    }
+  },
   computed: {
-    activityId() {
+    activityIdValue() {
+      if (this.activityId) {
+        return this.activityId;
+      }
       return parseInt(this.$route.params.id);
     }
   },
@@ -71,7 +80,7 @@ export default {
     return {
       generateForm: {
         count: 100,
-        type: 'mixed',
+        type: 'alphanumeric',
         length: 12,
         exclude_chars: ''
       },
@@ -102,16 +111,16 @@ export default {
         if (valid) {
           this.loading = true;
           const data = {
-            count: this.generateForm.count,
-            type: this.generateForm.type,
-            length: this.generateForm.length,
+            activity_id: this.activityIdValue,
+            quantity: this.generateForm.count,
+            code_type: this.generateForm.type,
+            code_length: this.generateForm.length,
             exclude_chars: this.generateForm.exclude_chars
           };
-          activityApi.generateRedeemCodes(this.activityId, data).then(response => {
+          activityApi.generateRedeemCodes(this.activityIdValue, data).then(response => {
             this.generateResult = response.codes || [];
             this.$message.success(`成功生成 ${this.generateResult.length} 个兑换码`);
-          }).catch(error => {
-            console.error('生成兑换码失败:', error);
+          }).catch(() => {
             this.$message.error('生成兑换码失败');
           }).finally(() => {
             this.loading = false;

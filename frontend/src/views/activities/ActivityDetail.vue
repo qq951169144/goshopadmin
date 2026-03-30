@@ -22,7 +22,7 @@
           <el-tag v-if="activityDetail.status === 'active'" type="success">激活</el-tag>
           <el-tag v-else-if="activityDetail.status === 'inactive'" type="info">禁用</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="活动描述">{{ activityDetail.description || '-' }}</el-descriptions-item>
+
       </el-descriptions>
       
       <!-- 兑换码规则（兑换码活动） -->
@@ -93,7 +93,7 @@
         <el-table-column prop="product_id" label="商品ID" width="100"></el-table-column>
         <el-table-column prop="product_name" label="商品名称"></el-table-column>
         <el-table-column prop="sku_id" label="SKU ID" width="100"></el-table-column>
-        <el-table-column prop="sku_name" label="SKU名称"></el-table-column>
+        <el-table-column prop="sku_code" label="SKU名称"></el-table-column>
         <el-table-column prop="activity_price" label="活动价格" width="120">
           <template #default="scope">
             ¥{{ scope.row.activity_price || scope.row.price }}
@@ -148,47 +148,27 @@ export default {
     // 获取活动详情
     getActivityDetail() {
       if (!this.activityId) {
-        console.error('活动ID无效');
         this.$message.error('活动ID无效');
         return;
       }
       
-      try {
-        activityApi.getActivity(this.activityId).then(activity => {
-          this.activityDetail = activity;
-          
-          // 如果是兑换码活动，获取兑换码统计
-          if (activity.type === 'redeem_code') {
-            this.getRedeemCodeStats(this.activityId);
-          }
-        }).catch(error => {
-          console.error('获取活动详情失败:', error);
-          this.$message.error('获取活动详情失败');
-        })
-      } catch (error) {
-        console.error('获取活动详情失败:', error);
+      activityApi.getActivity(this.activityId).then(activity => {
+        this.activityDetail = activity;
+        
+        // 如果是兑换码活动，获取兑换码统计
+        if (activity.type === 'redeem_code') {
+          this.getRedeemCodeStats(this.activityId);
+        }
+      }).catch(() => {
         this.$message.error('获取活动详情失败');
-      }
+      })
     },
     
     // 获取兑换码统计
     getRedeemCodeStats(activityId) {
-      try {
-        // 这里应该调用获取兑换码统计的API，暂时使用模拟数据
-        // activityApi.getRedeemCodeStats(activityId).then(stats => {
-        //   this.redeemCodeStats = stats;
-        // });
-        
-        // 模拟数据
-        this.redeemCodeStats = {
-          total: 100,
-          used: 20,
-          unused: 75,
-          expired: 5
-        };
-      } catch (error) {
-        console.error('获取兑换码统计失败:', error);
-      }
+      activityApi.getRedeemCodeStats(activityId).then(stats => {
+        this.redeemCodeStats = stats;
+      }).catch(() => {})
     },
     
     // 编辑活动

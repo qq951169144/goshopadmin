@@ -70,8 +70,17 @@ import { activityApi } from '../../api/auth'
 
 export default {
   name: 'RedeemCodeImportExport',
+  props: {
+    activityId: {
+      type: Number,
+      default: null
+    }
+  },
   computed: {
-    activityId() {
+    activityIdValue() {
+      if (this.activityId) {
+        return this.activityId;
+      }
       return parseInt(this.$route.params.id);
     }
   },
@@ -116,7 +125,7 @@ export default {
             count: this.exportForm.count,
             status: this.exportForm.status
           };
-          activityApi.exportRedeemCodes(this.activityId, params).then(response => {
+          activityApi.exportRedeemCodes(this.activityIdValue, params).then(response => {
             // 处理文件下载
             const blob = new Blob([response], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
@@ -129,8 +138,7 @@ export default {
             URL.revokeObjectURL(url);
             
             this.$message.success('导出成功');
-          }).catch(error => {
-            console.error('导出兑换码失败:', error);
+          }).catch(() => {
             this.$message.error('导出兑换码失败');
           }).finally(() => {
             this.exportLoading = false;
@@ -147,10 +155,9 @@ export default {
           const formData = new FormData();
           formData.append('file', this.importForm.file);
           
-          activityApi.importRedeemCodes(this.activityId, formData).then(response => {
+          activityApi.importRedeemCodes(this.activityIdValue, formData).then(response => {
             this.$message.success(`成功导入 ${response.success_count} 个兑换码，失败 ${response.failed_count} 个`);
-          }).catch(error => {
-            console.error('导入兑换码失败:', error);
+          }).catch(() => {
             this.$message.error('导入兑换码失败');
           }).finally(() => {
             this.importLoading = false;

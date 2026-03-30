@@ -363,3 +363,36 @@ func (s *RedeemCodeService) GetRedeemCodeLogs(activityID int, merchantID int, pa
 
 	return logs, total, nil
 }
+
+type StatusCounts []struct {
+	Status string
+	Count  int
+}
+
+// GetRedeemCodeStats 获取兑换码统计
+func (s *RedeemCodeService) GetRedeemCodeStats(activityID int, merchantID int) (StatusCounts, error) {
+	// 验证活动是否属于该商户
+	var activity models.Activity
+	err := s.db.Where("id = ? AND merchant_id = ?", activityID, merchantID).
+		First(&activity).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("活动不存在或不属于该商户")
+		}
+		return nil, err
+	}
+
+	// 统计各状态数量
+	var statusCounts StatusCounts
+
+	err = s.db.Model(&models.RedeemCode{}).
+		Where("activity_id = ?", activityID).
+		Select("status, count(*) as count").
+		Group("status").
+		Find(&statusCounts).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return statusCounts, nil
+}

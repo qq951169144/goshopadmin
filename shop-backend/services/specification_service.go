@@ -87,7 +87,7 @@ func (s *SpecificationService) GetProductDetailWithSpecs(productID int) (*Produc
 	nullKey := fmt.Sprintf("product:null:%d", productID)
 	nullExists, err := s.cacheUtil.GetNullValue(ctx, nullKey)
 	if err == nil && nullExists {
-		return nil, errors.New("商品不存在")
+		return nil, fmt.Errorf("空值缓存存在,nullKey = %v", nullKey)
 	}
 
 	// 2. 检查布隆过滤器（快速判断商品是否存在）
@@ -95,7 +95,7 @@ func (s *SpecificationService) GetProductDetailWithSpecs(productID int) (*Produc
 	if err == nil && !exists {
 		// 布隆过滤器判断不存在，设置空值缓存
 		s.cacheUtil.SetNullValue(ctx, nullKey)
-		return nil, errors.New("商品不存在")
+		return nil, fmt.Errorf("布隆过滤器检测结果 = %v, 设置空值缓存 nullkey = %v", exists, nullKey)
 	}
 
 	// 3. 尝试从缓存获取数据

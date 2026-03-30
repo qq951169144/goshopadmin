@@ -11,13 +11,14 @@
       <!-- 筛选表单 -->
       <el-form :inline="true" :model="searchForm" class="mb-4">
         <el-form-item label="活动类型">
-          <el-select v-model="searchForm.type" placeholder="选择活动类型">
-            <el-option label="秒杀活动" value="seckill"></el-option>
+          <el-select v-model="searchForm.type" placeholder="选择活动类型" clearable style="width: 150px;">
+
+            <el-option label="秒杀活动1" value="seckill"></el-option>
             <el-option label="兑换码活动" value="redeem_code"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="活动状态">
-          <el-select v-model="searchForm.status" placeholder="选择活动状态">
+          <el-select v-model="searchForm.status" placeholder="选择活动状态" clearable style="width: 120px;">
             <el-option label="激活" value="active"></el-option>
             <el-option label="禁用" value="inactive"></el-option>
           </el-select>
@@ -88,120 +89,130 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, reactive, onMounted } from 'vue';
 import { activityApi } from '../../api/auth';
 
-export default {
-  data() {
-    return {
-      // 搜索表单
-      searchForm: {
-        type: '',
-        status: ''
-      },
-      // 活动列表
-      activitiesList: [],
-      // 分页信息
-      pagination: {
-        currentPage: 1,
-        pageSize: 10,
-        total: 0
-      }
-    };
-  },
+// 搜索表单 - 使用 reactive 确保响应式
+const searchForm = reactive({
+  type: '',
+  status: ''
+});
 
-  methods: {
-    // 获取活动列表
-    async getActivities() {
-      try {
-        const params = {
-          page: this.pagination.currentPage,
-          page_size: this.pagination.pageSize
-        };
-        // 只添加有值的筛选条件
-        if (this.searchForm.type) {
-          params.type = this.searchForm.type;
-        }
-        if (this.searchForm.status) {
-          params.status = this.searchForm.status;
-        }
-        const response = await activityApi.getActivities(params);
-        this.activitiesList = response.list || [];
-        this.pagination.total = response.total || 0;
-      } catch (error) {
-        console.error('获取活动列表失败:', error);
-        this.$message.error('获取活动列表失败');
-      }
-    },
-    // 搜索
-    handleSearch() {
-      this.pagination.currentPage = 1;
-      this.getActivities();
-    },
-    // 重置表单
-    resetForm() {
-      this.searchForm.type = '';
-      this.searchForm.status = '';
-      this.pagination.currentPage = 1;
-      this.getActivities();
-    },
-    // 分页大小变化
-    handleSizeChange(size) {
-      this.pagination.pageSize = size;
-      this.getActivities();
-    },
-    // 当前页变化
-    handleCurrentChange(current) {
-      this.pagination.currentPage = current;
-      this.getActivities();
-    },
-    // 创建活动
-    handleCreateActivity() {
-      this.$emit('create-activity');
-    },
-    // 编辑活动
-    handleEditActivity(id) {
-      this.$emit('edit-activity', { id });
-    },
-    // 查看活动详情
-    handleViewDetail(id) {
-      this.$emit('view-activity', { id });
-    },
-    // 删除活动
-    handleDeleteActivity(id) {
-      this.$confirm('确定要删除这个活动吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(async () => {
-        try {
-          await activityApi.deleteActivity(id);
-          this.$message.success('删除成功');
-          this.getActivities();
-        } catch (error) {
-          console.error('删除活动失败:', error);
-          this.$message.error('删除活动失败');
-        }
-      }).catch(() => {
-        // 取消删除
-      });
-    },
-    // 更新活动状态
-    async handleUpdateStatus(id, status) {
-      try {
-        await activityApi.updateActivityStatus(id, { status });
-        this.$message.success('状态更新成功');
-        this.getActivities();
-      } catch (error) {
-        console.error('更新活动状态失败:', error);
-        this.$message.error('更新活动状态失败');
-      }
+// 活动列表
+const activitiesList = ref([]);
+
+// 分页信息
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 10,
+  total: 0
+});
+
+// 获取活动列表
+const getActivities = async () => {
+  try {
+    const params = {
+      page: pagination.currentPage,
+      page_size: pagination.pageSize
+    };
+    // 只添加有值的筛选条件
+    if (searchForm.type) {
+      params.type = searchForm.type;
     }
-  },
-  mounted() {
-    this.getActivities();
+    if (searchForm.status) {
+      params.status = searchForm.status;
+    }
+    const response = await activityApi.getActivities(params);
+    activitiesList.value = response.list || [];
+    pagination.total = response.total || 0;
+  } catch (error) {
+    console.error('获取活动列表失败:', error);
+    ElMessage.error('获取活动列表失败');
   }
 };
+
+// 搜索
+const handleSearch = () => {
+  pagination.currentPage = 1;
+  getActivities();
+};
+
+// 重置表单
+const resetForm = () => {
+  searchForm.type = '';
+  searchForm.status = '';
+  pagination.currentPage = 1;
+  getActivities();
+};
+
+// 分页大小变化
+const handleSizeChange = (size) => {
+  pagination.pageSize = size;
+  getActivities();
+};
+
+// 当前页变化
+const handleCurrentChange = (current) => {
+  pagination.currentPage = current;
+  getActivities();
+};
+
+// 创建活动
+const handleCreateActivity = () => {
+  emit('create-activity');
+};
+
+// 编辑活动
+const handleEditActivity = (id) => {
+  const activity = activitiesList.value.find(item => item.id === id);
+  emit('edit-activity', activity || { id });
+};
+
+// 查看活动详情
+const handleViewDetail = (id) => {
+  const activity = activitiesList.value.find(item => item.id === id);
+  emit('view-activity', activity || { id });
+};
+
+// 删除活动
+const handleDeleteActivity = (id) => {
+  ElMessageBox.confirm('确定要删除这个活动吗？', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(async () => {
+    try {
+      await activityApi.deleteActivity(id);
+      ElMessage.success('删除成功');
+      getActivities();
+    } catch (error) {
+      console.error('删除活动失败:', error);
+      ElMessage.error('删除活动失败');
+    }
+  }).catch(() => {
+    // 取消删除
+  });
+};
+
+// 更新活动状态
+const handleUpdateStatus = async (id, status) => {
+  try {
+    await activityApi.updateActivityStatus(id, { status });
+    ElMessage.success('状态更新成功');
+    getActivities();
+  } catch (error) {
+    console.error('更新活动状态失败:', error);
+    ElMessage.error('更新活动状态失败');
+  }
+};
+
+// 定义 emit
+const emit = defineEmits(['create-activity', 'edit-activity', 'view-activity']);
+
+onMounted(() => {
+  getActivities();
+});
 </script>
 
 <style scoped>

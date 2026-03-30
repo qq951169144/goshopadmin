@@ -95,22 +95,23 @@ func (s *ProductService) GetProductByID(id int, merchantID int) (models.Product,
 	// 1. 检查空值缓存
 	nullKey := fmt.Sprintf("product:null:%d", id)
 	nullExists, err := s.CacheUtil.GetNullValue(ctx, nullKey)
-	utils.Info("空值检查nullKey = %s, nullExists = %s error", nullKey, nullExists, err)
 	if err == nil && nullExists {
-		return models.Product{}, err
+		return models.Product{}, fmt.Errorf("空值缓存存在,nullKey = %v", nullKey)
 	}
 
 	// 2. 检查布隆过滤器
 	exists, err := s.CacheUtil.CheckProductExists(ctx, id)
-	utils.Info("空值检查exists = %s, error = %s", exists, err)
+
 	if err == nil && !exists {
-		// 缓存空值
+		// 当布隆过滤器返回false的时候，设置空值缓存
 		s.CacheUtil.SetNullValue(ctx, nullKey)
-		return models.Product{}, err
+		return models.Product{}, fmt.Errorf("布隆过滤器检测结果 = %v, 设置空值缓存 nullkey = %v", exists, nullKey)
 	}
 
 	// 3. 查询缓存
 	cachedData, err := s.CacheUtil.GetProductCache(ctx, id)
+	utils.Info("缓存查询结果: cachedData=%v, err=%v", cachedData, err)
+
 	if err == nil && cachedData != nil && !s.CacheUtil.IsCacheExpired(cachedData) {
 		if productData, ok := cachedData.Data.(map[string]interface{}); ok {
 			// 检查商品是否属于该商户

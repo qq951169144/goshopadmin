@@ -235,6 +235,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 				// 活动兑换码管理路由
 				activities.POST("/:id/redeem-codes/generate", deps.RedeemCodeController.GenerateRedeemCodes)
 				activities.GET("/:id/redeem-codes", deps.RedeemCodeController.GetRedeemCodes)
+				activities.GET("/:id/redeem-codes/stats", deps.RedeemCodeController.GetRedeemCodeStats)
 				activities.GET("/:id/redeem-codes/export", deps.RedeemCodeController.ExportRedeemCodes)
 				activities.POST("/:id/redeem-codes/import", deps.RedeemCodeController.ImportRedeemCodes)
 			}

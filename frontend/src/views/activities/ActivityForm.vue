@@ -41,14 +41,7 @@
           </el-select>
         </el-form-item>
         
-        <el-form-item label="活动描述">
-          <el-input
-            v-model="activityForm.description"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入活动描述"
-          />
-        </el-form-item>
+
         
         <!-- 秒杀活动配置 -->
         <template v-if="activityForm.type === 'seckill'">
@@ -209,8 +202,7 @@ export default {
         name: '',
         type: '',
         timeRange: [],
-        status: 'active',
-        description: ''
+        status: 'active'
       },
       rules: {
         name: [
@@ -260,7 +252,6 @@ export default {
       this.activityForm.type = activity.type;
       this.activityForm.timeRange = [activity.start_time, activity.end_time];
       this.activityForm.status = activity.status;
-      this.activityForm.description = activity.description;
       
       // 处理关联商品
       if (activity.products) {
@@ -346,7 +337,7 @@ export default {
           product_id: this.currentProduct.id,
           product_name: this.currentProduct.name,
           sku_id: sku.id,
-          sku_name: sku.name,
+          sku_name: sku.sku_code,
           activity_price: sku.price,
           activity_stock: sku.stock
         });

@@ -376,7 +376,10 @@ export const activityApi = {
   
   // 兑换码核销
   verifyRedeemCode: (data) => api.post('/redeem-codes/verify', data),
-  getRedeemCodeLogs: (params) => api.get('/redeem-codes/logs', { params })
+  getRedeemCodeLogs: (params) => api.get('/redeem-codes/logs', { params }),
+  
+  // 兑换码统计
+  getRedeemCodeStats: (activityId) => api.get(`/activities/${activityId}/redeem-codes/stats`)
 };
 
 export default api;
