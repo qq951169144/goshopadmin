@@ -200,7 +200,10 @@ const handleUpdateStatus = async (id, status) => {
   try {
     await activityApi.updateActivityStatus(id, { status });
     ElMessage.success('状态更新成功');
-    getActivities();
+    // 添加短暂延迟确保后端数据已更新
+    setTimeout(() => {
+      getActivities();
+    }, 300);
   } catch (error) {
     console.error('更新活动状态失败:', error);
     ElMessage.error('更新活动状态失败');

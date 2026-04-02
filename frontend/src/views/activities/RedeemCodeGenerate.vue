@@ -39,17 +39,11 @@
       <template v-if="generateResult.length > 0">
         <el-divider>生成结果</el-divider>
         <div class="result-container">
-          <el-button type="success" @click="handleCopyCodes">复制兑换码</el-button>
           <el-button @click="handleExportCodes">导出兑换码</el-button>
           <el-tag class="ml-2" size="small">共生成 {{ generateResult.length }} 个兑换码</el-tag>
           
           <el-table :data="generateResult" style="width: 100%; margin-top: 10px">
             <el-table-column prop="code" label="兑换码"></el-table-column>
-            <el-table-column label="操作" width="100">
-              <template #default="scope">
-                <el-button size="small" @click="handleCopyCode(scope.row.code)">复制</el-button>
-              </template>
-            </el-table-column>
           </el-table>
         </div>
       </template>
@@ -118,7 +112,8 @@ export default {
             exclude_chars: this.generateForm.exclude_chars
           };
           activityApi.generateRedeemCodes(this.activityIdValue, data).then(response => {
-            this.generateResult = response.codes || [];
+            // 后端返回的是字符串数组，需要映射为对象数组格式以适配表格和复制功能
+            this.generateResult = (response.codes || []).map(code => ({ code }));
             this.$message.success(`成功生成 ${this.generateResult.length} 个兑换码`);
           }).catch(() => {
             this.$message.error('生成兑换码失败');
@@ -126,25 +121,6 @@ export default {
             this.loading = false;
           });
         }
-      });
-    },
-    
-    // 复制单个兑换码
-    handleCopyCode(code) {
-      navigator.clipboard.writeText(code).then(() => {
-        this.$message.success('复制成功');
-      }).catch(() => {
-        this.$message.error('复制失败');
-      });
-    },
-    
-    // 复制所有兑换码
-    handleCopyCodes() {
-      const codes = this.generateResult.map(item => item.code).join('\n');
-      navigator.clipboard.writeText(codes).then(() => {
-        this.$message.success('复制成功');
-      }).catch(() => {
-        this.$message.error('复制失败');
       });
     },
     

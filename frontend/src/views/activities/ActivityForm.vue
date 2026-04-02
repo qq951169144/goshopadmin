@@ -158,7 +158,12 @@
       <el-table :data="skuList" style="width: 100%" @selection-change="handleSkuSelectChange">
         <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="id" label="SKU ID" width="100"></el-table-column>
-        <el-table-column prop="sku_code" label="SKU名称"></el-table-column>
+        <el-table-column prop="sku_name" label="SKU名称">
+          <template #default="scope">
+            {{ scope.row.sku_name || scope.row.sku_code }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="sku_code" label="SKU编码"></el-table-column>
         <el-table-column prop="price" label="价格" width="100"></el-table-column>
         <el-table-column prop="stock" label="库存" width="100"></el-table-column>
       </el-table>
@@ -337,7 +342,7 @@ export default {
           product_id: this.currentProduct.id,
           product_name: this.currentProduct.name,
           sku_id: sku.id,
-          sku_name: sku.sku_code,
+          sku_name: sku.sku_name || sku.sku_code,
           activity_price: sku.price,
           activity_stock: sku.stock
         });
