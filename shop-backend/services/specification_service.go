@@ -221,7 +221,7 @@ func (s *SpecificationService) queryProductDetailFromDB(productID int) (*Product
 
 	// 查询SKU列表
 	var skus []models.ProductSku
-	s.db.Where("product_id = ?", productID).Find(&skus)
+	s.db.Where("product_id = ? AND status = ? AND is_activity = ? AND activity_id = ?", productID, "active", 0, 0).Find(&skus)
 
 	var skuInfos []SkuInfoWithSpecs
 	var minPrice, maxPrice float64

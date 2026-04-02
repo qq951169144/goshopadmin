@@ -69,9 +69,10 @@ type SKUInfo struct {
 
 // GetProductsRequest 获取商品列表请求
 type GetProductsRequest struct {
-	Page    int
-	Limit   int
-	Keyword string
+	Page            int
+	Limit           int
+	Keyword         string
+	ExcludeActivity bool
 }
 
 // GetProductsResponse 获取商品列表响应
@@ -85,7 +86,7 @@ func (s *ProductService) GetProducts(req GetProductsRequest) (*GetProductsRespon
 	ctx := context.Background()
 
 	// 生成缓存键
-	cacheKey := s.cacheUtil.GetProductListCacheKey(req.Page, req.Limit, req.Keyword)
+	cacheKey := s.cacheUtil.GetProductListCacheKey(req.Page, req.Limit, req.Keyword, req.ExcludeActivity)
 
 	// 1. 尝试从多级缓存获取数据
 	var cachedResponse GetProductsResponse
@@ -104,6 +105,14 @@ func (s *ProductService) GetProducts(req GetProductsRequest) (*GetProductsRespon
 		// 应用过滤条件
 		if req.Keyword != "" {
 			query = query.Where("name LIKE ? OR description LIKE ?", "%"+req.Keyword+"%", "%"+req.Keyword+"%")
+		}
+
+		// 只查询激活状态的商品
+		query = query.Where("status = ?", "active")
+
+		// 排除活动商品
+		if req.ExcludeActivity {
+			query = query.Where("is_activity = ?", 0)
 		}
 
 		// 计算总数

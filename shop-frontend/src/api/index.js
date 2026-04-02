@@ -339,4 +339,10 @@ export const captchaAPI = {
   verifyCaptcha: (data) => api.post('/captcha/verify', data)
 }
 
+// 活动相关API
+export const activityAPI = {
+  // 获取活动列表
+  getActivities: () => api.get('/activities')
+}
+
 export default api

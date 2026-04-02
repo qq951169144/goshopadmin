@@ -180,11 +180,13 @@ CREATE TABLE IF NOT EXISTS products (
     category_id INT NOT NULL,
     merchant_id INT NOT NULL,
     status enum('active','inactive') DEFAULT 'active',
+    is_activity TINYINT NOT NULL DEFAULT 0 COMMENT '是否为活动商品：0-否，1-是',
     created_at datetime(3) DEFAULT NULL,
     updated_at datetime(3) DEFAULT NULL,
     INDEX idx_products_merchant_id (merchant_id),
     INDEX idx_products_category_id (category_id),
-    INDEX idx_products_status (status)
+    INDEX idx_products_status (status),
+    INDEX idx_products_is_activity (is_activity)
 );
 
 -- 创建商品SKU表

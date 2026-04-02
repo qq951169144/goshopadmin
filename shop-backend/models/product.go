@@ -12,6 +12,7 @@ type Product struct {
 	Detail      string    `json:"detail" gorm:"type:text"` // 商品详情富文本
 	Price       float64   `json:"price" gorm:"not null"`
 	Stock       int       `json:"stock" gorm:"not null;default:0"`
+	IsActivity  int       `json:"is_activity" gorm:"type:tinyint;default:0"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

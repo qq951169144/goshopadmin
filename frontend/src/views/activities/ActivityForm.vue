@@ -108,6 +108,15 @@
               <el-form-item label="排除字符">
                 <el-input v-model="redeemCodeRules.exclude_chars" placeholder="例如：01IOl" />
               </el-form-item>
+              <el-form-item label="总数量">
+                <el-input-number v-model="redeemCodeRules.total_quantity" :min="1" :max="10000" :step="1" />
+              </el-form-item>
+              <el-form-item label="每用户限制">
+                <el-input-number v-model="redeemCodeRules.limit_per_user" :min="1" :max="10" :step="1" />
+              </el-form-item>
+              <el-form-item label="需要验证">
+                <el-switch v-model="redeemCodeRules.need_verify" />
+              </el-form-item>
             </el-form>
           </el-form-item>
         </template>
@@ -224,7 +233,10 @@ export default {
       redeemCodeRules: {
         type: 'mixed',
         length: 12,
-        exclude_chars: ''
+        exclude_chars: '',
+        total_quantity: 100,
+        limit_per_user: 1,
+        need_verify: false
       },
       showProductSelector: false,
       productSearchForm: {
@@ -268,6 +280,9 @@ export default {
         this.redeemCodeRules.type = activity.redeem_code_rules.type;
         this.redeemCodeRules.length = activity.redeem_code_rules.length;
         this.redeemCodeRules.exclude_chars = activity.redeem_code_rules.exclude_chars;
+        this.redeemCodeRules.total_quantity = activity.redeem_code_rules.total_quantity || 100;
+        this.redeemCodeRules.limit_per_user = activity.redeem_code_rules.limit_per_user || 1;
+        this.redeemCodeRules.need_verify = activity.redeem_code_rules.need_verify === 1;
       }
     },
     
@@ -386,7 +401,7 @@ export default {
                 original_price: product.activity_price,
                 activity_price: product.activity_price,
                 stock: product.activity_stock,
-                product_type: 'seckill'
+                product_type: this.activityForm.type
               }));
             }
             
@@ -396,9 +411,9 @@ export default {
                 code_type: this.redeemCodeRules.type,
                 code_length: this.redeemCodeRules.length,
                 exclude_chars: this.redeemCodeRules.exclude_chars,
-                total_quantity: 100, // 默认值，可根据需要调整
-                limit_per_user: 1, // 默认值，可根据需要调整
-                need_verify: 0 // 默认值，可根据需要调整
+                total_quantity: this.redeemCodeRules.total_quantity,
+                limit_per_user: this.redeemCodeRules.limit_per_user,
+                need_verify: this.redeemCodeRules.need_verify ? 1 : 0
               };
             }
             

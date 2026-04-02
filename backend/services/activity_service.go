@@ -43,6 +43,17 @@ func (s *ActivityService) CreateActivity(activity *models.Activity, products []m
 			return err
 		}
 
+		// 更新商品的 is_activity 字段为 1
+		if products[i].ProductID > 0 {
+			err := tx.Model(&models.Product{}).
+				Where("id = ?", products[i].ProductID).
+				Update("is_activity", 1).Error
+			if err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+
 		// 如果是活动专用SKU，更新SKU的活动标识
 		if products[i].SkuID > 0 {
 			updates := map[string]interface{}{
@@ -129,7 +140,7 @@ func (s *ActivityService) GetActivities(merchantID int, activityType string, sta
 }
 
 // UpdateActivity 更新活动
-func (s *ActivityService) UpdateActivity(activity *models.Activity, merchantID int) error {
+func (s *ActivityService) UpdateActivity(activity *models.Activity, products []models.ActivityProduct, redeemSetting *models.ActivityRedeemSetting, merchantID int) error {
 	// 检查活动是否属于该商户
 	var existingActivity models.Activity
 	err := s.db.Where("id = ? AND merchant_id = ?", activity.ID, merchantID).
@@ -141,9 +152,120 @@ func (s *ActivityService) UpdateActivity(activity *models.Activity, merchantID i
 		return err
 	}
 
-	if err := s.db.Save(activity).Error; err != nil {
+	// 开始事务
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 保存活动基本信息
+	if err := tx.Save(activity).Error; err != nil {
+		tx.Rollback()
 		return err
 	}
+
+	// 如果有商品信息，更新商品关联
+	if len(products) > 0 {
+		// 获取原有商品ID列表（用于后续重置 is_activity 状态）
+		var oldProducts []models.ActivityProduct
+		if err := tx.Where("activity_id = ?", activity.ID).Find(&oldProducts).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// 删除原有商品关联
+		if err := tx.Where("activity_id = ?", activity.ID).Delete(&models.ActivityProduct{}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// 重置原有商品的 is_activity 状态
+		for _, oldProduct := range oldProducts {
+			// 重置商品的 is_activity 字段
+			if oldProduct.ProductID > 0 {
+				if err := tx.Model(&models.Product{}).
+					Where("id = ?", oldProduct.ProductID).
+					Update("is_activity", 0).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+
+			// 重置活动专用SKU的状态
+			if oldProduct.SkuID > 0 {
+				updates := map[string]interface{}{
+					"is_activity": 0,
+					"activity_id": 0,
+				}
+				if err := tx.Model(&models.ProductSku{}).
+					Where("id = ?", oldProduct.SkuID).
+					Updates(updates).Error; err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+
+		// 创建新的商品关联
+		for i := range products {
+			products[i].ActivityID = activity.ID
+			if err := tx.Create(&products[i]).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+
+			// 更新商品的 is_activity 字段为 1
+			if products[i].ProductID > 0 {
+				err := tx.Model(&models.Product{}).
+					Where("id = ?", products[i].ProductID).
+					Update("is_activity", 1).Error
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+
+			// 如果是活动专用SKU，更新SKU的活动标识
+			if products[i].SkuID > 0 {
+				updates := map[string]interface{}{
+					"is_activity": 1,
+					"activity_id": activity.ID,
+				}
+				err := tx.Model(&models.ProductSku{}).
+					Where("id = ?", products[i].SkuID).
+					Updates(updates).Error
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+			}
+		}
+	}
+
+	// 如果是兑换码活动，更新兑换码配置
+	if activity.Type == constants.ActivityTypeRedeemCode && redeemSetting != nil {
+		// 删除原有兑换码配置
+		if err := tx.Where("activity_id = ?", activity.ID).Delete(&models.ActivityRedeemSetting{}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+
+		// 创建新的兑换码配置
+		redeemSetting.ActivityID = activity.ID
+		redeemSetting.MerchantID = merchantID
+		if err := tx.Create(redeemSetting).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -157,6 +279,12 @@ func (s *ActivityService) DeleteActivity(id int, merchantID int) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("活动不存在或不属于该商户")
 		}
+		return err
+	}
+
+	// 获取活动关联的所有商品和SKU
+	var activityProducts []models.ActivityProduct
+	if err := s.db.Where("activity_id = ?", id).Find(&activityProducts).Error; err != nil {
 		return err
 	}
 
@@ -190,6 +318,33 @@ func (s *ActivityService) DeleteActivity(id int, merchantID int) error {
 	if err := tx.Delete(&models.Activity{}, id).Error; err != nil {
 		tx.Rollback()
 		return err
+	}
+
+	// 重置关联商品的 is_activity 字段为 0
+	for _, product := range activityProducts {
+		// 重置商品的 is_activity 字段
+		if product.ProductID > 0 {
+			if err := tx.Model(&models.Product{}).
+				Where("id = ?", product.ProductID).
+				Update("is_activity", 0).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+
+		// 重置活动专用SKU的状态
+		if product.SkuID > 0 {
+			updates := map[string]interface{}{
+				"is_activity": 0,
+				"activity_id": 0,
+			}
+			if err := tx.Model(&models.ProductSku{}).
+				Where("id = ?", product.SkuID).
+				Updates(updates).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
 	}
 
 	// 提交事务

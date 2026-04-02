@@ -397,12 +397,13 @@ func (cu *CacheUtil) DeleteProductCache(ctx context.Context, productID int) erro
 // - page: 页码
 // - limit: 每页条数
 // - keyword: 搜索关键词
+// - excludeActivity: 是否排除活动商品
 // 返回：
 // - string: 缓存键
 // 说明：
 // 生成标准化的商品列表缓存键，包含分页和搜索条件
-func (cu *CacheUtil) GetProductListCacheKey(page, limit int, keyword string) string {
-	return fmt.Sprintf("product:list:%d:%d:%s", page, limit, keyword)
+func (cu *CacheUtil) GetProductListCacheKey(page, limit int, keyword string, excludeActivity bool) string {
+	return fmt.Sprintf("product:list:%d:%d:%s:%t", page, limit, keyword, excludeActivity)
 }
 
 // GetProductListCache 获取商品列表缓存
@@ -417,7 +418,7 @@ func (cu *CacheUtil) GetProductListCacheKey(page, limit int, keyword string) str
 // 说明：
 // 从Redis获取商品列表缓存
 func (cu *CacheUtil) GetProductListCache(ctx context.Context, page, limit int, keyword string) (interface{}, error) {
-	key := cu.GetProductListCacheKey(page, limit, keyword)
+	key := cu.GetProductListCacheKey(page, limit, keyword, false)
 	val, err := cu.Redis.Get(ctx, key).Result()
 	if err == redis.Nil {
 		return nil, nil // 缓存不存在
@@ -448,7 +449,7 @@ func (cu *CacheUtil) GetProductListCache(ctx context.Context, page, limit int, k
 // 说明：
 // 设置商品列表缓存，添加随机偏移量防止缓存雪崩
 func (cu *CacheUtil) SetProductListCache(ctx context.Context, page, limit int, keyword string, data interface{}) error {
-	key := cu.GetProductListCacheKey(page, limit, keyword)
+	key := cu.GetProductListCacheKey(page, limit, keyword, false)
 
 	// 序列化数据
 	jsonData, err := json.Marshal(data)

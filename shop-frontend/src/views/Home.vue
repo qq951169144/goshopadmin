@@ -16,7 +16,10 @@
     <!-- 活动信息 -->
     <section class="activity-section">
       <h2>活动信息</h2>
-      <div class="activity-list">
+      <div v-if="activitiesLoading" class="loading-more">加载中...</div>
+      <div v-else-if="activitiesError" class="error-message">{{ activitiesError }}</div>
+      <div v-else-if="activities.length === 0" class="empty-message">暂无活动信息</div>
+      <div v-else class="activity-list">
         <div v-for="activity in activities" :key="activity.id" class="activity-item">
           <h3>{{ activity.title }}</h3>
           <p>{{ activity.description }}</p>
@@ -61,13 +64,15 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { productAPI } from '../api'
+import { productAPI, activityAPI } from '../api'
 
 const router = useRouter()
 const hotProducts = ref([])
 const activities = ref([])
 const searchKeyword = ref('')
 const loading = ref(false)
+const activitiesLoading = ref(false)
+const activitiesError = ref('')
 const hasMore = ref(true)
 const currentPage = ref(1)
 const pageSize = 10
@@ -140,12 +145,45 @@ const loadMore = () => {
   }
 }
 
-const loadActivities = () => {
-  activities.value = [
-    { id: 1, title: '限时折扣', description: '全场商品8折起', date: '2024-01-01 至 2024-01-31' },
-    { id: 2, title: '新品上市', description: '新年新品，限时特惠', date: '2024-01-01 至 2024-01-15' },
-    { id: 3, title: '满减活动', description: '满199减20，满399减50', date: '长期有效' }
-  ]
+const formatActivityDate = (startTime, endTime) => {
+  if (!startTime || !endTime) return '长期有效'
+  
+  const start = new Date(startTime)
+  const end = new Date(endTime)
+  
+  const startStr = start.toLocaleDateString('zh-CN')
+  const endStr = end.toLocaleDateString('zh-CN')
+  
+  return `${startStr} 至 ${endStr}`
+}
+
+const loadActivities = async () => {
+  activitiesLoading.value = true
+  activitiesError.value = ''
+  
+  try {
+    const response = await activityAPI.getActivities()
+    // 处理接口返回的数据格式
+    const activityList = response || []
+    // 转换数据格式，添加 date 字段
+    activities.value = activityList.map(activity => ({
+      id: activity.id,
+      title: activity.name,
+      description: activity.description,
+      date: formatActivityDate(activity.start_time, activity.end_time)
+    }))
+  } catch (error) {
+    console.error('加载活动失败:', error)
+    activitiesError.value = '加载活动失败'
+    // 兜底数据
+    activities.value = [
+      { id: 1, title: '限时折扣', description: '全场商品8折起', date: '2024-01-01 至 2024-01-31' },
+      { id: 2, title: '新品上市', description: '新年新品，限时特惠', date: '2024-01-01 至 2024-01-15' },
+      { id: 3, title: '满减活动', description: '满199减20，满399减50', date: '长期有效' }
+    ]
+  } finally {
+    activitiesLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -324,5 +362,27 @@ onMounted(() => {
 
 .load-more:hover {
   text-decoration: underline;
+}
+
+/* 错误消息 */
+.error-message {
+  text-align: center;
+  padding: 16px;
+  color: #ff4757;
+  font-size: 14px;
+  background-color: #fff5f5;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+/* 空消息 */
+.empty-message {
+  text-align: center;
+  padding: 16px;
+  color: #999;
+  font-size: 14px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  margin-bottom: 12px;
 }
 </style>

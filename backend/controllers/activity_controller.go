@@ -154,6 +154,10 @@ func (c *ActivityController) CreateActivity(ctx *gin.Context) {
 		if productType == "" {
 			productType = "seckill"
 		}
+		// 修复 product_type 字段值，确保与数据库枚举类型匹配
+		if activity.Type == constants.ActivityTypeRedeemCode {
+			productType = "redeem"
+		}
 
 		activityProducts = append(activityProducts, models.ActivityProduct{
 			ActivityID:    activity.ID,
@@ -193,10 +197,12 @@ func (c *ActivityController) CreateActivity(ctx *gin.Context) {
 
 // UpdateActivityRequest 更新活动请求结构体
 type UpdateActivityRequest struct {
-	Name      string `json:"name" binding:"required"`
-	StartTime string `json:"start_time" binding:"required"`
-	EndTime   string `json:"end_time" binding:"required"`
-	Status    string `json:"status" binding:"required"`
+	Name          string                              `json:"name" binding:"required"`
+	StartTime     string                              `json:"start_time" binding:"required"`
+	EndTime       string                              `json:"end_time" binding:"required"`
+	Status        string                              `json:"status" binding:"required"`
+	Products      []CreateActivityProductRequest      `json:"products"`
+	RedeemSetting *CreateActivityRedeemSettingRequest `json:"redeem_setting"`
 }
 
 // UpdateActivity 更新活动
@@ -256,7 +262,47 @@ func (c *ActivityController) UpdateActivity(ctx *gin.Context) {
 	activity.Name = req.Name
 	activity.Status = req.Status
 
-	err = c.activityService.UpdateActivity(activity, merchantID)
+	// 构建活动商品列表
+	var activityProducts []models.ActivityProduct
+	for _, p := range req.Products {
+		productType := p.ProductType
+		if productType == "" {
+			productType = "seckill"
+		}
+		// 修复 product_type 字段值，确保与数据库枚举类型匹配
+		if activity.Type == constants.ActivityTypeRedeemCode {
+			productType = "redeem"
+		}
+
+		activityProducts = append(activityProducts, models.ActivityProduct{
+			ActivityID:    activity.ID,
+			ProductID:     p.ProductID,
+			SkuID:         p.SkuID,
+			MerchantID:    merchantID,
+			OriginalPrice: p.OriginalPrice,
+			ActivityPrice: p.ActivityPrice,
+			Stock:         p.Stock,
+			ProductType:   productType,
+			Status:        constants.StatusActive,
+		})
+	}
+
+	// 构建兑换码设置
+	var redeemSetting *models.ActivityRedeemSetting
+	if activity.Type == constants.ActivityTypeRedeemCode && req.RedeemSetting != nil {
+		redeemSetting = &models.ActivityRedeemSetting{
+			ActivityID:    activity.ID,
+			MerchantID:    merchantID,
+			CodeType:      req.RedeemSetting.CodeType,
+			CodeLength:    req.RedeemSetting.CodeLength,
+			ExcludeChars:  req.RedeemSetting.ExcludeChars,
+			TotalQuantity: req.RedeemSetting.TotalQuantity,
+			LimitPerUser:  req.RedeemSetting.LimitPerUser,
+			NeedVerify:    req.RedeemSetting.NeedVerify,
+		}
+	}
+
+	err = c.activityService.UpdateActivity(activity, activityProducts, redeemSetting, merchantID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return

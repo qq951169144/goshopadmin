@@ -49,8 +49,8 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 		return nil, errors.New("活动不存在")
 	}
 
-	now := time.Now().Unix()
-	isActivityActive := activity.Status == constants.ActivityStatusActive && activity.StartTime <= now && activity.EndTime >= now
+	now := time.Now()
+	isActivityActive := activity.Status == constants.ActivityStatusActive && activity.StartTime.Before(now) && activity.EndTime.After(now)
 	if !isActivityActive {
 		tx.Rollback()
 		return nil, errors.New("活动已结束或未开始")

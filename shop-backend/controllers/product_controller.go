@@ -33,9 +33,10 @@ func (c *ProductController) GetProducts(ctx *gin.Context) {
 
 	// 从服务层获取商品列表
 	resp, err := c.productService.GetProducts(services.GetProductsRequest{
-		Page:    page,
-		Limit:   limit,
-		Keyword: keyword,
+		Page:            page,
+		Limit:           limit,
+		Keyword:         keyword,
+		ExcludeActivity: true,
 	})
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)

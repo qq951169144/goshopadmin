@@ -15,6 +15,7 @@ type Product struct {
 	CategoryID  int       `json:"category_id" gorm:"not null"`
 	MerchantID  int       `json:"merchant_id" gorm:"not null"`
 	Status      string    `json:"status" gorm:"type:enum('active','inactive');default:'active'"`
+	IsActivity  int       `json:"is_activity" gorm:"type:tinyint;default:0"`
 	CreatedAt   time.Time `json:"created_at" gorm:"type:datetime(3)"`
 	UpdatedAt   time.Time `json:"updated_at" gorm:"type:datetime(3)"`
 

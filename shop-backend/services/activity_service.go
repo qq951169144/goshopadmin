@@ -23,7 +23,7 @@ func NewActivityService(db *gorm.DB) *ActivityService {
 // GetActiveActivities 获取当前有效的活动列表
 func (s *ActivityService) GetActiveActivities() ([]models.Activity, error) {
 	var activities []models.Activity
-	now := time.Now().Unix()
+	now := time.Now()
 
 	result := s.DB.Where("status = ? AND start_time <= ? AND end_time >= ?", constants.ActivityStatusActive, now, now).Find(&activities)
 	if result.Error != nil {
@@ -47,8 +47,8 @@ func (s *ActivityService) GetActivityByID(activityID int) (*models.Activity, err
 		return nil, result.Error
 	}
 
-	now := time.Now().Unix()
-	isActivityActive := activity.Status == constants.ActivityStatusActive && activity.StartTime <= now && activity.EndTime >= now
+	now := time.Now()
+	isActivityActive := activity.Status == constants.ActivityStatusActive && activity.StartTime.Before(now) && activity.EndTime.After(now)
 	if !isActivityActive {
 		return nil, errors.New("活动已结束或未开始")
 	}
