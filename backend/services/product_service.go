@@ -32,11 +32,7 @@ func NewProductService(db *gorm.DB, redis *redis.Client) *ProductService {
 func (s *ProductService) DeleteProductCache(ctx context.Context, productID int) error {
 	// 删除商品详情缓存
 	s.CacheUtil.DeleteProductCache(ctx, productID)
-
-	// 删除商品空值缓存
-	nullKey := fmt.Sprintf("product:null:%d", productID)
-	s.CacheUtil.SetNullValue(ctx, nullKey)
-
+	// 此处不用删除或者创建空值缓存
 	// 删除商品列表缓存
 	s.CacheUtil.DeleteProductListCache(ctx)
 
@@ -130,6 +126,7 @@ func (s *ProductService) GetProductByID(id int, merchantID int) (models.Product,
 	// 4. 缓存未命中，查询数据库
 	var product models.Product
 	result := s.DB.Where("id = ? AND merchant_id = ?", id, merchantID).Preload("Category").Preload("Images").Preload("Skus").First(&product)
+	utils.Info("查询结果result = %v", result.Error)
 	if result.Error != nil {
 		// 缓存空值
 		s.CacheUtil.SetNullValue(ctx, nullKey)

@@ -96,7 +96,7 @@
           <el-form-item label="兑换码规则" required>
             <el-form :inline="true" :model="redeemCodeRules" class="mb-2">
               <el-form-item label="兑换码类型">
-                <el-select v-model="redeemCodeRules.type" placeholder="选择类型">
+                <el-select v-model="redeemCodeRules.type" placeholder="选择类型" style="width: 120px">
                   <el-option label="数字" value="number"></el-option>
                   <el-option label="字母" value="letter"></el-option>
                   <el-option label="混合" value="mixed"></el-option>
