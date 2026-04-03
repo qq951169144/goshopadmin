@@ -91,6 +91,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
+import { ElMessage } from 'element-plus';
 import { activityApi } from '../../api/auth';
 
 // 搜索表单 - 使用 reactive 确保响应式

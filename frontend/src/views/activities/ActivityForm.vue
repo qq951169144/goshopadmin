@@ -272,7 +272,10 @@ export default {
       
       // 处理关联商品
       if (activity.products) {
-        this.selectedProducts = activity.products;
+        this.selectedProducts = activity.products.map(product => ({
+          ...product,
+          sku_name: product.sku_name || product.sku_code
+        }));
       }
       
       // 处理兑换码规则
