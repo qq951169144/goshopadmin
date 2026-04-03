@@ -83,19 +83,6 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 			return nil, errors.New("查询商品失败")
 		}
 
-		// 检查库存
-		if product.Stock < item.Quantity {
-			tx.Rollback()
-			return nil, fmt.Errorf("商品 '%s' 库存不足，当前库存: %d，需要: %d", product.Name, product.Stock, item.Quantity)
-		}
-
-		// 扣减库存
-		product.Stock -= item.Quantity
-		if err := tx.Save(&product).Error; err != nil {
-			tx.Rollback()
-			return nil, errors.New("扣减库存失败")
-		}
-
 		// 查询商品主图
 		var productImage models.ProductImage
 		tx.Where("product_id = ? AND is_main = ?", item.ProductID, true).First(&productImage)
@@ -105,31 +92,52 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 		skuAttrs := "{}"
 		itemPrice := product.Price
 
-		if skuID > 0 {
-			var sku models.ProductSku
-			if err := tx.Where("id = ? AND product_id = ?", skuID, item.ProductID).First(&sku).Error; err == nil {
-				itemPrice = sku.Price
-				// 查询SKU规格属性
-				var skuSpecs []models.ProductSkuSpec
-				tx.Where("sku_id = ?", skuID).Find(&skuSpecs)
-				if len(skuSpecs) > 0 {
-					attrs := make(map[string]string)
-					for _, spec := range skuSpecs {
-						// 查询规格名称
-						var specification models.ProductSpecification
-						tx.Where("id = ?", spec.SpecID).First(&specification)
-						// 查询规格值
-						var specValue models.ProductSpecificationValue
-						tx.Where("id = ?", spec.SpecValueID).First(&specValue)
-						if specification.ID > 0 && specValue.ID > 0 {
-							attrs[specification.Name] = specValue.Value
-						}
-					}
-					if len(attrs) > 0 {
-						attrsJSON, _ := json.Marshal(attrs)
-						skuAttrs = string(attrsJSON)
-					}
+		// 必须指定SKU
+		if skuID <= 0 {
+			tx.Rollback()
+			return nil, errors.New("商品必须指定SKU")
+		}
+
+		// 查询SKU信息
+		var sku models.ProductSku
+		if err := tx.Where("id = ? AND product_id = ?", skuID, item.ProductID).First(&sku).Error; err != nil {
+			tx.Rollback()
+			return nil, errors.New("SKU不存在")
+		}
+
+		// 检查SKU库存
+		if sku.Stock < item.Quantity {
+			tx.Rollback()
+			return nil, fmt.Errorf("商品 '%s' SKU库存不足，当前库存: %d，需要: %d", product.Name, sku.Stock, item.Quantity)
+		}
+
+		// 扣减SKU库存
+		sku.Stock -= item.Quantity
+		if err := tx.Save(&sku).Error; err != nil {
+			tx.Rollback()
+			return nil, errors.New("扣减SKU库存失败")
+		}
+
+		itemPrice = sku.Price
+		// 查询SKU规格属性
+		var skuSpecs []models.ProductSkuSpec
+		tx.Where("sku_id = ?", skuID).Find(&skuSpecs)
+		if len(skuSpecs) > 0 {
+			attrs := make(map[string]string)
+			for _, spec := range skuSpecs {
+				// 查询规格名称
+				var specification models.ProductSpecification
+				tx.Where("id = ?", spec.SpecID).First(&specification)
+				// 查询规格值
+				var specValue models.ProductSpecificationValue
+				tx.Where("id = ?", spec.SpecValueID).First(&specValue)
+				if specification.ID > 0 && specValue.ID > 0 {
+					attrs[specification.Name] = specValue.Value
 				}
+			}
+			if len(attrs) > 0 {
+				attrsJSON, _ := json.Marshal(attrs)
+				skuAttrs = string(attrsJSON)
 			}
 		}
 
@@ -158,13 +166,15 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 
 	// 创建订单
 	order := models.Order{
-		OrderNo:       orderNo,
-		CustomerID:    req.CustomerID,
-		MerchantID:    1, // 默认商户ID
-		TotalAmount:   totalAmount,
-		Status:        constants.OrderStatusPending,
-		AddressID:     req.AddressID,
-		PaymentMethod: "fake",
+		OrderNo:        orderNo,
+		CustomerID:     req.CustomerID,
+		MerchantID:     1, // 默认商户ID
+		TotalAmount:    totalAmount,
+		Status:         constants.OrderStatusPending,
+		PaymentStatus:  constants.PaymentStatusPending,  // 初始支付状态
+		ShippingStatus: constants.ShippingStatusPending, // 初始物流状态
+		AddressID:      req.AddressID,
+		PaymentMethod:  "fake",
 	}
 
 	if err := tx.Create(&order).Error; err != nil {
@@ -345,19 +355,29 @@ func (s *OrderService) GetOrderDetail(orderNo string, customerID int) (map[strin
 }
 
 // UpdateOrderStatus 更新订单状态
-func (s *OrderService) UpdateOrderStatus(orderNo, status, transactionID string) error {
+func (s *OrderService) UpdateOrderStatus(orderNo, status, paymentStatus, transactionID string) error {
 	var order models.Order
 	result := s.db.Where("order_no = ?", orderNo).First(&order)
 	if result.RowsAffected == 0 {
 		return errors.New("订单不存在")
 	}
 
+	// 更新订单状态
 	order.Status = status
-	order.TransactionID = transactionID
+
+	// 更新支付状态（如果提供）
+	if paymentStatus != "" {
+		order.PaymentStatus = paymentStatus
+	}
+
+	// 记录支付信息
 	if status == constants.OrderStatusPaid {
 		now := time.Now()
 		order.PaidAt = &now
+		order.TransactionID = transactionID
 	}
+
+	// 保存更新
 	if err := s.db.Save(&order).Error; err != nil {
 		return errors.New("更新订单状态失败")
 	}
@@ -412,6 +432,7 @@ func (s *OrderService) ConfirmReceipt(orderNo string, customerID int) error {
 	}
 
 	order.Status = constants.OrderStatusCompleted
+	order.ShippingStatus = constants.ShippingStatusDelivered
 	now := time.Now()
 	order.DeliveredAt = &now
 
@@ -435,4 +456,50 @@ func (s *OrderService) GetOrderByOrderNo(orderNo string) (*models.Order, error) 
 		return nil, errors.New("订单不存在")
 	}
 	return &order, nil
+}
+
+// ShipOrder 发货
+func (s *OrderService) ShipOrder(orderNo string, trackingNo string) error {
+	var order models.Order
+	if err := s.db.Where("order_no = ?", orderNo).First(&order).Error; err != nil {
+		return err
+	}
+
+	order.Status = constants.OrderStatusShipped
+	order.ShippingStatus = constants.ShippingStatusShipped
+	now := time.Now()
+	order.ShippedAt = &now
+
+	if err := s.db.Save(&order).Error; err != nil {
+		return err
+	}
+
+	// 清理缓存
+	ctx := context.Background()
+	s.cacheUtil.DeleteOrderCacheByOrderNo(ctx, orderNo)
+
+	return nil
+}
+
+// CompleteOrder 确认收货
+func (s *OrderService) CompleteOrder(orderNo string) error {
+	var order models.Order
+	if err := s.db.Where("order_no = ?", orderNo).First(&order).Error; err != nil {
+		return err
+	}
+
+	order.Status = constants.OrderStatusCompleted
+	order.ShippingStatus = constants.ShippingStatusDelivered
+	now := time.Now()
+	order.DeliveredAt = &now
+
+	if err := s.db.Save(&order).Error; err != nil {
+		return err
+	}
+
+	// 清理缓存
+	ctx := context.Background()
+	s.cacheUtil.DeleteOrderCacheByOrderNo(ctx, orderNo)
+
+	return nil
 }

@@ -42,8 +42,8 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 		// 生成交易ID
 		transactionID := fmt.Sprintf("TRX%s", time.Now().Format("20060102150405"))
 
-		// 更新订单状态
-		c.orderService.UpdateOrderStatus(orderNo, constants.OrderStatusPaid, transactionID)
+		// 更新订单状态和支付状态
+		c.orderService.UpdateOrderStatus(orderNo, constants.OrderStatusPaid, constants.PaymentStatusSuccess, transactionID)
 	}()
 
 	// 返回 JSON 响应
@@ -84,7 +84,7 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 	}
 
 	// 更新订单状态
-	err = c.orderService.UpdateOrderStatus(req.OrderNo, req.Status, req.TransactionID)
+	err = c.orderService.UpdateOrderStatus(req.OrderNo, req.Status, constants.PaymentStatusSuccess, req.TransactionID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
