@@ -458,6 +458,35 @@ func (s *OrderService) GetOrderByOrderNo(orderNo string) (*models.Order, error) 
 	return &order, nil
 }
 
+// GetOrderByID 根据订单ID获取订单
+func (s *OrderService) GetOrderByID(orderID int) (*models.Order, error) {
+	var order models.Order
+	result := s.db.Where("id = ?", orderID).First(&order)
+	if result.RowsAffected == 0 {
+		return nil, errors.New("订单不存在")
+	}
+	return &order, nil
+}
+
+// CancelOrderByID 根据订单ID取消订单
+func (s *OrderService) CancelOrderByID(orderID int) error {
+	var order models.Order
+	result := s.db.Where("id = ?", orderID).First(&order)
+	if result.RowsAffected == 0 {
+		return errors.New("订单不存在")
+	}
+
+	order.Status = constants.OrderStatusCancelled
+	now := time.Now()
+	order.CancelledAt = &now
+
+	if err := s.db.Save(&order).Error; err != nil {
+		return errors.New("取消订单失败")
+	}
+
+	return nil
+}
+
 // ShipOrder 发货
 func (s *OrderService) ShipOrder(orderNo string, trackingNo string) error {
 	var order models.Order

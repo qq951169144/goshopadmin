@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"log"
 
+	"shop-backend/cache"
 	"shop-backend/config"
 	"shop-backend/middleware"
+	"shop-backend/pkg/mq"
 	"shop-backend/routes"
+	"shop-backend/services"
 	"shop-backend/utils"
 
 	"github.com/gin-gonic/gin"
@@ -47,7 +50,24 @@ func main() {
 	// 7. 设置路由
 	routes.SetupRoutes(r, conn.DB, conn.Redis, cfg)
 
-	// 8. 启动服务器
+	// 8. 初始化MQ消费者
+	go func() {
+		// 初始化缓存工具
+		cacheUtil := cache.NewCacheUtil(conn.DB, conn.Redis)
+		
+		// 初始化服务
+		orderService := services.NewOrderService(conn.DB, cacheUtil)
+		activityOrderService := services.NewActivityOrderService(conn.DB)
+		productService := services.NewProductService(conn.DB, cacheUtil)
+		
+		// 初始化MQ消费者
+		err := mq.InitConsumers(orderService, activityOrderService, productService)
+		if err != nil {
+			log.Printf("初始化MQ消费者失败: %v", err)
+		}
+	}()
+
+	// 9. 启动服务器
 	port := cfg.ServerPort
 	fmt.Printf("Server starting on port %s...\n", port)
 	if err := r.Run(":" + port); err != nil {

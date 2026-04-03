@@ -134,3 +134,27 @@ const (
 	// RedeemLogStatusFailed 兑换失败状态
 	RedeemLogStatusFailed = "failed"
 )
+
+// MQ相关常量
+const (
+	// 交换机名称
+	MQExchangeActivity     = "activity_exchange"
+	MQExchangeOrderStatus  = "order_status_exchange"
+	MQExchangeDeadLetter   = "dead_letter_exchange"
+	
+	// 队列名称
+	MQQueueActivityOrder          = "activity_order_queue"
+	MQQueueOrderStatus            = "order_status_queue"
+	MQQueueOrderDelay             = "order_delay_queue"
+	MQQueueOrderDeadLetter        = "order_dead_letter_queue"
+	MQQueueActivityOrderDelay     = "activity_order_delay_queue"
+	MQQueueActivityOrderDeadLetter = "activity_order_dead_letter_queue"
+	
+	// 路由键
+	MQRoutingKeyActivityOrder = "activity_order"
+	MQRoutingKeyOrderStatus   = "order_status"
+	MQRoutingKeyDeadLetter    = "dead_letter"
+	
+	// 超时时间（毫秒）
+	MQOrderTimeoutTTL = 30 * 60 * 1000
+)

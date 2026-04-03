@@ -1,8 +1,11 @@
 package controllers
 
 import (
+	"shop-backend/constants"
 	"shop-backend/errors"
+	"shop-backend/pkg/mq"
 	"shop-backend/services"
+	"shop-backend/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -47,20 +50,34 @@ func (c *ActivityOrderController) CreateActivityOrder(ctx *gin.Context) {
 		return
 	}
 
-	items := make([]services.ActivityOrderItem, len(req.Items))
-	for i, item := range req.Items {
-		items[i].ProductID = item.ProductID
-		items[i].SkuID = item.SkuID
-		items[i].Quantity = item.Quantity
-	}
+	// 发送到消息队列
+	go func() {
+		conn, err := mq.NewConnection()
+		if err != nil {
+			utils.Error("创建MQ连接失败: %v", err)
+			return
+		}
+		defer conn.Close()
 
-	order, err := c.activityOrderService.CreateActivityOrder(customerID.(int), req.ActivityID, items)
-	if err != nil {
-		c.ResponseError(ctx, errors.CodeInternalError, err)
-		return
-	}
+		producer := mq.NewProducer(conn)
+		
+		// 构建消息
+		msg := map[string]interface{}{
+			"customer_id": customerID.(int),
+			"activity_id": req.ActivityID,
+			"items":      req.Items,
+		}
+		
+		err = producer.Publish(constants.MQExchangeActivity, constants.MQRoutingKeyActivityOrder, msg)
+		if err != nil {
+			utils.Error("发送活动订单消息失败: %v", err)
+		}
+	}()
 
-	c.ResponseSuccess(ctx, order)
+	// 立即返回，异步处理
+	c.ResponseSuccess(ctx, gin.H{
+		"message": "订单已提交，正在处理中",
+	})
 }
 
 // GetActivityOrders 获取用户活动订单列表

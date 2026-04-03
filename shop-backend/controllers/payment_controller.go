@@ -7,7 +7,9 @@ import (
 	"shop-backend/cache"
 	"shop-backend/constants"
 	"shop-backend/errors"
+	"shop-backend/pkg/mq"
 	"shop-backend/services"
+	"shop-backend/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -43,7 +45,30 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 		transactionID := fmt.Sprintf("TRX%s", time.Now().Format("20060102150405"))
 
 		// 更新订单状态和支付状态
-		c.orderService.UpdateOrderStatus(orderNo, constants.OrderStatusPaid, constants.PaymentStatusSuccess, transactionID)
+		err := c.orderService.UpdateOrderStatus(orderNo, constants.OrderStatusPaid, constants.PaymentStatusSuccess, transactionID)
+		if err != nil {
+			utils.Error("更新订单状态失败: %v", err)
+			return
+		}
+
+		// 发送状态变更消息
+		conn, err := mq.NewConnection()
+		if err != nil {
+			utils.Error("创建MQ连接失败: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		producer := mq.NewProducer(conn)
+		msg := map[string]interface{}{
+			"order_id": order.ID,
+			"status":   constants.OrderStatusPaid,
+			"updated_at": time.Now(),
+		}
+		err = producer.Publish(constants.MQExchangeOrderStatus, constants.MQRoutingKeyOrderStatus, msg)
+		if err != nil {
+			utils.Error("发送订单状态变更消息失败: %v", err)
+		}
 	}()
 
 	// 返回 JSON 响应
@@ -89,6 +114,27 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
+
+	// 发送状态变更消息
+	go func() {
+		conn, err := mq.NewConnection()
+		if err != nil {
+			utils.Error("创建MQ连接失败: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		producer := mq.NewProducer(conn)
+		msg := map[string]interface{}{
+			"order_id": order.ID,
+			"status":   req.Status,
+			"updated_at": time.Now(),
+		}
+		err = producer.Publish(constants.MQExchangeOrderStatus, constants.MQRoutingKeyOrderStatus, msg)
+		if err != nil {
+			utils.Error("发送订单状态变更消息失败: %v", err)
+		}
+	}()
 
 	c.ResponseSuccess(ctx, gin.H{
 		"message":        "Payment callback received",

@@ -2,8 +2,12 @@ package controllers
 
 import (
 	"shop-backend/cache"
+	"shop-backend/constants"
 	"shop-backend/errors"
+	"shop-backend/pkg/mq"
 	"shop-backend/services"
+	"shop-backend/utils"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -72,6 +76,30 @@ func (c *OrderController) CreateOrder(ctx *gin.Context) {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
+
+	// 发送延迟消息（30分钟后检查订单状态）
+	go func() {
+		conn, err := mq.NewConnection()
+		if err != nil {
+			utils.Error("创建MQ连接失败: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		producer := mq.NewProducer(conn)
+
+		// 订单延迟消息
+		msg := map[string]interface{}{
+			"order_id":   order.OrderID,
+			"created_at": time.Now(),
+		}
+
+		// 30分钟 = 30 * 60 * 1000 毫秒
+		err = producer.PublishWithTTL("", constants.MQQueueOrderDelay, msg, constants.MQOrderTimeoutTTL)
+		if err != nil {
+			utils.Error("发送延迟消息失败: %v", err)
+		}
+	}()
 
 	c.ResponseSuccess(ctx, order)
 }
