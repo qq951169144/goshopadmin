@@ -20,7 +20,7 @@
       <div v-else-if="activitiesError" class="error-message">{{ activitiesError }}</div>
       <div v-else-if="activities.length === 0" class="empty-message">暂无活动信息</div>
       <div v-else class="activity-list">
-        <div v-for="activity in activities" :key="activity.id" class="activity-item">
+        <div v-for="activity in activities" :key="activity.id" class="activity-item" @click="goToActivityDetail(activity.id)">
           <h3>{{ activity.title }}</h3>
           <p>{{ activity.description }}</p>
           <span class="activity-date">{{ activity.date }}</span>
@@ -99,6 +99,10 @@ const getProductImage = (product) => {
 
 const navigateToProduct = (id) => {
   router.push(`/product/${id}`)
+}
+
+const goToActivityDetail = (activityId) => {
+  router.push(`/activity/${activityId}`)
 }
 
 const handleSearch = () => {

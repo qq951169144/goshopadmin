@@ -2,9 +2,9 @@ package mq
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/rabbitmq/amqp091-go"
+	"shop-backend/utils"
 )
 
 // Consumer 消息消费者
@@ -39,12 +39,12 @@ func (c *Consumer) Consume(queue string, handler func([]byte) error) error {
 	// 处理消息
 	go func() {
 		for msg := range msgs {
-			log.Printf("收到消息: %s", string(msg.Body))
+			utils.Info("收到消息: %s", string(msg.Body))
 			
 			// 处理消息
 			err := handler(msg.Body)
 			if err != nil {
-				log.Printf("处理消息失败: %v", err)
+				utils.Error("处理消息失败: %v", err)
 				// 拒绝消息并重新入队
 				msg.Nack(false, true)
 				continue

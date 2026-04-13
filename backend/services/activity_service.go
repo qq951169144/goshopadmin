@@ -19,6 +19,24 @@ func NewActivityService(db *gorm.DB) *ActivityService {
 	return &ActivityService{db: db}
 }
 
+// CheckSkuBoundToOtherActivity 检查SKU是否已绑定其他活动
+func (s *ActivityService) CheckSkuBoundToOtherActivity(skuID int, activityID int) error {
+	if skuID <= 0 {
+		return nil
+	}
+	var count int64
+	err := s.db.Model(&models.ActivityProduct{}).
+		Where("sku_id = ? AND activity_id != ? AND status = 'active'", skuID, activityID).
+		Count(&count).Error
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("该SKU商品已绑定其他活动，请先解绑")
+	}
+	return nil
+}
+
 // CreateActivity 创建活动
 func (s *ActivityService) CreateActivity(activity *models.Activity, products []models.ActivityProduct, redeemSetting *models.ActivityRedeemSetting) error {
 	// 开始事务
@@ -38,6 +56,12 @@ func (s *ActivityService) CreateActivity(activity *models.Activity, products []m
 	// 关联活动商品
 	for i := range products {
 		products[i].ActivityID = activity.ID
+
+		if err := s.CheckSkuBoundToOtherActivity(products[i].SkuID, activity.ID); err != nil {
+			tx.Rollback()
+			return err
+		}
+
 		if err := tx.Create(&products[i]).Error; err != nil {
 			tx.Rollback()
 			return err
@@ -211,6 +235,12 @@ func (s *ActivityService) UpdateActivity(activity *models.Activity, products []m
 		// 创建新的商品关联
 		for i := range products {
 			products[i].ActivityID = activity.ID
+
+			if err := s.CheckSkuBoundToOtherActivity(products[i].SkuID, activity.ID); err != nil {
+				tx.Rollback()
+				return err
+			}
+
 			if err := tx.Create(&products[i]).Error; err != nil {
 				tx.Rollback()
 				return err

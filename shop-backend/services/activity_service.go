@@ -10,6 +10,18 @@ import (
 	"gorm.io/gorm"
 )
 
+type ActivitySkuResponse struct {
+	SkuID       int     `json:"sku_id"`
+	SkuCode     string  `json:"sku_code"`
+	Price       float64 `json:"price"`
+	Stock       int     `json:"stock"`
+	ProductID   int     `json:"product_id"`
+	ProductName string  `json:"product_name"`
+	ProductDesc string  `json:"description"`
+	IsActivity  int     `json:"is_activity"`
+	MainImage   string  `json:"main_image"`
+}
+
 // ActivityService 活动服务
 type ActivityService struct {
 	DB *gorm.DB
@@ -74,16 +86,44 @@ func (s *ActivityService) GetActivityProducts(activityID int) ([]models.Activity
 }
 
 // GetActivityProductSkus 获取活动商品的SKU列表
-func (s *ActivityService) GetActivityProductSkus(activityID int, productID int) ([]models.ProductSku, error) {
-	var skus []models.ProductSku
+func (s *ActivityService) GetActivityProductSkus(activityID int) ([]ActivitySkuResponse, error) {
+	var results []ActivitySkuResponse
 
-	result := s.DB.Where("activity_id = ? AND product_id = ? AND status = ?", activityID, productID, constants.StatusActive).Find(&skus)
-	if result.Error != nil {
-		utils.Error("获取活动商品SKU失败: %v", result.Error)
-		return nil, result.Error
+	err := s.DB.Table("activity_products").
+		Select(`
+			activity_products.sku_id,
+			activity_products.status,
+			product_skus.sku_code,
+			product_skus.price,
+			product_skus.stock,
+			activity_products.product_id,
+			products.name as product_name,
+			products.description,
+			products.is_activity,
+			product_images.image_url as main_image
+		`).
+		Joins("JOIN product_skus ON activity_products.sku_id = product_skus.id").
+		Joins("JOIN products ON activity_products.product_id = products.id").
+		Joins(`
+			LEFT JOIN product_images
+				ON product_images.id = (
+					SELECT pi.id
+					FROM product_images pi
+					WHERE pi.product_id = activity_products.product_id
+						AND pi.is_main = 1
+					ORDER BY pi.sort ASC
+					LIMIT 1
+				)
+		`).
+		Where("activity_products.activity_id = ? AND activity_products.status = ?", activityID, constants.ActivityStatusActive).
+		Scan(&results).Error
+
+	if err != nil {
+		utils.Error("获取活动商品SKU失败: %v", err)
+		return nil, err
 	}
 
-	return skus, nil
+	return results, nil
 }
 
 // CheckActivityStock 检查活动商品库存

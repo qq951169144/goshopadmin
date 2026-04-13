@@ -77,13 +77,7 @@ func (c *ActivityController) GetActivityProductSkus(ctx *gin.Context) {
 		return
 	}
 
-	productID, err := strconv.Atoi(ctx.Param("product_id"))
-	if err != nil {
-		c.ResponseError(ctx, errors.CodeParamError, err)
-		return
-	}
-
-	skus, err := c.activityService.GetActivityProductSkus(activityID, productID)
+	skus, err := c.activityService.GetActivityProductSkus(activityID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeInternalError, err)
 		return

@@ -1,10 +1,9 @@
 package mq
 
 import (
-	"log"
-
 	"shop-backend/constants"
 	"shop-backend/services"
+	"shop-backend/utils"
 )
 
 // InitConsumers 初始化消费者
@@ -85,6 +84,6 @@ func InitConsumers(orderService *services.OrderService, activityOrderService *se
 		return err
 	}
 
-	log.Println("消费者初始化完成")
+	utils.Info("消费者初始化完成")
 	return nil
 }

@@ -8,7 +8,6 @@ import (
 type Activity struct {
 	ID          int               `json:"id" gorm:"primaryKey"`
 	Name        string            `json:"name" gorm:"size:100;not null"`
-	Description string            `json:"description" gorm:"type:text"`
 	Status      string            `json:"status" gorm:"size:20;not null;default:active"`
 	StartTime   time.Time         `json:"start_time" gorm:"not null"`
 	EndTime     time.Time         `json:"end_time" gorm:"not null"`

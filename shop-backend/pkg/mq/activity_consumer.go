@@ -2,10 +2,10 @@ package mq
 
 import (
 	"encoding/json"
-	"log"
 
 	"shop-backend/constants"
 	"shop-backend/services"
+	"shop-backend/utils"
 )
 
 // ActivityConsumer 活动订单消费者
@@ -52,7 +52,7 @@ func (ac *ActivityConsumer) HandleActivityOrder(msg []byte) error {
 	// 创建活动订单
 	order, err := ac.activityOrderService.CreateActivityOrder(req.CustomerID, req.ActivityID, activityOrderItems)
 	if err != nil {
-		log.Printf("创建活动订单失败: %v", err)
+		utils.Error("创建活动订单失败: %v", err)
 		return err
 	}
 
@@ -60,7 +60,7 @@ func (ac *ActivityConsumer) HandleActivityOrder(msg []byte) error {
 	go func() {
 		conn, err := NewConnection()
 		if err != nil {
-			log.Printf("创建MQ连接失败: %v", err)
+			utils.Error("创建MQ连接失败: %v", err)
 			return
 		}
 		defer conn.Close()
@@ -76,11 +76,11 @@ func (ac *ActivityConsumer) HandleActivityOrder(msg []byte) error {
 		// 30分钟超时
 		err = producer.PublishWithTTL("", constants.MQQueueActivityOrderDelay, delayMsg, constants.MQOrderTimeoutTTL)
 		if err != nil {
-			log.Printf("发送活动订单延迟消息失败: %v", err)
+			utils.Error("发送活动订单延迟消息失败: %v", err)
 		}
 	}()
 
-	log.Printf("活动订单创建成功")
+	utils.Info("活动订单创建成功")
 	return nil
 }
 
@@ -109,6 +109,6 @@ func (ac *ActivityConsumer) HandleTimeoutActivityOrder(msg []byte) error {
 		return err
 	}
 
-	log.Printf("活动订单 %d 超时未支付，已自动取消", message.OrderID)
+	utils.Info("活动订单 %d 超时未支付，已自动取消", message.OrderID)
 	return nil
 }

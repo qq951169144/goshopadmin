@@ -2,8 +2,8 @@ package mq
 
 import (
 	"encoding/json"
-	"log"
 	"shop-backend/services"
+	"shop-backend/utils"
 )
 
 // OrderConsumer 订单消费者
@@ -43,6 +43,6 @@ func (oc *OrderConsumer) HandleTimeoutOrder(msg []byte) error {
 		return err
 	}
 
-	log.Printf("订单 %d 超时未支付，已自动取消", message.OrderID)
+	utils.Info("订单 %d 超时未支付，已自动取消", message.OrderID)
 	return nil
 }

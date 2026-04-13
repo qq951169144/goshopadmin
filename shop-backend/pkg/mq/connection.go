@@ -2,11 +2,11 @@ package mq
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/rabbitmq/amqp091-go"
 	"shop-backend/config"
+	"shop-backend/utils"
 )
 
 // Connection RabbitMQ连接管理
@@ -44,7 +44,7 @@ func NewConnection() (*Connection, error) {
 func (c *Connection) Close() error {
 	if c.channel != nil {
 		if err := c.channel.Close(); err != nil {
-			log.Printf("关闭通道失败: %v", err)
+			utils.Error("关闭通道失败: %v", err)
 		}
 	}
 	if c.conn != nil {
@@ -61,7 +61,7 @@ func (c *Connection) Channel() *amqp091.Channel {
 // Reconnect 重新连接
 func (c *Connection) Reconnect() error {
 	if err := c.Close(); err != nil {
-		log.Printf("关闭旧连接失败: %v", err)
+		utils.Error("关闭旧连接失败: %v", err)
 	}
 
 	cfg := config.GetMQConfig()
@@ -75,7 +75,7 @@ func (c *Connection) Reconnect() error {
 		if err == nil {
 			break
 		}
-		log.Printf("重连失败，%d秒后重试: %v", i+1, err)
+		utils.Info("重连失败，%d秒后重试: %v", i+1, err)
 		time.Sleep(time.Duration(i+1) * time.Second)
 	}
 

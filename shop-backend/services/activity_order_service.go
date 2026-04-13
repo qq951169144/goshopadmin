@@ -60,13 +60,7 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 	orderItems := make([]models.OrderItem, 0, len(items))
 
 	for _, item := range items {
-		err := s.activityService.CheckUserActivityLimit(activityID, item.ProductID, customerID)
-		if err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-
-		err = s.activityService.CheckActivityStock(activityID, item.ProductID, item.SkuID, item.Quantity)
+		err := s.activityService.CheckActivityStock(activityID, item.ProductID, item.SkuID, item.Quantity)
 		if err != nil {
 			tx.Rollback()
 			return nil, err

@@ -2,7 +2,7 @@ package mq
 
 import (
 	"encoding/json"
-	"log"
+	"shop-backend/utils"
 )
 
 // StatusConsumer 状态变更消费者
@@ -27,7 +27,7 @@ func (sc *StatusConsumer) HandleOrderStatus(msg []byte) error {
 	}
 
 	// 处理状态变更（这里可以根据需要扩展，比如发送通知、更新缓存等）
-	log.Printf("订单 %d 状态变更为: %s", message.OrderID, message.Status)
+	utils.Info("订单 %d 状态变更为: %s", message.OrderID, message.Status)
 
 	// 示例：发送通知
 	// 这里可以调用通知服务发送短信、邮件等

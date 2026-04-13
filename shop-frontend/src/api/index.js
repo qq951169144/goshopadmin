@@ -342,7 +342,25 @@ export const captchaAPI = {
 // 活动相关API
 export const activityAPI = {
   // 获取活动列表
-  getActivities: () => api.get('/activities')
+  getActivities: () => api.get('/activities'),
+  // 获取活动详情
+  getActivityDetail: (id) => api.get(`/activities/${id}`),
+  // 获取活动商品SKU列表
+  getActivityProductSkus: (activityId) => api.get(`/activities/${activityId}/skus`)
+}
+
+// 活动订单相关API
+export const activityOrderAPI = {
+  // 创建活动订单
+  createActivityOrder: (data) => api.post('/activity-orders', data),
+  // 获取活动订单列表
+  getActivityOrders: (params) => api.get('/activity-orders', { params }),
+  // 获取活动订单详情
+  getActivityOrderDetail: (id) => api.get(`/activity-orders/${id}`),
+  // 取消活动订单
+  cancelActivityOrder: (id) => api.put(`/activity-orders/${id}/cancel`),
+  // 确认收货
+  confirmActivityOrder: (id) => api.put(`/activity-orders/${id}/confirm`)
 }
 
 export default api
