@@ -189,6 +189,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			activities.GET("/:id", deps.ActivityController.GetActivity)
 			activities.GET("/:id/products", deps.ActivityController.GetActivityProducts)
 			activities.GET("/:id/skus", deps.ActivityController.GetActivityProductSkus)
+			activities.GET("/:id/skus/:sku_id", deps.ActivityController.GetActivitySkuDetail)
 		}
 
 		// 2.10 兑换码路由

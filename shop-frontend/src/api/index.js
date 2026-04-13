@@ -346,7 +346,9 @@ export const activityAPI = {
   // 获取活动详情
   getActivityDetail: (id) => api.get(`/activities/${id}`),
   // 获取活动商品SKU列表
-  getActivityProductSkus: (activityId) => api.get(`/activities/${activityId}/skus`)
+  getActivityProductSkus: (activityId) => api.get(`/activities/${activityId}/skus`),
+  // 获取活动商品SKU详情
+  getActivitySkuDetail: (activityId, skuId) => api.get(`/activities/${activityId}/skus/${skuId}`)
 }
 
 // 活动订单相关API

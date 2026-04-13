@@ -91,9 +91,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { activityOrderAPI, paymentAPI } from '../api'
+import { wsClient } from '../utils/websocket'
+import { useMessageStore } from '../store/message'
 
 const router = useRouter()
 const orders = ref([])
@@ -102,6 +104,8 @@ const currentTab = ref('all')
 const currentPage = ref(1)
 const pageSize = 10
 const hasMore = ref(true)
+
+const messageStore = useMessageStore()
 
 const defaultImage = 'https://via.placeholder.com/80x80?text=No+Image'
 
@@ -248,6 +252,54 @@ const loadMore = () => {
 
 onMounted(() => {
   loadOrders()
+
+  wsClient.on('order_created', (data) => {
+    loadOrders()
+    messageStore.addMessage({
+      type: 'order_created',
+      data: data
+    })
+  })
+
+  wsClient.on('order_canceled', (data) => {
+    loadOrders()
+    messageStore.addMessage({
+      type: 'order_canceled',
+      data: data
+    })
+  })
+
+  wsClient.on('order_paid', (data) => {
+    loadOrders()
+    messageStore.addMessage({
+      type: 'order_paid',
+      data: data
+    })
+  })
+
+  wsClient.on('order_shipped', (data) => {
+    loadOrders()
+    messageStore.addMessage({
+      type: 'order_shipped',
+      data: data
+    })
+  })
+
+  wsClient.on('order_received', (data) => {
+    loadOrders()
+    messageStore.addMessage({
+      type: 'order_received',
+      data: data
+    })
+  })
+})
+
+onUnmounted(() => {
+  wsClient.off('order_created')
+  wsClient.off('order_canceled')
+  wsClient.off('order_paid')
+  wsClient.off('order_shipped')
+  wsClient.off('order_received')
 })
 
 watch(currentTab, () => {

@@ -22,6 +22,21 @@ type ActivitySkuResponse struct {
 	MainImage   string  `json:"main_image"`
 }
 
+type ActivitySkuDetailResponse struct {
+	ActivityName        string  `json:"activity_name"`
+	ActivityID          int     `json:"activity_id"`
+	SkuID               int     `json:"sku_id"`
+	SkuCode             string  `json:"sku_code"`
+	Price               float64 `json:"price"`
+	Stock               int     `json:"stock"`
+	SkuStatus           string  `json:"sku_status"`
+	IsActivity          int     `json:"is_activity"`
+	ProductID           int     `json:"product_id"`
+	ProductName         string  `json:"product_name"`
+	ProductDescription  string  `json:"product_description"`
+	MainImage           string  `json:"main_image"`
+}
+
 // ActivityService 活动服务
 type ActivityService struct {
 	DB *gorm.DB
@@ -124,6 +139,50 @@ func (s *ActivityService) GetActivityProductSkus(activityID int) ([]ActivitySkuR
 	}
 
 	return results, nil
+}
+
+// GetActivitySkuDetail 获取活动商品SKU详情
+func (s *ActivityService) GetActivitySkuDetail(activityID int, skuID int) (*ActivitySkuDetailResponse, error) {
+	var result ActivitySkuDetailResponse
+
+	err := s.DB.Table("activity_products").
+		Select(`
+			activities.name as activity_name,
+			activity_products.activity_id,
+			activity_products.sku_id,
+			product_skus.sku_code,
+			product_skus.price,
+			product_skus.stock,
+			product_skus.status as sku_status,
+			product_skus.is_activity,
+			product_skus.product_id,
+			products.name as product_name,
+			products.description as product_description,
+			product_images.image_url as main_image
+		`).
+		Joins("JOIN activities ON activity_products.activity_id = activities.id").
+		Joins("JOIN product_skus ON activity_products.sku_id = product_skus.id").
+		Joins("JOIN products ON activity_products.product_id = products.id").
+		Joins(`
+			LEFT JOIN product_images
+				ON product_images.id = (
+					SELECT pi.id
+					FROM product_images pi
+					WHERE pi.product_id = activity_products.product_id
+						AND pi.is_main = 1
+					ORDER BY pi.sort ASC
+					LIMIT 1
+				)
+		`).
+		Where("activity_products.activity_id = ? AND activity_products.sku_id = ? AND activity_products.status = ?", activityID, skuID, constants.ActivityStatusActive).
+		Scan(&result).Error
+
+	if err != nil {
+		utils.Error("获取活动商品SKU详情失败: %v", err)
+		return nil, err
+	}
+
+	return &result, nil
 }
 
 // CheckActivityStock 检查活动商品库存

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"shop-backend/services"
 	"shop-backend/utils"
+	ws "shop-backend/pkg/websocket"
 )
 
 // OrderConsumer 订单消费者
@@ -42,6 +43,15 @@ func (oc *OrderConsumer) HandleTimeoutOrder(msg []byte) error {
 	if err != nil {
 		return err
 	}
+
+	// 发送WebSocket站内信通知
+	cancelData := map[string]interface{}{
+		"order_id": order.ID,
+		"order_no": order.OrderNo,
+		"status":   "cancelled",
+		"reason":   "超时未支付",
+	}
+	ws.SendToCustomerAsync(order.CustomerID, ws.MessageTypeOrderCanceled, cancelData)
 
 	utils.Info("订单 %d 超时未支付，已自动取消", message.OrderID)
 	return nil

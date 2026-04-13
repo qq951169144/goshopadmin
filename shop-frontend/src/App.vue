@@ -1,8 +1,21 @@
 <template>
   <div id="app">
+    <!-- 顶部导航栏 -->
+    <header class="top-nav" v-if="showTopNav">
+      <router-link to="/messages" class="nav-item">
+        <span class="nav-icon">📬</span>
+        <span v-if="unreadMessageCount > 0" class="message-badge">{{ unreadMessageCount > 99 ? '99+' : unreadMessageCount }}</span>
+      </router-link>
+      <span class="nav-title">GoShop</span>
+      <router-link to="/customer/service" class="nav-item">
+        <span class="nav-icon">📞</span>
+      </router-link>
+    </header>
+
     <div class="main-content">
       <router-view />
     </div>
+
     <!-- 底部导航栏 -->
     <nav class="bottom-nav" v-if="showBottomNav">
       <router-link to="/" class="nav-item" :class="{ active: $route.path === '/' }">
@@ -12,6 +25,10 @@
       <router-link to="/orders" class="nav-item" :class="{ active: $route.path === '/orders' || $route.path.startsWith('/order/') }">
         <span class="nav-icon">📋</span>
         <span class="nav-text">订单</span>
+      </router-link>
+      <router-link to="/activity/orders" class="nav-item" :class="{ active: $route.path.startsWith('/activity/order') }">
+        <span class="nav-icon">⚡</span>
+        <span class="nav-text">活动</span>
       </router-link>
       <router-link to="/cart" class="nav-item" :class="{ active: $route.path === '/cart' }">
         <span class="nav-icon">🛒</span>
@@ -30,17 +47,26 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { cartAPI } from './api'
+import { useMessageStore } from './store/message'
+import { wsClient } from './utils/websocket'
 
 const route = useRoute()
 const router = useRouter()
 const cartCount = ref(0)
 
-// 不需要显示底部导航栏的页面
+const messageStore = useMessageStore()
+
 const hideNavPaths = ['/login', '/register', '/checkout', '/address/edit']
+
+const showTopNav = computed(() => {
+  return !['/login', '/register'].some(path => route.path.startsWith(path))
+})
 
 const showBottomNav = computed(() => {
   return !hideNavPaths.some(path => route.path.startsWith(path))
 })
+
+const unreadMessageCount = computed(() => messageStore.unreadCount)
 
 const isLoggedIn = computed(() => {
   return !!localStorage.getItem('token')
@@ -80,6 +106,11 @@ watch(() => localStorage.getItem('token'), () => {
 
 onMounted(() => {
   loadCartCount()
+  messageStore.loadFromLocal()
+  const customerId = localStorage.getItem('customer_id')
+  if (customerId) {
+    wsClient.connect(parseInt(customerId))
+  }
 })
 </script>
 
@@ -102,9 +133,59 @@ body {
   flex-direction: column;
 }
 
+/* 顶部导航栏样式 */
+.top-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  background-color: #fff;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  z-index: 1001;
+}
+
+.top-nav .nav-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.top-nav .nav-item {
+  display: flex;
+  align-items: center;
+  position: relative;
+  text-decoration: none;
+}
+
+.top-nav .nav-icon {
+  font-size: 18px;
+}
+
+.top-nav .message-badge {
+  position: absolute;
+  top: -5px;
+  right: -8px;
+  background-color: #ff4757;
+  color: white;
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
 .main-content {
   flex: 1;
-  padding-bottom: 60px; /* 为底部导航栏预留空间 */
+  padding-top: 44px;
+  padding-bottom: 60px;
 }
 
 /* 底部导航栏样式 */

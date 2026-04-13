@@ -6,6 +6,7 @@ import (
 	"shop-backend/constants"
 	"shop-backend/services"
 	"shop-backend/utils"
+	ws "shop-backend/pkg/websocket"
 )
 
 // ActivityConsumer 活动订单消费者
@@ -55,6 +56,16 @@ func (ac *ActivityConsumer) HandleActivityOrder(msg []byte) error {
 		utils.Error("创建活动订单失败: %v", err)
 		return err
 	}
+
+	// 发送WebSocket站内信通知
+	messageData := map[string]interface{}{
+		"order_id":     order.ID,
+		"order_no":    order.OrderNo,
+		"total_amount": order.TotalAmount,
+		"status":      order.Status,
+		"created_at":  order.CreatedAt,
+	}
+	ws.SendToCustomerAsync(req.CustomerID, ws.MessageTypeOrderCreated, messageData)
 
 	// 发送延迟消息，30分钟后检查订单状态
 	go func() {
@@ -108,6 +119,15 @@ func (ac *ActivityConsumer) HandleTimeoutActivityOrder(msg []byte) error {
 	if err != nil {
 		return err
 	}
+
+	// 发送WebSocket站内信通知
+	cancelData := map[string]interface{}{
+		"order_id": order.ID,
+		"order_no": order.OrderNo,
+		"status":   "cancelled",
+		"reason":   "超时未支付",
+	}
+	ws.SendToCustomerAsync(order.CustomerID, ws.MessageTypeOrderCanceled, cancelData)
 
 	utils.Info("活动订单 %d 超时未支付，已自动取消", message.OrderID)
 	return nil

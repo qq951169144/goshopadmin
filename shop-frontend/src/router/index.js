@@ -82,6 +82,16 @@ const router = createRouter({
       path: '/activity/order/:id',
       name: 'activity-order-detail',
       component: () => import('../views/ActivityOrderDetail.vue')
+    },
+    {
+      path: '/messages',
+      name: 'messages',
+      component: () => import('../views/MessageList.vue')
+    },
+    {
+      path: '/customer/service',
+      name: 'customer-service',
+      component: () => import('../views/CustomerService.vue')
     }
   ]
 })

@@ -35,12 +35,7 @@
                 <p class="sku" v-if="productInfo.sku_code">{{ productInfo.sku_code }}</p>
                 <p class="activity-tag" v-if="productInfo.activity_type">限时活动</p>
                 <div class="price-quantity">
-                  <span class="price">¥{{ formatPrice(productInfo.activity_price) }}</span>
-                  <div class="quantity-control">
-                    <button @click.stop="decreaseQuantity" :disabled="quantity <= 1">-</button>
-                    <span class="quantity">{{ quantity }}</span>
-                    <button @click.stop="increaseQuantity">+</button>
-                  </div>
+                  <span class="price">¥{{ formatPrice(productInfo.price) }}</span>
                 </div>
               </div>
             </div>
@@ -92,7 +87,6 @@ const router = useRouter()
 
 const productInfo = ref(null)
 const selectedAddress = ref(null)
-const quantity = ref(1)
 const loading = ref(false)
 
 const activityId = ref(0)
@@ -104,7 +98,7 @@ const shippingFee = 0
 
 const totalAmount = computed(() => {
   if (!productInfo.value) return 0
-  return productInfo.value.activity_price * quantity.value
+  return productInfo.value.price || 0
 })
 
 const finalAmount = computed(() => {
@@ -126,25 +120,19 @@ onMounted(async () => {
 const loadProductInfo = async () => {
   loading.value = true
   try {
-    const activityResponse = await activityAPI.getActivityDetail(activityId.value)
-    if (activityResponse) {
+    const skuDetail = await activityAPI.getActivitySkuDetail(activityId.value, skuId.value)
+    if (skuDetail) {
       productInfo.value = {
-        product_name: activityResponse.name || '活动商品',
-        sku_code: `SKU-${skuId.value}`,
-        activity_price: activityResponse.price || 0,
-        main_image: activityResponse.image || defaultImage,
-        activity_type: activityResponse.type || '限时活动'
+        product_name: skuDetail.product_name || '活动商品',
+        sku_code: skuDetail.sku_code,
+        price: skuDetail.price || 0,
+        main_image: skuDetail.main_image || defaultImage,
+        stock: skuDetail.stock || 0
       }
     }
   } catch (error) {
-    console.error('获取活动商品信息失败:', error)
-    productInfo.value = {
-      product_name: '活动商品',
-      sku_code: `SKU-${skuId.value}`,
-      activity_price: 99.00,
-      main_image: defaultImage,
-      activity_type: '限时折扣'
-    }
+    console.error('获取活动商品SKU详情失败:', error)
+    productInfo.value = null
   } finally {
     loading.value = false
   }
@@ -165,16 +153,6 @@ const loadAddress = async () => {
       console.error('加载默认地址失败:', error)
     }
   }
-}
-
-const decreaseQuantity = () => {
-  if (quantity.value > 1) {
-    quantity.value--
-  }
-}
-
-const increaseQuantity = () => {
-  quantity.value++
 }
 
 const formatPrice = (price) => {
@@ -208,19 +186,15 @@ const submitOrder = async () => {
       items: [
         {
           sku_id: skuId.value,
-          quantity: quantity.value
+          quantity: 1
         }
       ]
     }
 
-    const response = await activityOrderAPI.createActivityOrder(orderData)
+    await activityOrderAPI.createActivityOrder(orderData)
 
-    if (response && response.order_id) {
-      router.push(`/activity/order/${response.order_id}`)
-    } else {
-      alert('订单提交成功')
-      router.push('/activity/orders')
-    }
+    alert('订单已提交，正在处理中...')
+    router.push('/activity/orders')
   } catch (error) {
     console.error('提交订单失败:', error)
     alert('提交订单失败，请重试')
