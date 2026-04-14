@@ -18,20 +18,33 @@ func SetJWTSecret(secret string) {
 func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+		wsProtocolHeader := c.GetHeader("Sec-WebSocket-Protocol")
+
+		if authHeader == "" && wsProtocolHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "token required"})
 			c.Abort()
 			return
 		}
 
-		parts := strings.SplitN(authHeader, " ", 2)
-		if !(len(parts) == 2 && parts[0] == "Bearer") {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header format must be Bearer {token}"})
+		tokenString := authHeader
+		if tokenString == "" && wsProtocolHeader != "" {
+			protocols := strings.Split(wsProtocolHeader, ",")
+			for _, protocol := range protocols {
+				protocol = strings.TrimSpace(protocol)
+				if strings.HasPrefix(protocol, "Bearer ") {
+					tokenString = protocol
+					break
+				}
+			}
+		}
+
+		parts := strings.SplitN(tokenString, " ", 2)
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token format"})
 			c.Abort()
 			return
 		}
-
-		tokenString := parts[1]
+		tokenString = parts[1]
 
 		// 使用已设置的密钥（强制从配置读取）
 		secret := jwtSecret

@@ -32,14 +32,43 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageStore } from '../store/message'
+import { wsClient } from '../utils/websocket'
 
 const router = useRouter()
 const messageStore = useMessageStore()
 
 const messages = computed(() => messageStore.messages)
+
+const messageTypes = [
+  'order_created',
+  'order_paid',
+  'order_shipped',
+  'order_received',
+  'order_canceled',
+  'system_notice'
+]
+
+const handlers = new Map()
+
+onMounted(() => {
+  messageTypes.forEach(type => {
+    const handler = (data) => {
+      messageStore.addMessage({ type, data })
+    }
+    wsClient.on(type, handler)
+    handlers.set(type, handler)
+  })
+})
+
+onUnmounted(() => {
+  handlers.forEach((handler, type) => {
+    wsClient.off(type, handler)
+  })
+  handlers.clear()
+})
 
 const messageConfig = {
   order_created: { icon: '⚡', title: '订单已提交', desc: '您的活动订单已提交，正在处理中' },

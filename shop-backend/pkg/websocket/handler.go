@@ -2,7 +2,6 @@ package websocket
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -31,7 +30,7 @@ func GetHub() *Hub {
 	return hub
 }
 
-func webSocketResponseError(c *gin.Context, bizCode int, err error) {
+func webSocketResponseError(c *gin.Context, bizCode int) {
 	message := errors.GetErrorMessage(bizCode)
 	c.JSON(http.StatusOK, gin.H{
 		"code":    bizCode,
@@ -41,10 +40,17 @@ func webSocketResponseError(c *gin.Context, bizCode int, err error) {
 }
 
 func WebSocketHandler(c *gin.Context) {
-	customerIDStr := c.Query("customer_id")
-	customerID, err := strconv.Atoi(customerIDStr)
-	if err != nil || customerID <= 0 {
-		webSocketResponseError(c, errors.CodeParamError, err)
+	customerID, exists := c.Get("customer_id")
+	if !exists {
+		utils.Error("CodeUnauthorized: %v, bool = %v", customerID, exists)
+		webSocketResponseError(c, errors.CodeUnauthorized)
+		return
+	}
+
+	customerIDInt, ok := customerID.(int)
+	if !ok || customerIDInt <= 0 {
+		utils.Error("CodeParamError: %v", customerIDInt)
+		webSocketResponseError(c, errors.CodeParamError)
 		return
 	}
 
@@ -58,7 +64,7 @@ func WebSocketHandler(c *gin.Context) {
 		Hub:        hub,
 		Conn:       conn,
 		Send:       make(chan []byte, 256),
-		CustomerID: customerID,
+		CustomerID: customerIDInt,
 	}
 
 	hub.Register <- client

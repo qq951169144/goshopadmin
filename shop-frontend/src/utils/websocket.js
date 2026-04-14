@@ -18,12 +18,13 @@ class WebSocketClient {
         this.shouldReconnect = true
 
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-        const wsUrl = `${protocol}//${window.location.host}/ws?customer_id=${customerId}`
+        const token = localStorage.getItem('token')
+        const wsUrl = `${protocol}//${window.location.host}/ws`
 
         console.log('WebSocket connecting to:', wsUrl)
 
         try {
-            this.ws = new WebSocket(wsUrl)
+            this.ws = new WebSocket(wsUrl, [`Bearer ${token}`])
 
             this.ws.onopen = () => {
                 console.log('WebSocket connected')
