@@ -181,10 +181,10 @@ const submitOrder = async () => {
 
   try {
     const orderData = {
-      address_id: selectedAddress.value.id,
       activity_id: activityId.value,
       items: [
         {
+          product_id: productInfo.value.product_id,
           sku_id: skuId.value,
           quantity: 1
         }
@@ -440,13 +440,16 @@ const submitOrder = async () => {
   bottom: 0;
   left: 0;
   right: 0;
+  z-index: 100;
+  height: 60px;
   background-color: white;
-  padding: 12px 16px;
+  padding: 8px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-top: 1px solid #eee;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
 }
 
 .total-info {

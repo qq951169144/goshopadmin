@@ -56,7 +56,7 @@ const cartCount = ref(0)
 
 const messageStore = useMessageStore()
 
-const hideNavPaths = ['/login', '/register', '/checkout', '/address/edit']
+const hideNavPaths = ['/login', '/register', '/checkout', '/address/edit', '/activity/order/confirm']
 
 const showTopNav = computed(() => {
   return !['/login', '/register'].some(path => route.path.startsWith(path))
