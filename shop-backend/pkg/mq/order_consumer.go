@@ -5,7 +5,6 @@ import (
 	"shop-backend/constants"
 	"shop-backend/services"
 	"shop-backend/utils"
-	ws "shop-backend/pkg/websocket"
 )
 
 // OrderConsumer 订单消费者
@@ -53,16 +52,6 @@ func (oc *OrderConsumer) HandleTimeoutOrder(msg []byte) error {
 	}
 
 	utils.Info("[MQ] 超时订单已取消 | 队列: %s | orderID: %d | customerID: %d", constants.MQQueueOrderDeadLetter, message.OrderID, order.CustomerID)
-
-	// 发送WebSocket站内信通知
-	cancelData := map[string]interface{}{
-		"order_id": order.ID,
-		"order_no": order.OrderNo,
-		"status":   "cancelled",
-		"reason":   "超时未支付",
-	}
-	ws.SendToCustomerAsync(order.CustomerID, ws.MessageTypeOrderCanceled, cancelData)
-	utils.Info("[WS] 发送订单取消消息 | customerID: %d | 类型: %s | 数据: %v", order.CustomerID, ws.MessageTypeOrderCanceled, cancelData)
 
 	utils.Info("[MQ] 超时订单处理完成 | 队列: %s | orderID: %d", constants.MQQueueOrderDeadLetter, message.OrderID)
 	return nil

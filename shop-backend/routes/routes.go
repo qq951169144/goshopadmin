@@ -7,7 +7,6 @@ import (
 	"shop-backend/config"
 	"shop-backend/controllers"
 	"shop-backend/middleware"
-	"shop-backend/pkg/websocket"
 	"shop-backend/utils"
 
 	"github.com/gin-gonic/gin"
@@ -75,11 +74,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 		})
 	})
 
-	// 2. WebSocket 路由（使用 Auth 中间件验证 token）
-	// 路径: /ws
-	r.GET("/ws", middleware.Auth(), websocket.WebSocketHandler)
-
-	// 3. API路由组
+	// 2. API路由组
 	// 路径前缀: /api
 	api := r.Group("/api")
 	{

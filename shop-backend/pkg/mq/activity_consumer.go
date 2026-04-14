@@ -7,7 +7,6 @@ import (
 
 	"shop-backend/constants"
 	"shop-backend/models"
-	ws "shop-backend/pkg/websocket"
 	"shop-backend/services"
 	"shop-backend/utils"
 
@@ -67,17 +66,6 @@ func (ac *ActivityConsumer) HandleActivityOrder(msg []byte) error {
 	}
 
 	utils.Info("[MQ] 活动订单创建成功 | 队列: %s | orderID: %d | orderNo: %s | amount: %s | customerID: %d", constants.MQQueueActivityOrder, order.ID, order.OrderID, order.Amount, req.CustomerID)
-
-	// 发送WebSocket站内信通知
-	messageData := map[string]interface{}{
-		"order_id":     order.ID,
-		"order_no":     order.OrderID,
-		"total_amount": order.Amount,
-		"status":       order.Status,
-		"created_at":   order.CreatedAt,
-	}
-	ws.SendToCustomerAsync(req.CustomerID, ws.MessageTypeOrderCreated, messageData)
-	utils.Info("[WS] 发送订单创建消息 | customerID: %d | 类型: %s | 数据: %v", req.CustomerID, ws.MessageTypeOrderCreated, messageData)
 
 	// 发送延迟消息，30分钟后检查订单状态
 	go func() {
@@ -152,15 +140,6 @@ func (ac *ActivityConsumer) HandleTimeoutActivityOrder(msg []byte) error {
 	}
 
 	utils.Info("[MQ] 超时活动订单已取消 | 队列: %s | orderID: %d | customerID: %d", constants.MQQueueActivityOrderDeadLetter, message.OrderID, order.CustomerID)
-
-	cancelData := map[string]interface{}{
-		"order_id": order.ID,
-		"order_no": order.OrderNo,
-		"status":   "cancelled",
-		"reason":   "超时未支付",
-	}
-	ws.SendToCustomerAsync(order.CustomerID, ws.MessageTypeOrderCanceled, cancelData)
-	utils.Info("[WS] 发送订单取消消息 | customerID: %d | 类型: %s | 数据: %v", order.CustomerID, ws.MessageTypeOrderCanceled, cancelData)
 
 	utils.Info("[MQ] 超时活动订单处理完成 | 队列: %s | orderID: %d", constants.MQQueueActivityOrderDeadLetter, message.OrderID)
 	return nil

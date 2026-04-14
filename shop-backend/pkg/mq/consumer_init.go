@@ -2,19 +2,11 @@ package mq
 
 import (
 	"shop-backend/constants"
-	"shop-backend/pkg/websocket"
 	"shop-backend/services"
-	"shop-backend/utils"
 )
 
 // InitConsumers 初始化消费者
 func InitConsumers(orderService *services.OrderService, activityOrderService *services.ActivityOrderService, productService *services.ProductService) error {
-	// 初始化WebSocket Hub和Publisher
-	hub := websocket.InitHub()
-	publisher := websocket.NewMessagePublisher(hub)
-	websocket.SetGlobalPublisher(publisher)
-	utils.Info("WebSocket初始化完成")
-
 	// 创建MQ连接
 	conn, err := NewConnection()
 	if err != nil {
@@ -101,6 +93,5 @@ func InitConsumers(orderService *services.OrderService, activityOrderService *se
 		return err
 	}
 
-	utils.Info("消费者初始化完成")
 	return nil
 }
