@@ -35,7 +35,6 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessageStore } from '../store/message'
-import { wsClient } from '../utils/websocket'
 
 const router = useRouter()
 const messageStore = useMessageStore()
@@ -51,23 +50,11 @@ const messageTypes = [
   'system_notice'
 ]
 
-const handlers = new Map()
-
 onMounted(() => {
-  messageTypes.forEach(type => {
-    const handler = (data) => {
-      messageStore.addMessage({ type, data })
-    }
-    wsClient.on(type, handler)
-    handlers.set(type, handler)
-  })
+  messageStore.loadFromLocal()
 })
 
 onUnmounted(() => {
-  handlers.forEach((handler, type) => {
-    wsClient.off(type, handler)
-  })
-  handlers.clear()
 })
 
 const messageConfig = {

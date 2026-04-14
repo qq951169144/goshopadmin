@@ -1,7 +1,7 @@
 package websocket
 
 import (
-	"log"
+	"shop-backend/utils"
 )
 
 type MessagePublisher struct {
@@ -18,16 +18,16 @@ func (p *MessagePublisher) SendToCustomer(customerID int, messageType string, da
 	msg := NewMessage(messageType, data)
 	jsonMsg, err := msg.ToJSON()
 	if err != nil {
-		log.Printf("Failed to marshal message: %v", err)
+		utils.Error("[WS] 消息序列化失败 | customerID: %d | 类型: %s | 错误: %v", customerID, messageType, err)
 		return err
 	}
 
 	if !p.hub.SendToCustomer(customerID, jsonMsg) {
-		log.Printf("Failed to send message to customer %d: client not connected or send buffer full", customerID)
+		utils.Warn("[WS] 发送消息失败，客户未连接或发送缓冲区满 | customerID: %d | 类型: %s", customerID, messageType)
 		return nil
 	}
 
-	log.Printf("Message sent to customer %d: type=%s", customerID, messageType)
+	utils.Info("[WS] 消息发送成功 | customerID: %d | 类型: %s", customerID, messageType)
 	return nil
 }
 
@@ -35,12 +35,12 @@ func (p *MessagePublisher) Broadcast(messageType string, data interface{}) error
 	msg := NewMessage(messageType, data)
 	jsonMsg, err := msg.ToJSON()
 	if err != nil {
-		log.Printf("Failed to marshal broadcast message: %v", err)
+		utils.Error("[WS] 广播消息序列化失败 | 类型: %s | 错误: %v", messageType, err)
 		return err
 	}
 
 	p.hub.Broadcast <- jsonMsg
-	log.Printf("Message broadcasted: type=%s", messageType)
+	utils.Info("[WS] 广播消息已发送 | 类型: %s", messageType)
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -28,13 +29,14 @@ func NewActivityOrderService(db *gorm.DB) *ActivityOrderService {
 
 // ActivityOrderItem 活动订单商品项
 type ActivityOrderItem struct {
+	AddressID int
 	ProductID int
 	SkuID     int
 	Quantity  int
 }
 
 // CreateActivityOrder 创建活动订单
-func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID int, items []ActivityOrderItem) (*models.Order, error) {
+func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID int, addressID int, items []ActivityOrderItem) (*OrderInfo, error) {
 	tx := s.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -54,6 +56,12 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 	if !isActivityActive {
 		tx.Rollback()
 		return nil, errors.New("活动已结束或未开始")
+	}
+
+	var address models.Address
+	if err := tx.Where("id = ? AND customer_id = ?", addressID, customerID).First(&address).Error; err != nil {
+		tx.Rollback()
+		return nil, errors.New("收货地址不存在")
 	}
 
 	var totalAmount float64
@@ -76,12 +84,37 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 		itemAmount := sku.Price * float64(item.Quantity)
 		totalAmount += itemAmount
 
+		var product models.Product
+		s.DB.Where("id = ?", item.ProductID).First(&product)
+
+		skuAttrs := "{}"
+		var skuSpecs []models.ProductSkuSpec
+		s.DB.Where("sku_id = ?", item.SkuID).Find(&skuSpecs)
+		if len(skuSpecs) > 0 {
+			attrs := make(map[string]string)
+			for _, spec := range skuSpecs {
+				var specification models.ProductSpecification
+				s.DB.Where("id = ?", spec.SpecID).First(&specification)
+				var specValue models.ProductSpecificationValue
+				s.DB.Where("id = ?", spec.SpecValueID).First(&specValue)
+				if specification.ID > 0 && specValue.ID > 0 {
+					attrs[specification.Name] = specValue.Value
+				}
+			}
+			if len(attrs) > 0 {
+				attrsJSON, _ := json.Marshal(attrs)
+				skuAttrs = string(attrsJSON)
+			}
+		}
+
 		orderItem := models.OrderItem{
-			ProductID:   item.ProductID,
-			SkuID:       item.SkuID,
-			Quantity:    item.Quantity,
-			Price:       sku.Price,
-			TotalAmount: itemAmount,
+			ProductID:     item.ProductID,
+			SkuID:         item.SkuID,
+			Quantity:      item.Quantity,
+			Price:         sku.Price,
+			TotalAmount:   itemAmount,
+			ProductName:   product.Name,
+			SkuAttributes: skuAttrs,
 		}
 		orderItems = append(orderItems, orderItem)
 
@@ -123,7 +156,16 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 		return nil, err
 	}
 
-	return order, nil
+	paymentURL := fmt.Sprintf("/api/payment/fake-pay?orderNo=%s", orderNo)
+
+	return &OrderInfo{
+		ID:         order.ID,
+		OrderID:    orderNo,
+		Amount:     totalAmount,
+		PaymentURL: paymentURL,
+		Status:     order.Status,
+		CreatedAt:  order.CreatedAt,
+	}, nil
 }
 
 // GetActivityOrders 获取用户活动订单列表
@@ -186,7 +228,8 @@ func (s *ActivityOrderService) CancelActivityOrder(orderID int, customerID int) 
 	}()
 
 	var order models.Order
-	result := tx.Where("id = ? AND customer_id = ? AND activity_id > 0 AND status = ?", orderID, customerID, constants.OrderStatusPending).First(&order)
+	result := tx.Where("id = ? AND customer_id = ? AND activity_id > 0 AND status IN ?",
+		orderID, customerID, []string{constants.OrderStatusPending, constants.OrderStatusPaid}).First(&order)
 	if result.Error != nil {
 		tx.Rollback()
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

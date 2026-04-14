@@ -46,6 +46,7 @@ type CreateOrderRequest struct {
 
 // OrderInfo 订单信息
 type OrderInfo struct {
+	ID         int       `json:"id"`
 	OrderID    string    `json:"order_id"`
 	Amount     float64   `json:"amount"`
 	PaymentURL string    `json:"payment_url"`
@@ -219,6 +220,7 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 	paymentURL := fmt.Sprintf("/api/payment/fake-pay?order_id=%s", orderNo)
 
 	return &OrderInfo{
+		ID:         order.ID,
 		OrderID:    orderNo,
 		Amount:     totalAmount,
 		PaymentURL: paymentURL,
@@ -355,11 +357,11 @@ func (s *OrderService) GetOrderDetail(orderNo string, customerID int) (map[strin
 }
 
 // UpdateOrderStatus 更新订单状态
-func (s *OrderService) UpdateOrderStatus(orderNo, status, paymentStatus, transactionID string) error {
+func (s *OrderService) UpdateOrderStatus(orderNo string, customerID int, status, paymentStatus, transactionID string) error {
 	var order models.Order
-	result := s.db.Where("order_no = ?", orderNo).First(&order)
+	result := s.db.Where("order_no = ? AND customer_id = ?", orderNo, customerID).First(&order)
 	if result.RowsAffected == 0 {
-		return errors.New("订单不存在")
+		return errors.New("订单不存在或无权操作")
 	}
 
 	// 更新订单状态
@@ -391,22 +393,35 @@ func (s *OrderService) UpdateOrderStatus(orderNo, status, paymentStatus, transac
 
 // CancelOrder 取消订单
 func (s *OrderService) CancelOrder(orderNo string, customerID int) error {
+	tx := s.db.Begin()
+
 	var order models.Order
-	result := s.db.Where("order_no = ? AND customer_id = ?", orderNo, customerID).First(&order)
+	result := tx.Where("order_no = ? AND customer_id = ?", orderNo, customerID).First(&order)
 	if result.RowsAffected == 0 {
+		tx.Rollback()
 		return errors.New("订单不存在")
 	}
 
-	// 只有待付款或已支付状态的订单可以取消
 	if order.Status != constants.OrderStatusPending && order.Status != constants.OrderStatusPaid {
+		tx.Rollback()
 		return errors.New("当前订单状态不允许取消")
+	}
+
+	// 返还库存
+	var items []models.OrderItem
+	tx.Where("order_id = ?", order.ID).Find(&items)
+	for _, item := range items {
+		var sku models.ProductSku
+		tx.Where("id = ?", item.SkuID).First(&sku)
+		tx.Model(&sku).Update("stock", sku.Stock+item.Quantity)
 	}
 
 	order.Status = constants.OrderStatusCancelled
 	now := time.Now()
 	order.CancelledAt = &now
 
-	if err := s.db.Save(&order).Error; err != nil {
+	if err := tx.Save(&order).Error; err != nil {
+		tx.Rollback()
 		return errors.New("取消订单失败")
 	}
 
@@ -415,7 +430,7 @@ func (s *OrderService) CancelOrder(orderNo string, customerID int) error {
 	s.cacheUtil.DeleteOrderCache(ctx, orderNo, customerID)
 	s.cacheUtil.DeleteOrderCacheByOrderNo(ctx, orderNo)
 
-	return nil
+	return tx.Commit().Error
 }
 
 // ConfirmReceipt 确认收货
@@ -469,22 +484,45 @@ func (s *OrderService) GetOrderByID(orderID int) (*models.Order, error) {
 }
 
 // CancelOrderByID 根据订单ID取消订单
-func (s *OrderService) CancelOrderByID(orderID int) error {
+func (s *OrderService) CancelOrderByID(orderID int, customerID int) error {
+	tx := s.db.Begin()
+
 	var order models.Order
-	result := s.db.Where("id = ?", orderID).First(&order)
+	result := tx.Where("id = ? AND customer_id = ?", orderID, customerID).First(&order)
 	if result.RowsAffected == 0 {
-		return errors.New("订单不存在")
+		tx.Rollback()
+		return errors.New("订单不存在或无权取消")
+	}
+
+	// 状态校验：只允许 pending 或 paid 状态取消
+	if order.Status != constants.OrderStatusPending && order.Status != constants.OrderStatusPaid {
+		tx.Rollback()
+		return errors.New("当前订单状态不允许取消")
+	}
+
+	// 返还库存
+	var items []models.OrderItem
+	tx.Where("order_id = ?", order.ID).Find(&items)
+	for _, item := range items {
+		var sku models.ProductSku
+		tx.Where("id = ?", item.SkuID).First(&sku)
+		tx.Model(&sku).Update("stock", sku.Stock+item.Quantity)
 	}
 
 	order.Status = constants.OrderStatusCancelled
 	now := time.Now()
 	order.CancelledAt = &now
 
-	if err := s.db.Save(&order).Error; err != nil {
+	if err := tx.Save(&order).Error; err != nil {
+		tx.Rollback()
 		return errors.New("取消订单失败")
 	}
 
-	return nil
+	// 清理缓存
+	ctx := context.Background()
+	s.cacheUtil.DeleteOrderCacheByOrderNo(ctx, order.OrderNo)
+
+	return tx.Commit().Error
 }
 
 // ShipOrder 发货

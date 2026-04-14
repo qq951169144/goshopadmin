@@ -19,8 +19,9 @@ func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		wsProtocolHeader := c.GetHeader("Sec-WebSocket-Protocol")
+		queryToken := c.Query("token")
 
-		if authHeader == "" && wsProtocolHeader == "" {
+		if authHeader == "" && wsProtocolHeader == "" && queryToken == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "token required"})
 			c.Abort()
 			return
@@ -28,23 +29,18 @@ func Auth() gin.HandlerFunc {
 
 		tokenString := authHeader
 		if tokenString == "" && wsProtocolHeader != "" {
-			protocols := strings.Split(wsProtocolHeader, ",")
-			for _, protocol := range protocols {
-				protocol = strings.TrimSpace(protocol)
-				if strings.HasPrefix(protocol, "Bearer ") {
-					tokenString = protocol
-					break
-				}
-			}
+			tokenString = wsProtocolHeader
+		}
+		if tokenString == "" && queryToken != "" {
+			tokenString = queryToken
 		}
 
-		parts := strings.SplitN(tokenString, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token format"})
-			c.Abort()
-			return
+		if strings.HasPrefix(tokenString, "Bearer ") {
+			parts := strings.SplitN(tokenString, " ", 2)
+			if len(parts) == 2 {
+				tokenString = parts[1]
+			}
 		}
-		tokenString = parts[1]
 
 		// 使用已设置的密钥（强制从配置读取）
 		secret := jwtSecret

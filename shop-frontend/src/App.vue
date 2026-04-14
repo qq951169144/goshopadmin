@@ -53,8 +53,41 @@ import { wsClient } from './utils/websocket'
 const route = useRoute()
 const router = useRouter()
 const cartCount = ref(0)
+const globalListenersRegistered = ref(false)
 
 const messageStore = useMessageStore()
+
+const initWebSocket = () => {
+  const token = localStorage.getItem('token')
+  if (!token) return
+
+  if (globalListenersRegistered.value) return
+
+  wsClient.connect()
+  registerGlobalListeners()
+}
+
+const registerGlobalListeners = () => {
+  if (globalListenersRegistered.value) return
+  globalListenersRegistered.value = true
+
+  const messageTypes = [
+    'order_created',
+    'order_paid',
+    'order_shipped',
+    'order_received',
+    'order_canceled',
+    'system_notice'
+  ]
+
+  messageTypes.forEach(type => {
+    const handler = (data) => {
+      console.log(`[WS] 全局监听器收到消息 | 类型: ${type} | 数据:`, data)
+      messageStore.addMessage({ type, data })
+    }
+    wsClient.on(type, handler)
+  })
+}
 
 const hideNavPaths = ['/login', '/register', '/checkout', '/address/edit', '/activity/order/confirm']
 
@@ -100,17 +133,25 @@ const loadCartCount = async () => {
 }
 
 // 监听登录状态变化
-watch(() => localStorage.getItem('token'), () => {
+watch(() => localStorage.getItem('token'), (newToken) => {
   loadCartCount()
+  if (newToken) {
+    if (!globalListenersRegistered.value) {
+      initWebSocket()
+    }
+  } else {
+    globalListenersRegistered.value = false
+    wsClient.disconnect()
+  }
 })
 
 onMounted(() => {
-  loadCartCount()
   messageStore.loadFromLocal()
-  const customerId = localStorage.getItem('customer_id')
-  if (customerId) {
-    wsClient.connect(parseInt(customerId))
+  const token = localStorage.getItem('token')
+  if (token) {
+    initWebSocket()
   }
+  loadCartCount()
 })
 </script>
 

@@ -30,6 +30,7 @@ func NewActivityOrderController(db *gorm.DB) *ActivityOrderController {
 // CreateActivityOrderRequest 创建活动订单请求
 type CreateActivityOrderRequest struct {
 	ActivityID int                       `json:"activity_id" binding:"required"`
+	AddressID  int                       `json:"address_id" binding:"required"`
 	Items      []CreateActivityOrderItem `json:"items" binding:"required,dive"`
 }
 
@@ -65,7 +66,8 @@ func (c *ActivityOrderController) CreateActivityOrder(ctx *gin.Context) {
 		msg := map[string]interface{}{
 			"customer_id": customerID.(int),
 			"activity_id": req.ActivityID,
-			"items":      req.Items,
+			"address_id":  req.AddressID,
+			"items":       req.Items,
 		}
 		
 		err = producer.Publish(constants.MQExchangeActivity, constants.MQRoutingKeyActivityOrder, msg)

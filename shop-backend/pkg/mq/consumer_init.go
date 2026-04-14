@@ -84,6 +84,16 @@ func InitConsumers(orderService *services.OrderService, activityOrderService *se
 		return err
 	}
 
+	// 声明并启动活动订单告警消费者
+	_, err = consumer.DeclareQueue(constants.MQQueueActivityOrderAlert, true)
+	if err != nil {
+		return err
+	}
+	err = consumer.Consume(constants.MQQueueActivityOrderAlert, activityConsumer.HandleAlertMessage)
+	if err != nil {
+		return err
+	}
+
 	// 启动状态变更消费者
 	statusConsumer := NewStatusConsumer()
 	err = consumer.Consume(constants.MQQueueOrderStatus, statusConsumer.HandleOrderStatus)

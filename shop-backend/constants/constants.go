@@ -149,6 +149,7 @@ const (
 	MQQueueOrderDeadLetter        = "order_dead_letter_queue"
 	MQQueueActivityOrderDelay     = "activity_order_delay_queue"
 	MQQueueActivityOrderDeadLetter = "activity_order_dead_letter_queue"
+	MQQueueActivityOrderAlert     = "activity_order_alert_queue"
 	
 	// 路由键
 	MQRoutingKeyActivityOrder = "activity_order"

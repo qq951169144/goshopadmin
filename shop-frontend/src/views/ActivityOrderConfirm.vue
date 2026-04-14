@@ -91,6 +91,7 @@ const loading = ref(false)
 
 const activityId = ref(0)
 const skuId = ref(0)
+const addressId = ref(0)
 
 const defaultImage = 'https://via.placeholder.com/80x80?text=No+Image'
 
@@ -123,6 +124,7 @@ const loadProductInfo = async () => {
     const skuDetail = await activityAPI.getActivitySkuDetail(activityId.value, skuId.value)
     if (skuDetail) {
       productInfo.value = {
+        product_id: skuDetail.product_id,
         product_name: skuDetail.product_name || '活动商品',
         sku_code: skuDetail.sku_code,
         price: skuDetail.price || 0,
@@ -141,13 +143,16 @@ const loadProductInfo = async () => {
 const loadAddress = async () => {
   const savedAddress = localStorage.getItem('selectedAddress')
   if (savedAddress) {
-    selectedAddress.value = JSON.parse(savedAddress)
+    const address = JSON.parse(savedAddress)
+    selectedAddress.value = address
+    addressId.value = address.id
     localStorage.removeItem('selectedAddress')
   } else {
     try {
       const response = await addressAPI.getDefaultAddress()
       if (response && response.address) {
         selectedAddress.value = response.address
+        addressId.value = response.address.id
       }
     } catch (error) {
       console.error('加载默认地址失败:', error)
@@ -182,6 +187,7 @@ const submitOrder = async () => {
   try {
     const orderData = {
       activity_id: activityId.value,
+      address_id: addressId.value,
       items: [
         {
           product_id: productInfo.value.product_id,

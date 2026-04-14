@@ -2,9 +2,10 @@ package websocket
 
 import (
 	"encoding/json"
-	"log"
 	"sync"
 	"time"
+
+	"shop-backend/utils"
 
 	"github.com/gorilla/websocket"
 )
@@ -17,19 +18,19 @@ const (
 )
 
 type Client struct {
-	Hub         *Hub
-	Conn        *websocket.Conn
-	Send        chan []byte
-	CustomerID  int
-	mu          sync.Mutex
+	Hub        *Hub
+	Conn       *websocket.Conn
+	Send       chan []byte
+	CustomerID int
+	mu         sync.Mutex
 }
 
 type Hub struct {
-	Clients      map[int]*Client
-	Register     chan *Client
-	Unregister   chan *Client
-	Broadcast    chan []byte
-	mu           sync.RWMutex
+	Clients    map[int]*Client
+	Register   chan *Client
+	Unregister chan *Client
+	Broadcast  chan []byte
+	mu         sync.RWMutex
 }
 
 func NewHub() *Hub {
@@ -48,14 +49,14 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.Clients[client.CustomerID] = client
 			h.mu.Unlock()
-			log.Printf("WebSocket client registered: customerID=%d", client.CustomerID)
+			utils.Info("[WS] 客户端注册 | customerID: %d", client.CustomerID)
 
 		case client := <-h.Unregister:
 			h.mu.Lock()
 			if _, ok := h.Clients[client.CustomerID]; ok {
 				delete(h.Clients, client.CustomerID)
 				close(client.Send)
-				log.Printf("WebSocket client unregistered: customerID=%d", client.CustomerID)
+				utils.Info("[WS] 客户端注销 | customerID: %d", client.CustomerID)
 			}
 			h.mu.Unlock()
 
@@ -70,6 +71,7 @@ func (h *Hub) Run() {
 				}
 			}
 			h.mu.RUnlock()
+			utils.Info("[WS] 广播消息已投递到 %d 个客户端", len(h.Clients))
 		}
 	}
 }
@@ -108,9 +110,13 @@ func (c *Client) ReadPump() {
 		_, _, err := c.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
+				utils.Error("[WS] 读取消息异常 | customerID: %d | 错误: %v", c.CustomerID, err)
+			} else if err.Error() == "websocket: close 1000 (normal)" {
+				utils.Info("[WS] 客户端正常关闭 | customerID: %d", c.CustomerID)
+			} else {
+				utils.Info("[WS] 读取退出 | customerID: %d | 原因: %v", c.CustomerID, err)
 			}
-			break
+			return
 		}
 	}
 }
@@ -148,9 +154,9 @@ func (c *Client) WritePump() {
 }
 
 type Message struct {
-	Type    string      `json:"type"`
-	Data    interface{} `json:"data"`
-	Time    int64       `json:"time"`
+	Type string      `json:"type"`
+	Data interface{} `json:"data"`
+	Time int64       `json:"time"`
 }
 
 func NewMessage(messageType string, data interface{}) *Message {

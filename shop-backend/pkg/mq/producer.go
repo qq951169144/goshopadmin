@@ -1,10 +1,11 @@
 package mq
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 
 	"github.com/rabbitmq/amqp091-go"
+	"shop-backend/utils"
 )
 
 // Producer 消息生产者
@@ -21,18 +22,19 @@ func NewProducer(conn *Connection) *Producer {
 
 // Publish 发布消息
 func (p *Producer) Publish(exchange, routingKey string, msg interface{}) error {
-	// 序列化消息
 	body, err := json.Marshal(msg)
 	if err != nil {
+		utils.Error("[MQ Producer] 序列化消息失败 | 交换机: %s | 路由键: %s | 错误: %v", exchange, routingKey, err)
 		return fmt.Errorf("序列化消息失败: %w", err)
 	}
 
-	// 发布消息
+	utils.Info("[MQ Producer] 发布消息 | 交换机: %s | 路由键: %s | 消息: %s", exchange, routingKey, string(body))
+
 	err = p.conn.Channel().Publish(
 		exchange,
 		routingKey,
-		false, // 强制投递
-		false, // 立即投递
+		false,
+		false,
 		amqp091.Publishing{
 			ContentType: "application/json",
 			Body:        body,
@@ -40,36 +42,41 @@ func (p *Producer) Publish(exchange, routingKey string, msg interface{}) error {
 	)
 
 	if err != nil {
+		utils.Error("[MQ Producer] 发布消息失败 | 交换机: %s | 路由键: %s | 错误: %v", exchange, routingKey, err)
 		return fmt.Errorf("发布消息失败: %w", err)
 	}
 
+	utils.Info("[MQ Producer] 发布消息成功 | 交换机: %s | 路由键: %s", exchange, routingKey)
 	return nil
 }
 
 // PublishWithTTL 发布带TTL的消息（用于延迟队列）
 func (p *Producer) PublishWithTTL(exchange, routingKey string, msg interface{}, ttl int64) error {
-	// 序列化消息
 	body, err := json.Marshal(msg)
 	if err != nil {
+		utils.Error("[MQ Producer] 序列化延迟消息失败 | 交换机: %s | 路由键: %s | TTL: %dms | 错误: %v", exchange, routingKey, ttl, err)
 		return fmt.Errorf("序列化消息失败: %w", err)
 	}
 
-	// 发布消息
+	utils.Info("[MQ Producer] 发布延迟消息 | 交换机: %s | 路由键: %s | TTL: %dms | 消息: %s", exchange, routingKey, ttl, string(body))
+
 	err = p.conn.Channel().Publish(
 		exchange,
 		routingKey,
-		false, // 强制投递
-		false, // 立即投递
+		false,
+		false,
 		amqp091.Publishing{
-			ContentType:  "application/json",
-			Body:         body,
-			Expiration:   fmt.Sprintf("%d", ttl), // TTL（毫秒）
+			ContentType: "application/json",
+			Body:        body,
+			Expiration:  fmt.Sprintf("%d", ttl),
 		},
 	)
 
 	if err != nil {
+		utils.Error("[MQ Producer] 发布延迟消息失败 | 交换机: %s | 路由键: %s | TTL: %dms | 错误: %v", exchange, routingKey, ttl, err)
 		return fmt.Errorf("发布消息失败: %w", err)
 	}
 
+	utils.Info("[MQ Producer] 发布延迟消息成功 | 交换机: %s | 路由键: %s | TTL: %dms", exchange, routingKey, ttl)
 	return nil
 }

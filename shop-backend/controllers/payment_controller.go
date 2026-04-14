@@ -31,6 +31,10 @@ func NewPaymentController(db *gorm.DB, cacheUtil *cache.CacheUtil) *PaymentContr
 // FakePay 伪支付接口
 func (c *PaymentController) FakePay(ctx *gin.Context) {
 	orderNo := ctx.Query("orderNo")
+	if orderNo == "" {
+		c.ResponseError(ctx, errors.CodeParamMissing, nil)
+		return
+	}
 
 	// 查找订单
 	order, err := c.orderService.GetOrderByOrderNo(orderNo)
@@ -45,7 +49,7 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 		transactionID := fmt.Sprintf("TRX%s", time.Now().Format("20060102150405"))
 
 		// 更新订单状态和支付状态
-		err := c.orderService.UpdateOrderStatus(orderNo, constants.OrderStatusPaid, constants.PaymentStatusSuccess, transactionID)
+		err := c.orderService.UpdateOrderStatus(orderNo, order.CustomerID, constants.OrderStatusPaid, constants.PaymentStatusSuccess, transactionID)
 		if err != nil {
 			utils.Error("更新订单状态失败: %v", err)
 			return
@@ -61,8 +65,8 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 
 		producer := mq.NewProducer(conn)
 		msg := map[string]interface{}{
-			"order_id": order.ID,
-			"status":   constants.OrderStatusPaid,
+			"order_id":   order.ID,
+			"status":     constants.OrderStatusPaid,
 			"updated_at": time.Now(),
 		}
 		err = producer.Publish(constants.MQExchangeOrderStatus, constants.MQRoutingKeyOrderStatus, msg)
@@ -109,7 +113,7 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 	}
 
 	// 更新订单状态
-	err = c.orderService.UpdateOrderStatus(req.OrderNo, req.Status, constants.PaymentStatusSuccess, req.TransactionID)
+	err = c.orderService.UpdateOrderStatus(req.OrderNo, order.CustomerID, req.Status, constants.PaymentStatusSuccess, req.TransactionID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
@@ -126,8 +130,8 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 
 		producer := mq.NewProducer(conn)
 		msg := map[string]interface{}{
-			"order_id": order.ID,
-			"status":   req.Status,
+			"order_id":   order.ID,
+			"status":     req.Status,
 			"updated_at": time.Now(),
 		}
 		err = producer.Publish(constants.MQExchangeOrderStatus, constants.MQRoutingKeyOrderStatus, msg)

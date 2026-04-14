@@ -1,20 +1,21 @@
 package websocket
 
 import (
-	"log"
 	"sync"
+
+	"shop-backend/utils"
 )
 
 var (
 	globalPublisher *MessagePublisher
-	publisherMu    sync.RWMutex
+	publisherMu     sync.RWMutex
 )
 
 func SetGlobalPublisher(p *MessagePublisher) {
 	publisherMu.Lock()
 	globalPublisher = p
 	publisherMu.Unlock()
-	log.Println("Global WebSocket publisher set")
+	utils.Info("[WS] Global WebSocket publisher 已设置")
 }
 
 func GetGlobalPublisher() *MessagePublisher {
@@ -26,7 +27,7 @@ func GetGlobalPublisher() *MessagePublisher {
 func SendToCustomer(customerID int, messageType string, data interface{}) bool {
 	publisher := GetGlobalPublisher()
 	if publisher == nil {
-		log.Printf("WebSocket publisher not initialized, cannot send message to customer %d", customerID)
+		utils.Error("[WS] WebSocket publisher 未初始化，无法发送消息 | customerID: %d | 类型: %s", customerID, messageType)
 		return false
 	}
 	return publisher.SendToCustomer(customerID, messageType, data) == nil
@@ -35,7 +36,7 @@ func SendToCustomer(customerID int, messageType string, data interface{}) bool {
 func SendToCustomerAsync(customerID int, messageType string, data interface{}) {
 	go func() {
 		if !SendToCustomer(customerID, messageType, data) {
-			log.Printf("Failed to send async message to customer %d: %s", customerID, messageType)
+			utils.Error("[WS] 异步发送消息失败 | customerID: %d | 类型: %s", customerID, messageType)
 		}
 	}()
 }
