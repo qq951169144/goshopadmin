@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -447,8 +448,8 @@ func (s *SkuService) GenerateSkusFromSpecs(productID int, basePrice float64, mer
 			ProductID:     productID,
 			MerchantID:    merchantID,
 			SkuCode:       skuCode,
-			Price:         basePrice,
-			OriginalPrice: 0,
+			Price:         decimal.NewFromFloat(basePrice),
+			OriginalPrice: decimal.NewFromInt(0),
 			Stock:         0,
 			Status:        "active",
 		}

@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 // Order 订单模型
@@ -11,7 +13,7 @@ type Order struct {
 	CustomerID    int         `json:"customer_id" gorm:"not null;index"`
 	MerchantID    int         `json:"merchant_id" gorm:"not null;index"`
 	ActivityID    int         `json:"activity_id" gorm:"default:0;index"`
-	TotalAmount   float64     `json:"total_amount" gorm:"type:decimal(10,2);not null"`
+	TotalAmount   decimal.Decimal `json:"total_amount" gorm:"type:decimal(10,2);not null"`
 	Status        string      `json:"status" gorm:"size:191;not null;default:pending;index"`
 	PaymentStatus string      `json:"payment_status" gorm:"size:20;not null;default:pending"`
 	ShippingStatus string     `json:"shipping_status" gorm:"size:20;not null;default:pending"`
@@ -35,9 +37,9 @@ type OrderItem struct {
 	SkuID         int       `json:"sku_id"`
 	ProductName   string    `json:"product_name" gorm:"size:100;not null"`
 	SkuAttributes string    `json:"sku_attributes" gorm:"type:json"`
-	Price         float64   `json:"price" gorm:"type:decimal(10,2);not null"`
+	Price         decimal.Decimal   `json:"price" gorm:"type:decimal(10,2);not null"`
 	Quantity      int       `json:"quantity" gorm:"not null"`
-	TotalAmount   float64   `json:"total_amount" gorm:"type:decimal(10,2);not null"`
+	TotalAmount   decimal.Decimal   `json:"total_amount" gorm:"type:decimal(10,2);not null"`
 	CreatedAt     time.Time `json:"created_at" gorm:"type:datetime(3)"`
 	UpdatedAt     time.Time `json:"updated_at" gorm:"type:datetime"`
 }

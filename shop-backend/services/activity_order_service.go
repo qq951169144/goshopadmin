@@ -10,6 +10,7 @@ import (
 	"shop-backend/utils"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -42,7 +43,7 @@ type ActivityOrderResponse struct {
 	CustomerID   int                         `json:"customer_id"`
 	ActivityID   int                         `json:"activity_id"`
 	ActivityName string                      `json:"activity_name"`
-	TotalAmount  float64                     `json:"total_amount"`
+	TotalAmount  decimal.Decimal             `json:"total_amount"`
 	Status       string                      `json:"status"`
 	CreatedAt    time.Time                   `json:"created_at"`
 	Items        []ActivityOrderItemResponse `json:"items"`
@@ -50,16 +51,16 @@ type ActivityOrderResponse struct {
 
 // ActivityOrderItemResponse 活动订单项响应结构体
 type ActivityOrderItemResponse struct {
-	ID            int     `json:"id"`
-	OrderID       int     `json:"order_id"`
-	ProductID     int     `json:"product_id"`
-	SkuID         int     `json:"sku_id"`
-	ProductName   string  `json:"product_name"`
-	SkuAttributes string  `json:"sku_attributes"`
-	ProductImage  string  `json:"product_image"`
-	Price         float64 `json:"price"`
-	Quantity      int     `json:"quantity"`
-	TotalAmount   float64 `json:"total_amount"`
+	ID            int             `json:"id"`
+	OrderID       int             `json:"order_id"`
+	ProductID     int             `json:"product_id"`
+	SkuID         int             `json:"sku_id"`
+	ProductName   string          `json:"product_name"`
+	SkuAttributes string          `json:"sku_attributes"`
+	ProductImage  string          `json:"product_image"`
+	Price         decimal.Decimal `json:"price"`
+	Quantity      int             `json:"quantity"`
+	TotalAmount   decimal.Decimal `json:"total_amount"`
 }
 
 // CreateActivityOrder 创建活动订单
@@ -91,7 +92,7 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 		return nil, errors.New("收货地址不存在")
 	}
 
-	var totalAmount float64
+	var totalAmount decimal.Decimal
 	orderItems := make([]models.OrderItem, 0, len(items))
 
 	for _, item := range items {
@@ -108,8 +109,8 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 			return nil, errors.New("商品SKU不存在")
 		}
 
-		itemAmount := sku.Price * float64(item.Quantity)
-		totalAmount += itemAmount
+		itemAmount := sku.Price.Mul(decimal.NewFromInt(int64(item.Quantity)))
+		totalAmount = totalAmount.Add(itemAmount)
 
 		var product models.Product
 		s.DB.Where("id = ?", item.ProductID).First(&product)

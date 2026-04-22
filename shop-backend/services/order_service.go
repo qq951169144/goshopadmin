@@ -11,6 +11,7 @@ import (
 	"shop-backend/constants"
 	"shop-backend/models"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -46,12 +47,12 @@ type CreateOrderRequest struct {
 
 // OrderInfo 订单信息
 type OrderInfo struct {
-	ID         int       `json:"id"`
-	OrderID    string    `json:"order_id"`
-	Amount     float64   `json:"amount"`
-	PaymentURL string    `json:"payment_url"`
-	Status     string    `json:"status"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID         int             `json:"id"`
+	OrderID    string          `json:"order_id"`
+	Amount     decimal.Decimal `json:"amount"`
+	PaymentURL string          `json:"payment_url"`
+	Status     string          `json:"status"`
+	CreatedAt  time.Time       `json:"created_at"`
 }
 
 // CreateOrder 创建订单
@@ -70,7 +71,7 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 	}
 
 	// 计算订单金额并检查库存
-	var totalAmount float64
+	var totalAmount decimal.Decimal
 	var orderItems []models.OrderItem
 
 	for _, item := range req.Items {
@@ -143,8 +144,8 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 		}
 
 		// 计算金额
-		itemAmount := itemPrice * float64(item.Quantity)
-		totalAmount += itemAmount
+		itemAmount := itemPrice.Mul(decimal.NewFromInt(int64(item.Quantity)))
+		totalAmount = totalAmount.Add(itemAmount)
 
 		// 构建订单项
 		orderItem := models.OrderItem{
@@ -236,14 +237,14 @@ type OrderDetailItem struct {
 	ProductImage  string          `json:"product_image"`
 	SkuCode       string          `json:"sku_code"`
 	SkuAttributes json.RawMessage `json:"sku_attributes"`
-	Price         float64         `json:"price"`
+	Price         decimal.Decimal `json:"price"`
 	Quantity      int             `json:"quantity"`
 }
 
 // OrderDetailInfo 订单详情信息
 type OrderDetailInfo struct {
 	OrderID   string            `json:"order_id"`
-	Amount    float64           `json:"amount"`
+	Amount    decimal.Decimal   `json:"amount"`
 	Status    string            `json:"status"`
 	CreatedAt time.Time         `json:"created_at"`
 	Address   map[string]string `json:"address"`

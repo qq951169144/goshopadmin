@@ -8,6 +8,7 @@ import (
 	"shop-backend/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -26,10 +27,10 @@ func NewCartController(db *gorm.DB) *CartController {
 
 // CartItemRequest 购物车项请求结构
 type CartItemRequest struct {
-	ProductID int     `json:"product_id" binding:"required"`
-	SkuID     int     `json:"sku_id"`
-	Quantity  int     `json:"quantity" binding:"required"`
-	Price     float64 `json:"price" binding:"required"`
+	ProductID int             `json:"product_id" binding:"required"`
+	SkuID     int             `json:"sku_id"`
+	Quantity  int             `json:"quantity" binding:"required"`
+	Price     decimal.Decimal `json:"price" binding:"required"`
 }
 
 // GetCart 获取购物车

@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 	"shop-backend/models"
 )
@@ -19,14 +20,14 @@ func NewCartService(db *gorm.DB) *CartService {
 
 // CartItemInfo 购物车项信息
 type CartItemInfo struct {
-	ID          int     `json:"id"`           // 购物车项ID
-	ProductID   int     `json:"product_id"`   // 商品ID
-	ProductName string  `json:"product_name"` // 商品名称
-	MainImage   string  `json:"main_image"`   // 商品主图
-	SkuID       int     `json:"sku_id"`       // SKU ID
-	SkuCode     string  `json:"sku_code"`     // SKU编码
-	Quantity    int     `json:"quantity"`     // 数量
-	Price       float64 `json:"price"`        // 价格
+	ID          int             `json:"id"`           // 购物车项ID
+	ProductID   int             `json:"product_id"`   // 商品ID
+	ProductName string          `json:"product_name"` // 商品名称
+	MainImage   string          `json:"main_image"`   // 商品主图
+	SkuID       int             `json:"sku_id"`       // SKU ID
+	SkuCode     string          `json:"sku_code"`     // SKU编码
+	Quantity    int             `json:"quantity"`     // 数量
+	Price       decimal.Decimal `json:"price"`        // 价格
 }
 
 // CartInfo 购物车信息
@@ -108,7 +109,7 @@ type AddToCartRequest struct {
 	ProductID  int
 	SkuID      int
 	Quantity   int
-	Price      float64
+	Price      decimal.Decimal
 }
 
 // AddToCart 添加商品到购物车

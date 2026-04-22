@@ -7,34 +7,35 @@ import (
 	"shop-backend/utils"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
 type ActivitySkuResponse struct {
-	SkuID       int     `json:"sku_id"`
-	SkuCode     string  `json:"sku_code"`
-	Price       float64 `json:"price"`
-	Stock       int     `json:"stock"`
-	ProductID   int     `json:"product_id"`
-	ProductName string  `json:"product_name"`
-	ProductDesc string  `json:"description"`
-	IsActivity  int     `json:"is_activity"`
-	MainImage   string  `json:"main_image"`
+	SkuID       int             `json:"sku_id"`
+	SkuCode     string          `json:"sku_code"`
+	Price       decimal.Decimal `json:"price"`
+	Stock       int             `json:"stock"`
+	ProductID   int             `json:"product_id"`
+	ProductName string          `json:"product_name"`
+	ProductDesc string          `json:"description"`
+	IsActivity  int             `json:"is_activity"`
+	MainImage   string          `json:"main_image"`
 }
 
 type ActivitySkuDetailResponse struct {
-	ActivityName        string  `json:"activity_name"`
-	ActivityID          int     `json:"activity_id"`
-	SkuID               int     `json:"sku_id"`
-	SkuCode             string  `json:"sku_code"`
-	Price               float64 `json:"price"`
-	Stock               int     `json:"stock"`
-	SkuStatus           string  `json:"sku_status"`
-	IsActivity          int     `json:"is_activity"`
-	ProductID           int     `json:"product_id"`
-	ProductName         string  `json:"product_name"`
-	ProductDescription  string  `json:"product_description"`
-	MainImage           string  `json:"main_image"`
+	ActivityName        string          `json:"activity_name"`
+	ActivityID          int             `json:"activity_id"`
+	SkuID               int             `json:"sku_id"`
+	SkuCode             string          `json:"sku_code"`
+	Price               decimal.Decimal `json:"price"`
+	Stock               int             `json:"stock"`
+	SkuStatus           string          `json:"sku_status"`
+	IsActivity          int             `json:"is_activity"`
+	ProductID           int             `json:"product_id"`
+	ProductName         string          `json:"product_name"`
+	ProductDescription  string          `json:"product_description"`
+	MainImage           string          `json:"main_image"`
 }
 
 // ActivityService 活动服务

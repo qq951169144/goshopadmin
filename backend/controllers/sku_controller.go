@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -65,8 +66,8 @@ func (c *SkuController) CreateSku(ctx *gin.Context) {
 	sku := &models.ProductSku{
 		ProductID:     productID,
 		SkuCode:       req.SkuCode,
-		Price:         req.Price,
-		OriginalPrice: req.OriginalPrice,
+		Price:         decimal.NewFromFloat(req.Price),
+		OriginalPrice: decimal.NewFromFloat(req.OriginalPrice),
 		Stock:         req.Stock,
 		Status:        req.Status,
 	}

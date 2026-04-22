@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 // Product 商品模型
@@ -10,7 +12,7 @@ type Product struct {
 	Name        string    `json:"name" gorm:"size:100;not null"`
 	Description string    `json:"description" gorm:"type:longtext"`
 	Detail      string    `json:"detail" gorm:"type:text"`
-	Price       float64   `json:"price" gorm:"type:decimal(10,2);not null"`
+	Price       decimal.Decimal   `json:"price" gorm:"type:decimal(10,2);not null"`
 	Stock       int       `json:"stock" gorm:"not null;default:0"`
 	CategoryID  int       `json:"category_id" gorm:"not null"`
 	MerchantID  int       `json:"merchant_id" gorm:"not null"`
@@ -48,8 +50,8 @@ type ProductSku struct {
 	MerchantID    int       `json:"merchant_id" gorm:"not null"`
 	SkuCode       string    `json:"sku_code" gorm:"size:50;not null;uniqueIndex"`
 	Attributes    string    `json:"attributes" gorm:"type:json;"` // [已废弃] 请使用Specs关联表存储规格关系
-	Price         float64   `json:"price" gorm:"type:decimal(10,2);not null"`
-	OriginalPrice float64   `json:"original_price" gorm:"type:decimal(10,2);default:0"`
+	Price         decimal.Decimal   `json:"price" gorm:"type:decimal(10,2);not null"`
+	OriginalPrice decimal.Decimal   `json:"original_price" gorm:"type:decimal(10,2);default:0"`
 	Stock         int       `json:"stock" gorm:"not null"`
 	IsActivity    int       `json:"is_activity" gorm:"type:tinyint(1);default:0"` // 0-普通SKU，1-活动专用SKU
 	ActivityID    int       `json:"activity_id" gorm:"default:0"`                 // 关联活动ID

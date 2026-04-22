@@ -6,6 +6,7 @@ import (
 
 	"shop-backend/models"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -79,22 +80,22 @@ func (s *CustomerService) UpdateProfile(customerID int, req UpdateProfileRequest
 
 // OrderItemResponse 订单项响应结构体
 type OrderItemResponse struct {
-	ProductID     int     `json:"product_id"`
-	ProductName   string  `json:"product_name"`
-	ProductImage  string  `json:"product_image"`
-	SkuCode       string  `json:"sku_code"`
-	SkuAttributes string  `json:"sku_attributes"`
-	Price         float64 `json:"price"`
-	Quantity      int     `json:"quantity"`
+	ProductID     int             `json:"product_id"`
+	ProductName   string          `json:"product_name"`
+	ProductImage  string          `json:"product_image"`
+	SkuCode       string          `json:"sku_code"`
+	SkuAttributes string          `json:"sku_attributes"`
+	Price         decimal.Decimal `json:"price"`
+	Quantity      int             `json:"quantity"`
 }
 
 // OrderResponse 订单响应结构体
 type OrderResponse struct {
-	OrderID   int               `json:"order_id"`
-	OrderNo   string            `json:"order_no"`
-	Amount    float64           `json:"amount"`
-	Status    string            `json:"status"`
-	CreatedAt time.Time         `json:"created_at"`
+	OrderID   int                 `json:"order_id"`
+	OrderNo   string              `json:"order_no"`
+	Amount    decimal.Decimal     `json:"amount"`
+	Status    string              `json:"status"`
+	CreatedAt time.Time           `json:"created_at"`
 	Items     []OrderItemResponse `json:"items"`
 }
 

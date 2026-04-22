@@ -12,6 +12,7 @@ import (
 	"shop-backend/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -85,10 +86,10 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 
 // PaymentCallbackRequest 支付回调请求结构
 type PaymentCallbackRequest struct {
-	OrderNo       string  `json:"order_no" binding:"required"`
-	TransactionID string  `json:"transaction_id" binding:"required"`
-	Status        string  `json:"status" binding:"required"`
-	Amount        float64 `json:"amount" binding:"required"`
+	OrderNo       string            `json:"order_no" binding:"required"`
+	TransactionID string            `json:"transaction_id" binding:"required"`
+	Status        string            `json:"status" binding:"required"`
+	Amount        decimal.Decimal   `json:"amount" binding:"required"`
 }
 
 // PaymentCallback 支付回调
@@ -107,7 +108,7 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 	}
 
 	// 验证金额
-	if order.TotalAmount != req.Amount {
+	if !order.TotalAmount.Equal(req.Amount) {
 		c.ResponseError(ctx, errors.CodeParamInvalid, nil)
 		return
 	}

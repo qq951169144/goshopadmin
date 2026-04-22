@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -47,13 +48,13 @@ type SpecificationValueInfo struct {
 
 // SkuInfoWithSpecs 带规格信息的SKU
 type SkuInfoWithSpecs struct {
-	ID              int            `json:"id"`
-	SkuCode         string         `json:"sku_code"`
-	Price           float64        `json:"price"`
-	OriginalPrice   float64        `json:"original_price"`
-	Stock           int            `json:"stock"`
-	Status          string         `json:"status"`
-	SpecCombination map[string]int `json:"spec_combination"` // spec_id -> spec_value_id
+	ID              int             `json:"id"`
+	SkuCode         string          `json:"sku_code"`
+	Price           decimal.Decimal `json:"price"`
+	OriginalPrice   decimal.Decimal `json:"original_price"`
+	Stock           int             `json:"stock"`
+	Status          string          `json:"status"`
+	SpecCombination map[string]int  `json:"spec_combination"` // spec_id -> spec_value_id
 }
 
 // ProductDetailWithSpecs 带规格信息的商品详情
@@ -62,7 +63,7 @@ type ProductDetailWithSpecs struct {
 	Name           string              `json:"name"`
 	Description    string              `json:"description"`
 	Detail         string              `json:"detail"`
-	Price          float64             `json:"price"`
+	Price          decimal.Decimal     `json:"price"`
 	Image          string              `json:"image"`
 	Images         []string            `json:"images"`
 	Specifications []SpecificationInfo `json:"specifications"`
@@ -74,8 +75,8 @@ type ProductDetailWithSpecs struct {
 
 // PriceRange 价格范围
 type PriceRange struct {
-	Min float64 `json:"min"`
-	Max float64 `json:"max"`
+	Min decimal.Decimal `json:"min"`
+	Max decimal.Decimal `json:"max"`
 }
 
 // GetProductDetailWithSpecs 获取带规格信息的商品详情（带缓存策略）
@@ -224,7 +225,7 @@ func (s *SpecificationService) queryProductDetailFromDB(productID int) (*Product
 	s.db.Where("product_id = ? AND status = ? AND is_activity = ? AND activity_id = ?", productID, "active", 0, 0).Find(&skus)
 
 	var skuInfos []SkuInfoWithSpecs
-	var minPrice, maxPrice float64
+	var minPrice, maxPrice decimal.Decimal
 	for i, sku := range skus {
 		// 查询SKU的规格组合
 		var skuSpecs []models.ProductSkuSpec
@@ -246,10 +247,10 @@ func (s *SpecificationService) queryProductDetailFromDB(productID int) (*Product
 		})
 
 		// 计算价格范围
-		if i == 0 || sku.Price < minPrice {
+		if i == 0 || sku.Price.LessThan(minPrice) {
 			minPrice = sku.Price
 		}
-		if i == 0 || sku.Price > maxPrice {
+		if i == 0 || sku.Price.GreaterThan(maxPrice) {
 			maxPrice = sku.Price
 		}
 	}
@@ -260,7 +261,7 @@ func (s *SpecificationService) queryProductDetailFromDB(productID int) (*Product
 			ID:              0,
 			SkuCode:         "default",
 			Price:           product.Price,
-			OriginalPrice:   0,
+			OriginalPrice:   decimal.NewFromInt(0),
 			Stock:           product.Stock,
 			Status:          "active",
 			SpecCombination: make(map[string]int),

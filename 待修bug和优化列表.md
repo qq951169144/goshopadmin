@@ -28,8 +28,8 @@
 - **优先级**：低
 - **理由**：该项目着重关注redis，mq，websocket，nginx抗压架构上
 
-## 6. 活动订单列表页面显示问题
-- **问题描述**：
-  - 普通订单筛选过滤掉活动订单
-  - 活动订单选择地址无法正常入库
-- **优先级**：中
+
+## 6. backend
+- **问题描述**：生成product_skus.attributes的逻辑有问题,不要任由他生成空值
+- **涉及文件**：D:\code\goshopadmin\backend\services\sku_service.go
+- **优先级**：高

@@ -8,6 +8,7 @@ import (
 	"shop-backend/models"
 	"shop-backend/utils"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -46,23 +47,23 @@ func NewProductService(db *gorm.DB, cacheUtil *cache.CacheUtil) *ProductService 
 
 // ProductInfo 商品信息结构
 type ProductInfo struct {
-	ID              int      `json:"id"`
-	Name            string   `json:"name"`
-	Description     string   `json:"description"`
-	Price           float64  `json:"price"`
-	SKU             string   `json:"sku"`
-	Stock           int      `json:"stock"`
-	Image           string   `json:"image"`
-	Images          []string `json:"images"`
-	DefaultSkuPrice float64  `json:"default_sku_price"`
-	Sales           int      `json:"sales"`
+	ID              int             `json:"id"`
+	Name            string          `json:"name"`
+	Description     string          `json:"description"`
+	Price           decimal.Decimal `json:"price"`
+	SKU             string          `json:"sku"`
+	Stock           int             `json:"stock"`
+	Image           string          `json:"image"`
+	Images          []string        `json:"images"`
+	DefaultSkuPrice decimal.Decimal `json:"default_sku_price"`
+	Sales           int             `json:"sales"`
 }
 
 // SKUInfo SKU信息结构
 type SKUInfo struct {
 	ID         int               `json:"id"`
 	Name       string            `json:"name"`
-	Price      float64           `json:"price"`
+	Price      decimal.Decimal   `json:"price"`
 	Stock      int               `json:"stock"`
 	Attributes map[string]string `json:"attributes"`
 }

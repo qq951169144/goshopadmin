@@ -11,6 +11,7 @@ require (
 	github.com/mojocn/base64Captcha v1.3.8
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/rabbitmq/amqp091-go v1.10.0
+	github.com/shopspring/decimal v1.4.0
 	github.com/sony/gobreaker v0.5.0
 	golang.org/x/crypto v0.23.0
 	gorm.io/driver/mysql v1.5.1
