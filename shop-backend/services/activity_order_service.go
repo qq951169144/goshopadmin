@@ -35,6 +35,33 @@ type ActivityOrderItem struct {
 	Quantity  int
 }
 
+// ActivityOrderResponse 活动订单响应结构体
+type ActivityOrderResponse struct {
+	ID           int                         `json:"id"`
+	OrderNo      string                      `json:"order_no"`
+	CustomerID   int                         `json:"customer_id"`
+	ActivityID   int                         `json:"activity_id"`
+	ActivityName string                      `json:"activity_name"`
+	TotalAmount  float64                     `json:"total_amount"`
+	Status       string                      `json:"status"`
+	CreatedAt    time.Time                   `json:"created_at"`
+	Items        []ActivityOrderItemResponse `json:"items"`
+}
+
+// ActivityOrderItemResponse 活动订单项响应结构体
+type ActivityOrderItemResponse struct {
+	ID            int     `json:"id"`
+	OrderID       int     `json:"order_id"`
+	ProductID     int     `json:"product_id"`
+	SkuID         int     `json:"sku_id"`
+	ProductName   string  `json:"product_name"`
+	SkuAttributes string  `json:"sku_attributes"`
+	ProductImage  string  `json:"product_image"`
+	Price         float64 `json:"price"`
+	Quantity      int     `json:"quantity"`
+	TotalAmount   float64 `json:"total_amount"`
+}
+
 // CreateActivityOrder 创建活动订单
 func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID int, addressID int, items []ActivityOrderItem) (*OrderInfo, error) {
 	tx := s.DB.Begin()
@@ -132,13 +159,14 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 		OrderNo:        orderNo,
 		ActivityID:     activityID,
 		TotalAmount:    totalAmount,
+		AddressID:      addressID,
 		Status:         constants.OrderStatusPending,
 		PaymentStatus:  constants.PaymentStatusPending,
 		ShippingStatus: constants.ShippingStatusPending,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
-
+	utils.Info("AddressID = %v, order.ActivityID = %v", addressID, order.AddressID)
 	if err := tx.Create(order).Error; err != nil {
 		tx.Rollback()
 		return nil, err
@@ -169,7 +197,7 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 }
 
 // GetActivityOrders 获取用户活动订单列表
-func (s *ActivityOrderService) GetActivityOrders(customerID int, page, pageSize int) ([]models.Order, int64, error) {
+func (s *ActivityOrderService) GetActivityOrders(customerID int, page, pageSize int) ([]ActivityOrderResponse, int64, error) {
 	var orders []models.Order
 	var total int64
 
@@ -182,17 +210,65 @@ func (s *ActivityOrderService) GetActivityOrders(customerID int, page, pageSize 
 		return nil, 0, result.Error
 	}
 
-	for i := range orders {
+	responseOrders := make([]ActivityOrderResponse, len(orders))
+	for i, order := range orders {
+		// 查询活动名称
+		var activity models.Activity
+		s.DB.Select("name").Where("id = ?", order.ActivityID).First(&activity)
+
+		// 查询订单商品
 		var items []models.OrderItem
-		s.DB.Where("order_id = ?", orders[i].ID).Find(&items)
-		orders[i].Items = items
+		s.DB.Where("order_id = ?", order.ID).Find(&items)
+
+		// 转换商品项
+		responseItems := make([]ActivityOrderItemResponse, len(items))
+		for j, item := range items {
+			// 查询商品主图
+			var productImage models.ProductImage
+			s.DB.Where("product_id = ? AND is_main = ?", item.ProductID, true).First(&productImage)
+			productImageURL := ""
+			if productImage.ID > 0 {
+				productImageURL = productImage.ImageURL
+			} else {
+				// 如果没有主图，查询第一张图片
+				s.DB.Where("product_id = ?", item.ProductID).First(&productImage)
+				if productImage.ID > 0 {
+					productImageURL = productImage.ImageURL
+				}
+			}
+
+			responseItems[j] = ActivityOrderItemResponse{
+				ID:            item.ID,
+				OrderID:       item.OrderID,
+				ProductID:     item.ProductID,
+				SkuID:         item.SkuID,
+				ProductName:   item.ProductName,
+				SkuAttributes: item.SkuAttributes,
+				ProductImage:  productImageURL,
+				Price:         item.Price,
+				Quantity:      item.Quantity,
+				TotalAmount:   item.TotalAmount,
+			}
+		}
+
+		responseOrders[i] = ActivityOrderResponse{
+			ID:           order.ID,
+			OrderNo:      order.OrderNo,
+			CustomerID:   order.CustomerID,
+			ActivityID:   order.ActivityID,
+			ActivityName: activity.Name,
+			TotalAmount:  order.TotalAmount,
+			Status:       order.Status,
+			CreatedAt:    order.CreatedAt,
+			Items:        responseItems,
+		}
 	}
 
-	return orders, total, nil
+	return responseOrders, total, nil
 }
 
 // GetActivityOrderByID 根据ID获取活动订单详情
-func (s *ActivityOrderService) GetActivityOrderByID(orderID int, customerID int) (*models.Order, error) {
+func (s *ActivityOrderService) GetActivityOrderByID(orderID int, customerID int) (*ActivityOrderResponse, error) {
 	var order models.Order
 
 	result := s.DB.Where("id = ? AND customer_id = ? AND activity_id > 0", orderID, customerID).First(&order)
@@ -204,11 +280,58 @@ func (s *ActivityOrderService) GetActivityOrderByID(orderID int, customerID int)
 		return nil, result.Error
 	}
 
+	// 查询活动名称
+	var activity models.Activity
+	s.DB.Select("name").Where("id = ?", order.ActivityID).First(&activity)
+
+	// 查询订单商品
 	var items []models.OrderItem
 	s.DB.Where("order_id = ?", order.ID).Find(&items)
-	order.Items = items
 
-	return &order, nil
+	// 转换商品项
+	responseItems := make([]ActivityOrderItemResponse, len(items))
+	for j, item := range items {
+		// 查询商品主图
+		var productImage models.ProductImage
+		s.DB.Where("product_id = ? AND is_main = ?", item.ProductID, true).First(&productImage)
+		productImageURL := ""
+		if productImage.ID > 0 {
+			productImageURL = productImage.ImageURL
+		} else {
+			// 如果没有主图，查询第一张图片
+			s.DB.Where("product_id = ?", item.ProductID).First(&productImage)
+			if productImage.ID > 0 {
+				productImageURL = productImage.ImageURL
+			}
+		}
+
+		responseItems[j] = ActivityOrderItemResponse{
+			ID:            item.ID,
+			OrderID:       item.OrderID,
+			ProductID:     item.ProductID,
+			SkuID:         item.SkuID,
+			ProductName:   item.ProductName,
+			SkuAttributes: item.SkuAttributes,
+			ProductImage:  productImageURL,
+			Price:         item.Price,
+			Quantity:      item.Quantity,
+			TotalAmount:   item.TotalAmount,
+		}
+	}
+
+	responseOrder := &ActivityOrderResponse{
+		ID:           order.ID,
+		OrderNo:      order.OrderNo,
+		CustomerID:   order.CustomerID,
+		ActivityID:   order.ActivityID,
+		ActivityName: activity.Name,
+		TotalAmount:  order.TotalAmount,
+		Status:       order.Status,
+		CreatedAt:    order.CreatedAt,
+		Items:        responseItems,
+	}
+
+	return responseOrder, nil
 }
 
 // generateOrderNo 生成订单号

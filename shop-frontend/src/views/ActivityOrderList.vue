@@ -29,6 +29,7 @@
             <div class="order-info">
               <span class="order-no">订单号：{{ order.order_no }}</span>
               <span class="order-date">{{ formatDate(order.created_at) }}</span>
+              <span class="activity-name" v-if="order.activity_name">{{ order.activity_name }}</span>
             </div>
             <span class="order-status" :class="getStatusClass(order.status)">
               {{ getStatusLabel(order.status) }}
@@ -40,6 +41,7 @@
               <img :src="item.product_image || defaultImage" :alt="item.product_name" />
               <div class="item-info">
                 <h4>{{ item.product_name }}</h4>
+                <p class="item-spec" v-if="parseSkuAttributes(item.sku_attributes)">{{ parseSkuAttributes(item.sku_attributes) }}</p>
                 <p class="item-price">¥{{ formatPrice(item.price) }} x {{ item.quantity }}</p>
               </div>
             </div>
@@ -158,6 +160,17 @@ const getStatusClass = (status) => {
   return classMap[status] || ''
 }
 
+const parseSkuAttributes = (attributes) => {
+  try {
+    if (!attributes) return ''
+    const parsed = typeof attributes === 'string' ? JSON.parse(attributes) : attributes
+    return Object.entries(parsed).map(([key, value]) => `${key}: ${value}`).join(' | ')
+  } catch (error) {
+    console.error('解析规格失败:', error)
+    return ''
+  }
+}
+
 const goShopping = () => {
   router.push('/')
 }
@@ -218,7 +231,7 @@ const loadOrders = async (page = 1, append = false) => {
     }
 
     const response = await activityOrderAPI.getActivityOrders(params)
-    const newOrders = response.orders || []
+    const newOrders = response.items || []
     const total = response.total || 0
 
     if (append) {
@@ -364,6 +377,13 @@ watch(currentTab, () => {
   color: #999;
 }
 
+.activity-name {
+  font-size: 12px;
+  color: #4CAF50;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
 .order-status {
   font-size: 13px;
   font-weight: bold;
@@ -423,6 +443,13 @@ watch(currentTab, () => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin: 0;
+}
+
+.item-spec {
+  font-size: 12px;
+  color: #999;
+  margin: 4px 0;
+  line-height: 1.3;
 }
 
 .item-price {
