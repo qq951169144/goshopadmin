@@ -7,9 +7,36 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
+
+// ========== 响应结构体定义（精简版）==========
+
+// SkuSpecComboResp SKU规格组合响应（精简版）
+type SkuSpecComboResp struct {
+	SpecID      int `json:"spec_id"`
+	SpecValueID int `json:"spec_value_id"`
+}
+
+// SkuResp SKU响应（精简版）
+type SkuResp struct {
+	ID               int                `json:"id"`
+	SkuCode          string             `json:"sku_code"`
+	Price            float64            `json:"price"`
+	OriginalPrice    float64            `json:"original_price"`
+	Stock            int                `json:"stock"`
+	Status           string             `json:"status"`
+	IsActivity       bool               `json:"is_activity"`
+	ActivityID       int                `json:"activity_id"`
+	SpecCombinations []SkuSpecComboResp `json:"spec_combinations"`
+}
+
+// SkuPreviewResp SKU预览响应（精简版）
+type SkuPreviewResp struct {
+	SkuCode          string             `json:"sku_code"`
+	Price            float64            `json:"price"`
+	SpecCombinations []SkuSpecComboResp `json:"spec_combinations"`
+}
 
 // SkuService SKU服务
 type SkuService struct {
@@ -21,9 +48,19 @@ func NewSkuService(db *gorm.DB) *SkuService {
 	return &SkuService{DB: db}
 }
 
-// CreateSku 创建单个SKU
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func intToBool(i int) bool {
+	return i != 0
+}
+
+// CreateSku 创建单个SKU（单表插入）
 func (s *SkuService) CreateSku(sku *models.ProductSku, specCombinations []models.ProductSkuSpec, merchantID int) error {
-	// 检查商品是否属于该商户
 	var product models.Product
 	result := s.DB.Where("id = ? AND merchant_id = ?", sku.ProductID, merchantID).First(&product)
 	if result.Error != nil {
@@ -32,12 +69,10 @@ func (s *SkuService) CreateSku(sku *models.ProductSku, specCombinations []models
 
 	sku.MerchantID = merchantID
 
-	// 确保 Attributes 字段有有效的 JSON 值
 	if sku.Attributes == "" {
 		sku.Attributes = "{}"
 	}
 
-	// 开启事务
 	tx := s.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -45,24 +80,44 @@ func (s *SkuService) CreateSku(sku *models.ProductSku, specCombinations []models
 		}
 	}()
 
-	// 创建SKU
-	if err := tx.Create(sku).Error; err != nil {
+	err := tx.Exec(
+		`INSERT INTO product_skus
+			(product_id, merchant_id, sku_code, attributes, price, original_price, stock, is_activity, activity_id, status, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+		sku.ProductID,
+		sku.MerchantID,
+		sku.SkuCode,
+		sku.Attributes,
+		sku.Price,
+		sku.OriginalPrice,
+		sku.Stock,
+		boolToInt(sku.IsActivity == 1),
+		sku.ActivityID,
+		sku.Status,
+	).Error
+	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	// 创建规格关联
-	for i := range specCombinations {
-		specCombinations[i].SkuID = sku.ID
-		if err := tx.Create(&specCombinations[i]).Error; err != nil {
+	var skuID int64
+	tx.Raw("SELECT LAST_INSERT_ID()").Scan(&skuID)
+
+	for _, combo := range specCombinations {
+		err := tx.Exec(
+			`INSERT INTO product_sku_specs (sku_id, spec_id, spec_value_id, created_at) VALUES (?, ?, ?, NOW())`,
+			skuID,
+			combo.SpecID,
+			combo.SpecValueID,
+		).Error
+		if err != nil {
 			tx.Rollback()
 			return err
 		}
 	}
 
-	// 重新计算商品总库存
 	var totalStock int
-	err := tx.Model(&models.ProductSku{}).
+	err = tx.Model(&models.ProductSku{}).
 		Where("product_id = ? AND status = ?", sku.ProductID, "active").
 		Select("COALESCE(SUM(stock), 0)").
 		Scan(&totalStock).Error
@@ -71,8 +126,8 @@ func (s *SkuService) CreateSku(sku *models.ProductSku, specCombinations []models
 		return err
 	}
 
-	// 更新商品总库存
-	if err := tx.Model(&product).Update("stock", totalStock).Error; err != nil {
+	err = tx.Model(&product).Update("stock", totalStock).Error
+	if err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -80,68 +135,14 @@ func (s *SkuService) CreateSku(sku *models.ProductSku, specCombinations []models
 	return tx.Commit().Error
 }
 
-// CreateActivitySku 创建活动专用SKU
-func (s *SkuService) CreateActivitySku(sku *models.ProductSku, specCombinations []models.ProductSkuSpec, activityID int, merchantID int) error {
-	// 检查活动是否存在
-	var activity models.Activity
-	result := s.DB.First(&activity, activityID)
-	if result.Error != nil {
-		return errors.New("活动不存在")
-	}
-
-	// 检查商品是否属于该商户
-	var product models.Product
-	result = s.DB.Where("id = ? AND merchant_id = ?", sku.ProductID, merchantID).First(&product)
-	if result.Error != nil {
-		return errors.New("商品不存在或不属于该商户")
-	}
-
-	// 设置活动相关字段
-	sku.MerchantID = merchantID
-	sku.IsActivity = 1
-	sku.ActivityID = activityID
-
-	// 确保 Attributes 字段有有效的 JSON 值
-	if sku.Attributes == "" {
-		sku.Attributes = "{}"
-	}
-
-	// 开启事务
-	tx := s.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// 创建SKU
-	if err := tx.Create(sku).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// 创建规格关联
-	for i := range specCombinations {
-		specCombinations[i].SkuID = sku.ID
-		if err := tx.Create(&specCombinations[i]).Error; err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-
-	return tx.Commit().Error
-}
-
-// BatchCreateSku 批量创建SKU
+// BatchCreateSku 批量创建SKU（单表插入）
 func (s *SkuService) BatchCreateSku(productID int, skus []models.ProductSku, specCombinations [][]models.ProductSkuSpec, merchantID int) error {
-	// 检查商品是否属于该商户
 	var product models.Product
 	result := s.DB.Where("id = ? AND merchant_id = ?", productID, merchantID).First(&product)
 	if result.Error != nil {
 		return errors.New("商品不存在或不属于该商户")
 	}
 
-	// 开启事务
 	tx := s.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -149,27 +150,50 @@ func (s *SkuService) BatchCreateSku(productID int, skus []models.ProductSku, spe
 		}
 	}()
 
-	// 批量创建SKU
 	for i := range skus {
 		skus[i].ProductID = productID
 		skus[i].MerchantID = merchantID
+
 		if skus[i].SkuCode == "" {
 			skus[i].SkuCode = fmt.Sprintf("PROD-%d-%d", productID, i+1)
 		}
-		// 确保 Attributes 字段有有效的 JSON 值
+
 		if skus[i].Attributes == "" {
 			skus[i].Attributes = "{}"
 		}
-		if err := tx.Create(&skus[i]).Error; err != nil {
+
+		err := tx.Exec(
+			`INSERT INTO product_skus
+				(product_id, merchant_id, sku_code, attributes, price, original_price, stock, is_activity, activity_id, status, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+			skus[i].ProductID,
+			skus[i].MerchantID,
+			skus[i].SkuCode,
+			skus[i].Attributes,
+			skus[i].Price,
+			skus[i].OriginalPrice,
+			skus[i].Stock,
+			boolToInt(skus[i].IsActivity == 1),
+			skus[i].ActivityID,
+			skus[i].Status,
+		).Error
+		if err != nil {
 			tx.Rollback()
 			return err
 		}
 
-		// 创建规格关联
+		var skuID int64
+		tx.Raw("SELECT LAST_INSERT_ID()").Scan(&skuID)
+
 		if i < len(specCombinations) {
-			for j := range specCombinations[i] {
-				specCombinations[i][j].SkuID = skus[i].ID
-				if err := tx.Create(&specCombinations[i][j]).Error; err != nil {
+			for _, combo := range specCombinations[i] {
+				err := tx.Exec(
+					`INSERT INTO product_sku_specs (sku_id, spec_id, spec_value_id, created_at) VALUES (?, ?, ?, NOW())`,
+					skuID,
+					combo.SpecID,
+					combo.SpecValueID,
+				).Error
+				if err != nil {
 					tx.Rollback()
 					return err
 				}
@@ -177,7 +201,6 @@ func (s *SkuService) BatchCreateSku(productID int, skus []models.ProductSku, spe
 		}
 	}
 
-	// 重新计算商品总库存
 	var totalStock int
 	err := tx.Model(&models.ProductSku{}).
 		Where("product_id = ? AND status = ?", productID, "active").
@@ -188,8 +211,8 @@ func (s *SkuService) BatchCreateSku(productID int, skus []models.ProductSku, spe
 		return err
 	}
 
-	// 更新商品总库存
-	if err := tx.Model(&product).Update("stock", totalStock).Error; err != nil {
+	err = tx.Model(&product).Update("stock", totalStock).Error
+	if err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -199,7 +222,6 @@ func (s *SkuService) BatchCreateSku(productID int, skus []models.ProductSku, spe
 
 // UpdateSku 更新SKU
 func (s *SkuService) UpdateSku(skuID int, updates map[string]interface{}, specCombinations []models.ProductSkuSpec, merchantID int) error {
-	// 检查SKU所属的商品是否属于该商户
 	var existingSku models.ProductSku
 	result := s.DB.First(&existingSku, skuID)
 	if result.Error != nil {
@@ -212,7 +234,6 @@ func (s *SkuService) UpdateSku(skuID int, updates map[string]interface{}, specCo
 		return errors.New("商品不存在或不属于该商户")
 	}
 
-	// 开启事务
 	tx := s.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -220,7 +241,6 @@ func (s *SkuService) UpdateSku(skuID int, updates map[string]interface{}, specCo
 		}
 	}()
 
-	// 更新SKU
 	if len(updates) > 0 {
 		if err := tx.Model(&existingSku).Updates(updates).Error; err != nil {
 			tx.Rollback()
@@ -228,7 +248,6 @@ func (s *SkuService) UpdateSku(skuID int, updates map[string]interface{}, specCo
 		}
 	}
 
-	// 如果有规格组合更新，先删除旧的，再创建新的
 	if len(specCombinations) > 0 {
 		if err := tx.Where("sku_id = ?", skuID).Delete(&models.ProductSkuSpec{}).Error; err != nil {
 			tx.Rollback()
@@ -244,7 +263,6 @@ func (s *SkuService) UpdateSku(skuID int, updates map[string]interface{}, specCo
 		}
 	}
 
-	// 重新计算商品总库存
 	var totalStock int
 	err := tx.Model(&models.ProductSku{}).
 		Where("product_id = ? AND status = ?", existingSku.ProductID, "active").
@@ -255,7 +273,6 @@ func (s *SkuService) UpdateSku(skuID int, updates map[string]interface{}, specCo
 		return err
 	}
 
-	// 更新商品总库存
 	if err := tx.Model(&product).Update("stock", totalStock).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -266,7 +283,6 @@ func (s *SkuService) UpdateSku(skuID int, updates map[string]interface{}, specCo
 
 // DeleteSku 删除SKU（禁用）
 func (s *SkuService) DeleteSku(skuID int, merchantID int) error {
-	// 检查SKU所属的商品是否属于该商户
 	var sku models.ProductSku
 	result := s.DB.First(&sku, skuID)
 	if result.Error != nil {
@@ -279,7 +295,6 @@ func (s *SkuService) DeleteSku(skuID int, merchantID int) error {
 		return errors.New("商品不存在或不属于该商户")
 	}
 
-	// 检查是否是最后一个SKU
 	var activeSKUCount int64
 	s.DB.Model(&models.ProductSku{}).
 		Where("product_id = ? AND status = ? AND id != ?", sku.ProductID, "active", skuID).
@@ -288,7 +303,6 @@ func (s *SkuService) DeleteSku(skuID int, merchantID int) error {
 		return errors.New("不能删除最后一个SKU")
 	}
 
-	// 开启事务
 	tx := s.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -296,13 +310,11 @@ func (s *SkuService) DeleteSku(skuID int, merchantID int) error {
 		}
 	}()
 
-	// 更新SKU状态为禁用
 	if err := tx.Model(&sku).Update("status", "inactive").Error; err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	// 重新计算商品总库存
 	var totalStock int
 	err := tx.Model(&models.ProductSku{}).
 		Where("product_id = ? AND status = ?", sku.ProductID, "active").
@@ -313,7 +325,6 @@ func (s *SkuService) DeleteSku(skuID int, merchantID int) error {
 		return err
 	}
 
-	// 更新商品总库存
 	if err := tx.Model(&product).Update("stock", totalStock).Error; err != nil {
 		tx.Rollback()
 		return err
@@ -322,9 +333,11 @@ func (s *SkuService) DeleteSku(skuID int, merchantID int) error {
 	return tx.Commit().Error
 }
 
-// GetSkusByProductID 获取商品的SKU列表
-func (s *SkuService) GetSkusByProductID(productID int, merchantID int) ([]models.ProductSku, error) {
-	// 检查商品是否属于该商户
+// GetSkusByProductID 获取商品的SKU列表（精简版）
+func (s *SkuService) GetSkusByProductID(
+	productID int,
+	merchantID int,
+) ([]SkuResp, error) {
 	var product models.Product
 	result := s.DB.Where("id = ? AND merchant_id = ?", productID, merchantID).First(&product)
 	if result.Error != nil {
@@ -332,13 +345,56 @@ func (s *SkuService) GetSkusByProductID(productID int, merchantID int) ([]models
 	}
 
 	var skus []models.ProductSku
-	result = s.DB.Where("product_id = ?", productID).Preload("Specs", func(db *gorm.DB) *gorm.DB {
-		return db.Preload("Spec").Preload("SpecValue")
-	}).Find(&skus)
+	result = s.DB.Table("product_skus").
+		Select("id, product_id, sku_code, price, original_price, stock, status, is_activity, activity_id").
+		Where("product_id = ?", productID).
+		Find(&skus)
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return skus, nil
+
+	if len(skus) == 0 {
+		return []SkuResp{}, nil
+	}
+
+	skuIDs := make([]int, len(skus))
+	for i, sku := range skus {
+		skuIDs[i] = sku.ID
+	}
+
+	var skuSpecs []models.ProductSkuSpec
+	result = s.DB.Table("product_sku_specs").
+		Select("sku_id, spec_id, spec_value_id").
+		Where("sku_id IN ?", skuIDs).
+		Find(&skuSpecs)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	specsMap := make(map[int][]SkuSpecComboResp)
+	for _, spec := range skuSpecs {
+		specsMap[spec.SkuID] = append(specsMap[spec.SkuID], SkuSpecComboResp{
+			SpecID:      spec.SpecID,
+			SpecValueID: spec.SpecValueID,
+		})
+	}
+
+	response := make([]SkuResp, len(skus))
+	for i, sku := range skus {
+		response[i] = SkuResp{
+			ID:               sku.ID,
+			SkuCode:          sku.SkuCode,
+			Price:            sku.Price.InexactFloat64(),
+			OriginalPrice:    sku.OriginalPrice.InexactFloat64(),
+			Stock:            sku.Stock,
+			Status:           sku.Status,
+			IsActivity:       intToBool(sku.IsActivity),
+			ActivityID:       sku.ActivityID,
+			SpecCombinations: specsMap[sku.ID],
+		}
+	}
+
+	return response, nil
 }
 
 // GetSkuByID 根据ID获取SKU详情
@@ -349,38 +405,34 @@ func (s *SkuService) GetSkuByID(skuID int, merchantID int) (models.ProductSku, e
 		return models.ProductSku{}, errors.New("SKU不存在")
 	}
 
-	// 检查SKU所属的商品是否属于该商户
 	var product models.Product
 	result = s.DB.Where("id = ? AND merchant_id = ?", sku.ProductID, merchantID).First(&product)
 	if result.Error != nil {
 		return models.ProductSku{}, errors.New("商品不存在或不属于该商户")
 	}
 
-	// 加载规格关联
 	s.DB.Model(&sku).Association("Specs").Find(&sku.Specs)
 	return sku, nil
 }
 
-// SkuWithSpecCombinations 包含规格组合的SKU
-type SkuWithSpecCombinations struct {
-	models.ProductSku
-	SpecCombinations []models.ProductSkuSpec `json:"spec_combinations"`
-}
-
-// GenerateSkusFromSpecs 根据规格组合自动生成SKU
-func (s *SkuService) GenerateSkusFromSpecs(productID int, basePrice float64, merchantID int) ([]SkuWithSpecCombinations, error) {
-	// 检查商品是否属于该商户
+// GenerateSkusFromSpecs 根据规格组合自动生成SKU预览（精简版）
+func (s *SkuService) GenerateSkusFromSpecs(
+	productID int,
+	basePrice float64,
+	merchantID int,
+) ([]SkuPreviewResp, error) {
 	var product models.Product
 	result := s.DB.Where("id = ? AND merchant_id = ?", productID, merchantID).First(&product)
 	if result.Error != nil {
 		return nil, errors.New("商品不存在或不属于该商户")
 	}
 
-	// 获取商品的所有规格和规格值
 	var specs []models.ProductSpecification
-	result = s.DB.Where("product_id = ?", productID).Preload("Values", func(db *gorm.DB) *gorm.DB {
-		return db.Where("status = ?", "active").Order("sort ASC")
-	}).Order("sort ASC").Find(&specs)
+	result = s.DB.Table("product_specifications").
+		Select("id, product_id, name, sort").
+		Where("product_id = ?", productID).
+		Order("sort ASC").
+		Find(&specs)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -389,26 +441,44 @@ func (s *SkuService) GenerateSkusFromSpecs(productID int, basePrice float64, mer
 		return nil, errors.New("商品没有配置规格")
 	}
 
-	// 检查是否所有规格都有规格值
+	specIDs := make([]int, len(specs))
+	for i, spec := range specs {
+		specIDs[i] = spec.ID
+	}
+
+	var specValues []models.ProductSpecificationValue
+	result = s.DB.Table("product_specification_values").
+		Select("id, spec_id, value, sort").
+		Where("spec_id IN ? AND status = ?", specIDs, "active").
+		Order("sort ASC").
+		Find(&specValues)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	valuesMap := make(map[int][]models.ProductSpecificationValue)
+	for _, v := range specValues {
+		valuesMap[v.SpecID] = append(valuesMap[v.SpecID], v)
+	}
+
 	for _, spec := range specs {
-		if len(spec.Values) == 0 {
+		if len(valuesMap[spec.ID]) == 0 {
 			return nil, errors.New("规格 '" + spec.Name + "' 没有配置规格值")
 		}
 	}
 
-	// 生成规格组合
 	var combinations [][]models.ProductSpecificationValue
 	var generateCombinations func(specIndex int, current []models.ProductSpecificationValue)
+
 	generateCombinations = func(specIndex int, current []models.ProductSpecificationValue) {
 		if specIndex == len(specs) {
-			// 复制当前组合
 			combo := make([]models.ProductSpecificationValue, len(current))
 			copy(combo, current)
 			combinations = append(combinations, combo)
 			return
 		}
 
-		for _, value := range specs[specIndex].Values {
+		for _, value := range valuesMap[specs[specIndex].ID] {
 			current = append(current, value)
 			generateCombinations(specIndex+1, current)
 			current = current[:len(current)-1]
@@ -416,58 +486,45 @@ func (s *SkuService) GenerateSkusFromSpecs(productID int, basePrice float64, mer
 	}
 	generateCombinations(0, []models.ProductSpecificationValue{})
 
-	// 获取已存在的SKU编码
 	var existingSkus []models.ProductSku
-	if err := s.DB.Where("product_id = ?", productID).Select("sku_code").Find(&existingSkus).Error; err != nil {
+	err := s.DB.Table("product_skus").
+		Select("sku_code").
+		Where("product_id = ?", productID).
+		Find(&existingSkus).Error
+	if err != nil {
 		return nil, err
 	}
 
-	// 创建已存在SKU编码的映射，用于快速查找
 	existingSkuMap := make(map[string]bool)
 	for _, sku := range existingSkus {
 		existingSkuMap[sku.SkuCode] = true
 	}
 
-	// 生成SKU列表，过滤掉已存在的SKU
-	var skus []SkuWithSpecCombinations
+	var preview []SkuPreviewResp
 	for _, combo := range combinations {
-		// 生成SKU编码
 		var skuCodeParts []string
 		skuCodeParts = append(skuCodeParts, "PROD-"+strconv.Itoa(productID))
-		for _, value := range combo {
+
+		specCombinations := make([]SkuSpecComboResp, len(combo))
+		for j, value := range combo {
 			skuCodeParts = append(skuCodeParts, value.Value)
+			specCombinations[j] = SkuSpecComboResp{
+				SpecID:      value.SpecID,
+				SpecValueID: value.ID,
+			}
 		}
 		skuCode := strings.Join(skuCodeParts, "-")
 
-		// 检查SKU编码是否已存在，如果存在则跳过
 		if existingSkuMap[skuCode] {
 			continue
 		}
 
-		sku := models.ProductSku{
-			ProductID:     productID,
-			MerchantID:    merchantID,
-			SkuCode:       skuCode,
-			Price:         decimal.NewFromFloat(basePrice),
-			OriginalPrice: decimal.NewFromInt(0),
-			Stock:         0,
-			Status:        "active",
-		}
-
-		// 生成规格组合关联（用于返回给前端展示）
-		var specCombos []models.ProductSkuSpec
-		for _, value := range combo {
-			specCombos = append(specCombos, models.ProductSkuSpec{
-				SpecID:      value.SpecID,
-				SpecValueID: value.ID,
-			})
-		}
-
-		skus = append(skus, SkuWithSpecCombinations{
-			ProductSku:       sku,
-			SpecCombinations: specCombos,
+		preview = append(preview, SkuPreviewResp{
+			SkuCode:          skuCode,
+			Price:            basePrice,
+			SpecCombinations: specCombinations,
 		})
 	}
 
-	return skus, nil
+	return preview, nil
 }
