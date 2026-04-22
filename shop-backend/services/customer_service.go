@@ -77,10 +77,31 @@ func (s *CustomerService) UpdateProfile(customerID int, req UpdateProfileRequest
 	}, nil
 }
 
+// OrderItemResponse 订单项响应结构体
+type OrderItemResponse struct {
+	ProductID     int     `json:"product_id"`
+	ProductName   string  `json:"product_name"`
+	ProductImage  string  `json:"product_image"`
+	SkuCode       string  `json:"sku_code"`
+	SkuAttributes string  `json:"sku_attributes"`
+	Price         float64 `json:"price"`
+	Quantity      int     `json:"quantity"`
+}
+
+// OrderResponse 订单响应结构体
+type OrderResponse struct {
+	OrderID   int               `json:"order_id"`
+	OrderNo   string            `json:"order_no"`
+	Amount    float64           `json:"amount"`
+	Status    string            `json:"status"`
+	CreatedAt time.Time         `json:"created_at"`
+	Items     []OrderItemResponse `json:"items"`
+}
+
 // GetOrders 获取订单列表
-func (s *CustomerService) GetOrders(customerID int, page, limit int, status string) ([]map[string]interface{}, int64, error) {
-	// 构建查询
-	query := s.db.Model(&models.Order{}).Where("customer_id = ?", customerID)
+func (s *CustomerService) GetOrders(customerID int, page, limit int, status string) ([]OrderResponse, int64, error) {
+	// 构建查询，过滤掉活动订单
+	query := s.db.Model(&models.Order{}).Where("customer_id = ? AND activity_id = 0", customerID)
 
 	// 如果指定了状态，添加状态筛选
 	if status != "" && status != "all" {
@@ -101,10 +122,10 @@ func (s *CustomerService) GetOrders(customerID int, page, limit int, status stri
 	}
 
 	// 转换为前端需要的格式
-	var orderList []map[string]interface{}
+	var orderList []OrderResponse
 	for _, order := range orders {
 		// 构建订单项列表
-		var items []map[string]interface{}
+		var items []OrderItemResponse
 		for _, item := range order.Items {
 			// 查询商品主图（优先is_main=1，否则按sort排序取第一张）
 			var productImage models.ProductImage
@@ -123,24 +144,24 @@ func (s *CustomerService) GetOrders(customerID int, page, limit int, status stri
 				}
 			}
 
-			items = append(items, map[string]interface{}{
-				"product_id":     item.ProductID,
-				"product_name":   item.ProductName,
-				"product_image":  imageURL,
-				"sku_code":       skuCode,
-				"sku_attributes": item.SkuAttributes,
-				"price":          item.Price,
-				"quantity":       item.Quantity,
+			items = append(items, OrderItemResponse{
+				ProductID:     item.ProductID,
+				ProductName:   item.ProductName,
+				ProductImage:  imageURL,
+				SkuCode:       skuCode,
+				SkuAttributes: item.SkuAttributes,
+				Price:         item.Price,
+				Quantity:      item.Quantity,
 			})
 		}
 
-		orderList = append(orderList, map[string]interface{}{
-			"order_id":   order.ID,
-			"order_no":   order.OrderNo,
-			"amount":     order.TotalAmount,
-			"status":     order.Status,
-			"created_at": order.CreatedAt,
-			"items":      items,
+		orderList = append(orderList, OrderResponse{
+			OrderID:   order.ID,
+			OrderNo:   order.OrderNo,
+			Amount:    order.TotalAmount,
+			Status:    order.Status,
+			CreatedAt: order.CreatedAt,
+			Items:     items,
 		})
 	}
 

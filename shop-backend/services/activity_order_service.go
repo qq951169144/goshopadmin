@@ -166,7 +166,7 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
-	utils.Info("AddressID = %v, order.ActivityID = %v", addressID, order.AddressID)
+	utils.Info("AddressID = %v, order.AddressID = %v", addressID, order.AddressID)
 	if err := tx.Create(order).Error; err != nil {
 		tx.Rollback()
 		return nil, err
