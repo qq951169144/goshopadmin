@@ -25,18 +25,15 @@ type Activity struct {
 
 // ActivityProduct 活动商品模型
 type ActivityProduct struct {
-	ID            int       `json:"id" gorm:"primaryKey"`
-	ActivityID    int       `json:"activity_id" gorm:"not null"`
-	ProductID     int       `json:"product_id" gorm:"not null"`
-	SkuID         int       `json:"sku_id" gorm:"column:sku_id;not null"`
-	MerchantID    int       `json:"merchant_id" gorm:"not null"`
-	OriginalPrice float64   `json:"original_price" gorm:"type:decimal(10,2);not null"`
-	ActivityPrice float64   `json:"activity_price" gorm:"type:decimal(10,2);not null"`
-	Stock         int       `json:"stock" gorm:"not null"`
-	ProductType   string    `json:"product_type" gorm:"type:enum('seckill','redeem');default:'seckill'"`
-	Status        string    `json:"status" gorm:"type:enum('active','inactive');default:'active'"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID          int       `json:"id" gorm:"primaryKey"`
+	ActivityID  int       `json:"activity_id" gorm:"not null"`
+	ProductID   int       `json:"product_id" gorm:"not null"`
+	SkuID       int       `json:"sku_id" gorm:"column:sku_id;not null"`
+	MerchantID  int       `json:"merchant_id" gorm:"not null"`
+	ProductType string    `json:"product_type" gorm:"type:enum('seckill','redeem');default:'seckill'"`
+	Status      string    `json:"status" gorm:"type:enum('active','inactive');default:'active'"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 
 	// 关联
 	Activity Activity   `json:"activity" gorm:"foreignKey:ActivityID"`
