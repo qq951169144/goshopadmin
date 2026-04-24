@@ -161,6 +161,7 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 		ActivityID:     activityID,
 		TotalAmount:    totalAmount,
 		AddressID:      addressID,
+		MerchantID:     1, // TODO:默认商户ID,后续改成多商户
 		Status:         constants.OrderStatusPending,
 		PaymentStatus:  constants.PaymentStatusPending,
 		ShippingStatus: constants.ShippingStatusPending,

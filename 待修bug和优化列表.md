@@ -15,12 +15,6 @@
   - `d:\code\goshopadmin\.trae\documents\goroutine_optimization_implementation.md`
 - **优先级**：高
 
-## 3. 金额精度计算bug（TODO: 待测试）
-
-- **问题描述**：使用float64类型处理金额计算存在精度问题
-- **修改方案**：参考 `d:\code\goshopadmin\.trae\documents\amount_precision_fix_plan.md`
-- **优先级**：高
-
 ## 4. WebSocket引入
 
 - **问题描述**：需要引入WebSocket功能

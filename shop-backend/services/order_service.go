@@ -170,7 +170,7 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 	order := models.Order{
 		OrderNo:        orderNo,
 		CustomerID:     req.CustomerID,
-		MerchantID:     1, // 默认商户ID
+		MerchantID:     1, // TODO:默认商户ID,后续改成多商户
 		TotalAmount:    totalAmount,
 		Status:         constants.OrderStatusPending,
 		PaymentStatus:  constants.PaymentStatusPending,  // 初始支付状态
