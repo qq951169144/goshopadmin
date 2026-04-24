@@ -1,8 +1,8 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 	"goshopadmin/models"
 	"strconv"
 	"strings"
@@ -69,8 +69,24 @@ func (s *SkuService) CreateSku(sku *models.ProductSku, specCombinations []models
 
 	sku.MerchantID = merchantID
 
+	// 收集规格组合数据，用于后续插入
 	if sku.Attributes == "" {
-		sku.Attributes = "{}"
+		attrs := make(map[string]string)
+		for _, spec := range specCombinations {
+			// 查询规格名称
+			var specification models.ProductSpecification
+			s.DB.Where("id = ?", spec.SpecID).Select("id, name").First(&specification)
+			// 查询规格值
+			var specValue models.ProductSpecificationValue
+			s.DB.Where("id = ?", spec.SpecValueID).Select("id, value").First(&specValue)
+			if specification.ID > 0 && specValue.ID > 0 {
+				attrs[specification.Name] = specValue.Value
+			}
+		}
+		if len(attrs) > 0 {
+			attrsJSON, _ := json.Marshal(attrs)
+			sku.Attributes = string(attrsJSON)
+		}
 	}
 
 	tx := s.DB.Begin()
@@ -80,44 +96,30 @@ func (s *SkuService) CreateSku(sku *models.ProductSku, specCombinations []models
 		}
 	}()
 
-	err := tx.Exec(
-		`INSERT INTO product_skus
-			(product_id, merchant_id, sku_code, attributes, price, original_price, stock, is_activity, activity_id, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-		sku.ProductID,
-		sku.MerchantID,
-		sku.SkuCode,
-		sku.Attributes,
-		sku.Price,
-		sku.OriginalPrice,
-		sku.Stock,
-		boolToInt(sku.IsActivity == 1),
-		sku.ActivityID,
-		sku.Status,
-	).Error
-	if err != nil {
+	// 使用 GORM Create 方法插入 SKU
+	if err := tx.Create(sku).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	var skuID int64
-	tx.Raw("SELECT LAST_INSERT_ID()").Scan(&skuID)
-
+	// 批量插入规格组合数据
+	var skuSpecs []models.ProductSkuSpec
 	for _, combo := range specCombinations {
-		err := tx.Exec(
-			`INSERT INTO product_sku_specs (sku_id, spec_id, spec_value_id, created_at) VALUES (?, ?, ?, NOW())`,
-			skuID,
-			combo.SpecID,
-			combo.SpecValueID,
-		).Error
-		if err != nil {
+		skuSpecs = append(skuSpecs, models.ProductSkuSpec{
+			SkuID:       sku.ID,
+			SpecID:      combo.SpecID,
+			SpecValueID: combo.SpecValueID,
+		})
+	}
+	if len(skuSpecs) > 0 {
+		if err := tx.CreateInBatches(skuSpecs, 100).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
 	}
 
 	var totalStock int
-	err = tx.Model(&models.ProductSku{}).
+	err := tx.Model(&models.ProductSku{}).
 		Where("product_id = ? AND status = ?", sku.ProductID, "active").
 		Select("COALESCE(SUM(stock), 0)").
 		Scan(&totalStock).Error
@@ -154,49 +156,61 @@ func (s *SkuService) BatchCreateSku(productID int, skus []models.ProductSku, spe
 		skus[i].ProductID = productID
 		skus[i].MerchantID = merchantID
 
-		if skus[i].SkuCode == "" {
-			skus[i].SkuCode = fmt.Sprintf("PROD-%d-%d", productID, i+1)
-		}
+		// if skus[i].SkuCode == "" {
+		// 	// TODO:这里其实可以优化，这里和前端的生成规则对应不上，需要优化或者删除
+		// 	skus[i].SkuCode = fmt.Sprintf("PROD-%d-%d", productID, i+1)
+		// }
 
+		// 收集规格组合数据，用于后续插入
+		var skuSpecs []models.ProductSkuSpec
 		if skus[i].Attributes == "" {
-			skus[i].Attributes = "{}"
+			attrs := make(map[string]string)
+			for _, spec := range specCombinations[i] {
+				// 查询规格名称
+				var specification models.ProductSpecification
+				tx.Where("id = ?", spec.SpecID).Select("id, name").First(&specification)
+				// 查询规格值
+				var specValue models.ProductSpecificationValue
+				tx.Where("id = ?", spec.SpecValueID).Select("id, value").First(&specValue)
+				if specification.ID > 0 && specValue.ID > 0 {
+					attrs[specification.Name] = specValue.Value
+				}
+				// 收集规格组合数据
+				skuSpecs = append(skuSpecs, models.ProductSkuSpec{
+					SpecID:      spec.SpecID,
+					SpecValueID: spec.SpecValueID,
+				})
+			}
+			if len(attrs) > 0 {
+				attrsJSON, _ := json.Marshal(attrs)
+				skus[i].Attributes = string(attrsJSON)
+			}
+		} else {
+			// 如果已有 Attributes，仍然需要收集规格组合数据
+			for _, spec := range specCombinations[i] {
+				skuSpecs = append(skuSpecs, models.ProductSkuSpec{
+					SpecID:      spec.SpecID,
+					SpecValueID: spec.SpecValueID,
+				})
+			}
 		}
 
-		err := tx.Exec(
-			`INSERT INTO product_skus
-				(product_id, merchant_id, sku_code, attributes, price, original_price, stock, is_activity, activity_id, status, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-			skus[i].ProductID,
-			skus[i].MerchantID,
-			skus[i].SkuCode,
-			skus[i].Attributes,
-			skus[i].Price,
-			skus[i].OriginalPrice,
-			skus[i].Stock,
-			boolToInt(skus[i].IsActivity == 1),
-			skus[i].ActivityID,
-			skus[i].Status,
-		).Error
+		// 使用 GORM Create 方法插入 SKU
+		err := tx.Omit("ProductSkuSpec", "Product").Create(&skus[i]).Error
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
 
-		var skuID int64
-		tx.Raw("SELECT LAST_INSERT_ID()").Scan(&skuID)
-
-		if i < len(specCombinations) {
-			for _, combo := range specCombinations[i] {
-				err := tx.Exec(
-					`INSERT INTO product_sku_specs (sku_id, spec_id, spec_value_id, created_at) VALUES (?, ?, ?, NOW())`,
-					skuID,
-					combo.SpecID,
-					combo.SpecValueID,
-				).Error
-				if err != nil {
-					tx.Rollback()
-					return err
-				}
+		// 批量插入规格组合数据
+		for j := range skuSpecs {
+			skuSpecs[j].SkuID = skus[i].ID
+		}
+		if len(skuSpecs) > 0 {
+			err := tx.Omit("ProductSku", "ProductSpecification", "ProductSpecificationValue").CreateInBatches(skuSpecs, 100).Error
+			if err != nil {
+				tx.Rollback()
+				return err
 			}
 		}
 	}
