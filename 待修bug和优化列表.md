@@ -10,10 +10,10 @@
 
 - **问题描述**：协程开启在大并发下可能会暴涨
 - **修改方案**：参考以下文件
-  - `d:\code\goshopadmin\.trae\documents\goroutine_analysis_plan.md`
-  - `d:\code\goshopadmin\.trae\documents\goroutine_optimization_flow.md`
-  - `d:\code\goshopadmin\.trae\documents\goroutine_optimization_implementation.md`
+  - `D:\code\goshopadmin\.trae\documents\goroutine_optimization_enhanced_plan.md`
+  - `D:\code\goshopadmin\.trae\documents\goroutine_optimization_implementation_plan.md`
 - **优先级**：高
+- **完成状态**：首次使用superpowers-zh完成该功能，待功能测试
 
 ## 4. WebSocket引入
 

@@ -7,6 +7,7 @@ import (
 
 	"shop-backend/constants"
 	"shop-backend/models"
+	"shop-backend/pkg/pool"
 	"shop-backend/services"
 	"shop-backend/utils"
 
@@ -67,16 +68,16 @@ func (ac *ActivityConsumer) HandleActivityOrder(msg []byte) error {
 
 	utils.Info("[MQ] 活动订单创建成功 | 队列: %s | orderID: %d | orderNo: %s | amount: %s | customerID: %d", constants.MQQueueActivityOrder, order.ID, order.OrderID, order.Amount, req.CustomerID)
 
-	// 发送延迟消息，30分钟后检查订单状态
-	go func() {
-		conn, err := NewConnection()
+	// 使用工作池发送延迟消息，30分钟后检查订单状态
+	pool.SubmitTask(func() {
+		conn, err := pool.GetMQConn()
 		if err != nil {
-			utils.Error("[MQ] 创建MQ连接失败 | 错误: %v", err)
+			utils.Error("[MQ] 获取MQ连接失败 | 错误: %v", err)
 			return
 		}
-		defer conn.Close()
+		defer pool.PutMQConn(conn)
 
-		producer := NewProducer(conn)
+		producer := NewProducer(conn.(*Connection))
 
 		// 构建延迟消息
 		delayMsg := map[string]interface{}{
@@ -93,7 +94,7 @@ func (ac *ActivityConsumer) HandleActivityOrder(msg []byte) error {
 		} else {
 			utils.Info("[MQ] 活动订单延迟消息发送成功 | 交换机: %s | 队列: %s | TTL: %dms", constants.MQExchangeActivity, constants.MQQueueActivityOrderDelay, constants.MQOrderTimeoutTTL)
 		}
-	}()
+	})
 
 	utils.Info("[MQ] 活动订单处理完成 | 队列: %s | orderID: %d", constants.MQQueueActivityOrder, order.ID)
 	return nil

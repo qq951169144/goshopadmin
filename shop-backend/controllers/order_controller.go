@@ -5,6 +5,7 @@ import (
 	"shop-backend/constants"
 	"shop-backend/errors"
 	"shop-backend/pkg/mq"
+	"shop-backend/pkg/pool"
 	"shop-backend/services"
 	"shop-backend/utils"
 	"time"
@@ -77,16 +78,16 @@ func (c *OrderController) CreateOrder(ctx *gin.Context) {
 		return
 	}
 
-	// 发送延迟消息（30分钟后检查订单状态）
-	go func() {
-		conn, err := mq.NewConnection()
+	// 使用工作池发送延迟消息（30分钟后检查订单状态）
+	pool.SubmitTask(func() {
+		conn, err := pool.GetMQConn()
 		if err != nil {
-			utils.Error("创建MQ连接失败: %v", err)
+			utils.Error("获取MQ连接失败: %v", err)
 			return
 		}
-		defer conn.Close()
+		defer pool.PutMQConn(conn)
 
-		producer := mq.NewProducer(conn)
+		producer := mq.NewProducer(conn.(*mq.Connection))
 
 		// 订单延迟消息
 		msg := map[string]interface{}{
@@ -99,7 +100,7 @@ func (c *OrderController) CreateOrder(ctx *gin.Context) {
 		if err != nil {
 			utils.Error("发送延迟消息失败: %v", err)
 		}
-	}()
+	})
 
 	c.ResponseSuccess(ctx, order)
 }

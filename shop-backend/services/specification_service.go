@@ -9,6 +9,7 @@ import (
 	"shop-backend/cache"
 	"shop-backend/constants"
 	"shop-backend/models"
+	"shop-backend/pkg/pool"
 	"strconv"
 	"strings"
 	"time"
@@ -118,8 +119,10 @@ func (s *SpecificationService) GetProductDetailWithSpecs(productID int) (*Produc
 		}
 		// 缓存已过期，继续执行后续逻辑（返回旧数据并后台更新）
 		if data, ok := cachedData.Data.(*ProductDetailWithSpecs); ok {
-			// 后台异步更新缓存
-			go s.rebuildProductCache(productID)
+			// 使用工作池后台异步更新缓存
+			pool.SubmitTask(func() {
+				s.rebuildProductCache(productID)
+			})
 			return data, nil
 		}
 	}

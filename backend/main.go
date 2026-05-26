@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"goshopadmin/config"
 	"goshopadmin/middleware"
@@ -57,10 +58,15 @@ func main() {
 	// 7. 配置静态文件服务
 	r.Static("/uploads", "./uploads")
 
-	// 8. 设置路由
-	routes.SetupRoutes(r, conn.DB, conn.Redis, cfg)
+	// 8. 初始化协程监控器
+	monitor := utils.NewMonitor()
+	monitor.Start(5 * time.Second)
+	utils.Info("协程监控器初始化成功")
 
-	// 9. 启动服务器
+	// 9. 设置路由
+	routes.SetupRoutes(r, conn.DB, conn.Redis, cfg, monitor)
+
+	// 10. 启动服务器
 	port := cfg.ServerPort
 	fmt.Printf("Server starting on port %d...\n", port)
 	if err := r.Run(fmt.Sprintf(":%d", port)); err != nil {

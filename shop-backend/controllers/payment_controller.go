@@ -8,6 +8,7 @@ import (
 	"shop-backend/constants"
 	"shop-backend/errors"
 	"shop-backend/pkg/mq"
+	"shop-backend/pkg/pool"
 	"shop-backend/services"
 	"shop-backend/utils"
 
@@ -44,8 +45,8 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 		return
 	}
 
-	// 模拟支付回调
-	go func() {
+	// 使用工作池处理异步任务
+	pool.SubmitTask(func() {
 		// 生成交易ID
 		transactionID := fmt.Sprintf("TRX%s", time.Now().Format("20060102150405"))
 
@@ -56,15 +57,15 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 			return
 		}
 
-		// 发送状态变更消息
-		conn, err := mq.NewConnection()
+		// 使用连接池获取MQ连接
+		conn, err := pool.GetMQConn()
 		if err != nil {
-			utils.Error("创建MQ连接失败: %v", err)
+			utils.Error("获取MQ连接失败: %v", err)
 			return
 		}
-		defer conn.Close()
+		defer pool.PutMQConn(conn)
 
-		producer := mq.NewProducer(conn)
+		producer := mq.NewProducer(conn.(*mq.Connection))
 		msg := map[string]interface{}{
 			"order_id":   order.ID,
 			"status":     constants.OrderStatusPaid,
@@ -74,7 +75,7 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 		if err != nil {
 			utils.Error("发送订单状态变更消息失败: %v", err)
 		}
-	}()
+	})
 
 	// 返回 JSON 响应
 	c.ResponseSuccess(ctx, gin.H{
@@ -120,16 +121,16 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 		return
 	}
 
-	// 发送状态变更消息
-	go func() {
-		conn, err := mq.NewConnection()
+	// 使用工作池发送状态变更消息
+	pool.SubmitTask(func() {
+		conn, err := pool.GetMQConn()
 		if err != nil {
-			utils.Error("创建MQ连接失败: %v", err)
+			utils.Error("获取MQ连接失败: %v", err)
 			return
 		}
-		defer conn.Close()
+		defer pool.PutMQConn(conn)
 
-		producer := mq.NewProducer(conn)
+		producer := mq.NewProducer(conn.(*mq.Connection))
 		msg := map[string]interface{}{
 			"order_id":   order.ID,
 			"status":     req.Status,
@@ -139,7 +140,7 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 		if err != nil {
 			utils.Error("发送订单状态变更消息失败: %v", err)
 		}
-	}()
+	})
 
 	c.ResponseSuccess(ctx, gin.H{
 		"message":        "Payment callback received",

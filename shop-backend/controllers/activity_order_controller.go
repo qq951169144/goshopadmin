@@ -4,6 +4,7 @@ import (
 	"shop-backend/constants"
 	"shop-backend/errors"
 	"shop-backend/pkg/mq"
+	"shop-backend/pkg/pool"
 	"shop-backend/services"
 	"shop-backend/utils"
 	"strconv"
@@ -51,16 +52,16 @@ func (c *ActivityOrderController) CreateActivityOrder(ctx *gin.Context) {
 		return
 	}
 
-	// 发送到消息队列
-	go func() {
-		conn, err := mq.NewConnection()
+	// 使用工作池发送到消息队列
+	pool.SubmitTask(func() {
+		conn, err := pool.GetMQConn()
 		if err != nil {
-			utils.Error("创建MQ连接失败: %v", err)
+			utils.Error("获取MQ连接失败: %v", err)
 			return
 		}
-		defer conn.Close()
+		defer pool.PutMQConn(conn)
 
-		producer := mq.NewProducer(conn)
+		producer := mq.NewProducer(conn.(*mq.Connection))
 		
 		// 构建消息
 		msg := map[string]interface{}{
@@ -74,7 +75,7 @@ func (c *ActivityOrderController) CreateActivityOrder(ctx *gin.Context) {
 		if err != nil {
 			utils.Error("发送活动订单消息失败: %v", err)
 		}
-	}()
+	})
 
 	// 立即返回，异步处理
 	c.ResponseSuccess(ctx, gin.H{
