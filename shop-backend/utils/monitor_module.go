@@ -35,9 +35,11 @@ func (m *Monitor) collectModuleStats() ModuleStats {
 // 如果没有匹配任何已知模块，返回 "other"
 func extractModule(goroutineStack []byte) string {
 	lines := bytes.Split(goroutineStack, []byte("\n"))
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(string(line))
-		module := parseModuleFromStackLine(trimmed)
+	// 从索引 1 开始，跳过第一行的 goroutine 头信息（如 "goroutine 123 [running]")
+	// i += 2 是因为堆栈格式：函数调用行 + 参数/源代码行
+	for i := 1; i < len(lines); i += 2 {
+		line := strings.TrimSpace(string(lines[i]))
+		module := parseModuleFromStackLine(line)
 		if module != "" {
 			return module
 		}

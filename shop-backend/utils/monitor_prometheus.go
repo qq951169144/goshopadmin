@@ -2,7 +2,6 @@ package utils
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 var (
@@ -92,7 +91,6 @@ func registerPrometheusMetrics() {
 	prometheusRegistered = true
 
 	prometheus.MustRegister(
-		collectors.NewGoCollector(),
 		goroutineCount,
 		goroutineModuleCount,
 		memoryAllocBytes,
