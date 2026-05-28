@@ -83,7 +83,7 @@ func main() {
 	utils.Info("协程监控初始化成功")
 
 	// 7. 设置路由
-	routes.SetupRoutes(r, conn.DB, conn.Redis, cfg)
+	routes.SetupRoutes(r, conn.DB, conn.Redis, cfg, monitor)
 
 	// 8. 初始化MQ消费者
 	go func() {

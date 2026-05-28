@@ -9,8 +9,10 @@ import (
 	"shop-backend/middleware"
 	"shop-backend/utils"
 
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gorm.io/gorm"
 )
 
@@ -29,10 +31,11 @@ type Dependencies struct {
 	RedeemCodeController    *controllers.RedeemCodeController
 	ActivityOrderController *controllers.ActivityOrderController
 	HealthController        *controllers.HealthController
+	MonitorController       *controllers.MonitorController
 }
 
 // SetupRoutes 设置所有路由
-func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Config) {
+func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Config, monitor *utils.Monitor) {
 	// 初始化缓存工具并预热布隆过滤器
 	ctx := context.Background()
 	cacheUtil := cache.NewCacheUtil(db, redisClient)
@@ -64,6 +67,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 		RedeemCodeController:    controllers.NewRedeemCodeController(db),
 		ActivityOrderController: controllers.NewActivityOrderController(db),
 		HealthController:        controllers.NewHealthController(),
+		MonitorController:       controllers.NewMonitorController(monitor),
 	}
 
 	// 1. 健康检查
@@ -219,5 +223,21 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			activityOrders.GET("/:id", deps.ActivityOrderController.GetActivityOrder)
 			activityOrders.PUT("/:id/cancel", deps.ActivityOrderController.CancelActivityOrder)
 		}
+
+		// 2.12 监控路由（需要认证）
+		monitor := api.Group("/monitor")
+		monitor.Use(middleware.Auth())
+		{
+			monitor.GET("/stats", deps.MonitorController.GetCurrentStats)
+			monitor.GET("/stats/history", deps.MonitorController.GetHistoryStats)
+		}
 	}
+
+	// Prometheus metrics 端点（无需认证，Docker 内部网络访问）
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
+	// pprof 性能分析端点（需要认证保护）
+	pprofGroup := r.Group("/debug/pprof")
+	pprofGroup.Use(middleware.Auth())
+	pprof.RouteRegister(pprofGroup)
 }
