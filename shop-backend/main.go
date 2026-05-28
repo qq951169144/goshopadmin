@@ -80,7 +80,6 @@ func main() {
 	monitor := utils.NewMonitor(1000, 10*time.Second, 100)
 	monitor.Start()
 	defer monitor.Stop()
-	monitor.RegisterHTTPHandlers()
 	utils.Info("协程监控初始化成功")
 
 	// 7. 设置路由
