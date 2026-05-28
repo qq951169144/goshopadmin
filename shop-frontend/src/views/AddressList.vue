@@ -61,7 +61,7 @@ const fromCheckout = ref(false)
 
 onMounted(() => {
   // 判断是否从结算页面跳转过来
-  fromCheckout.value = route.query.from === 'checkout'
+  fromCheckout.value = route.query.from === 'checkout' || route.query.from === 'activity-checkout'
   loadAddresses()
 })
 

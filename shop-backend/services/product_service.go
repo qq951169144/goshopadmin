@@ -8,6 +8,7 @@ import (
 	"shop-backend/models"
 	"shop-backend/utils"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -46,23 +47,23 @@ func NewProductService(db *gorm.DB, cacheUtil *cache.CacheUtil) *ProductService 
 
 // ProductInfo 商品信息结构
 type ProductInfo struct {
-	ID              int      `json:"id"`
-	Name            string   `json:"name"`
-	Description     string   `json:"description"`
-	Price           float64  `json:"price"`
-	SKU             string   `json:"sku"`
-	Stock           int      `json:"stock"`
-	Image           string   `json:"image"`
-	Images          []string `json:"images"`
-	DefaultSkuPrice float64  `json:"default_sku_price"`
-	Sales           int      `json:"sales"`
+	ID              int             `json:"id"`
+	Name            string          `json:"name"`
+	Description     string          `json:"description"`
+	Price           decimal.Decimal `json:"price"`
+	SKU             string          `json:"sku"`
+	Stock           int             `json:"stock"`
+	Image           string          `json:"image"`
+	Images          []string        `json:"images"`
+	DefaultSkuPrice decimal.Decimal `json:"default_sku_price"`
+	Sales           int             `json:"sales"`
 }
 
 // SKUInfo SKU信息结构
 type SKUInfo struct {
 	ID         int               `json:"id"`
 	Name       string            `json:"name"`
-	Price      float64           `json:"price"`
+	Price      decimal.Decimal   `json:"price"`
 	Stock      int               `json:"stock"`
 	Attributes map[string]string `json:"attributes"`
 }
@@ -192,4 +193,40 @@ func (s *ProductService) GetProducts(req GetProductsRequest) (*GetProductsRespon
 	}
 	utils.Info("检查日志生成:redisCacheResult = %s", result)
 	return result.(*GetProductsResponse), nil
+}
+
+// GetProductByID 根据商品ID获取商品
+func (s *ProductService) GetProductByID(productID int) (*models.Product, error) {
+	var product models.Product
+	result := s.db.Where("id = ?", productID).First(&product)
+	if result.RowsAffected == 0 {
+		return nil, nil
+	}
+	return &product, nil
+}
+
+// ReduceStock 扣减商品库存
+func (s *ProductService) ReduceStock(productID, quantity int) error {
+	var product models.Product
+	if err := s.db.Where("id = ?", productID).First(&product).Error; err != nil {
+		return err
+	}
+
+	if product.Stock < quantity {
+		return nil
+	}
+
+	product.Stock -= quantity
+	return s.db.Save(&product).Error
+}
+
+// IncreaseStock 增加商品库存
+func (s *ProductService) IncreaseStock(productID, quantity int) error {
+	var product models.Product
+	if err := s.db.Where("id = ?", productID).First(&product).Error; err != nil {
+		return err
+	}
+
+	product.Stock += quantity
+	return s.db.Save(&product).Error
 }

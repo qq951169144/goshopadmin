@@ -18,20 +18,29 @@ func SetJWTSecret(secret string) {
 func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+		wsProtocolHeader := c.GetHeader("Sec-WebSocket-Protocol")
+		queryToken := c.Query("token")
+
+		if authHeader == "" && wsProtocolHeader == "" && queryToken == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "token required"})
 			c.Abort()
 			return
 		}
 
-		parts := strings.SplitN(authHeader, " ", 2)
-		if !(len(parts) == 2 && parts[0] == "Bearer") {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header format must be Bearer {token}"})
-			c.Abort()
-			return
+		tokenString := authHeader
+		if tokenString == "" && wsProtocolHeader != "" {
+			tokenString = wsProtocolHeader
+		}
+		if tokenString == "" && queryToken != "" {
+			tokenString = queryToken
 		}
 
-		tokenString := parts[1]
+		if strings.HasPrefix(tokenString, "Bearer ") {
+			parts := strings.SplitN(tokenString, " ", 2)
+			if len(parts) == 2 {
+				tokenString = parts[1]
+			}
+		}
 
 		// 使用已设置的密钥（强制从配置读取）
 		secret := jwtSecret

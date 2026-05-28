@@ -8,11 +8,14 @@
 | `id` | `int` | 主键ID |
 | `activity_id` | `int` | 活动ID（外键） |
 | `product_id` | `int` | 商品ID（外键） |
-| `price` | `decimal(10,2)` | 活动价格 |
-| `stock` | `int` | 活动库存 |
-| `limit` | `int` | 购买限制 |
+| `sku_id` | `int` | SKU ID（外键） |
+| `merchant_id` | `int` | 商户ID（外键） |
+| `product_type` | `enum` | 商品在活动中的类型：seckill-秒杀商品，redeem-兑换商品 |
+| `status` | `enum` | 状态：active-激活，inactive-禁用 |
 | `created_at` | `time.Time` | 创建时间 |
 | `updated_at` | `time.Time` | 更新时间 |
+
+**注**：original_price、activity_price、stock 字段已被移除，因为实际业务逻辑中未使用这些字段，价格和库存管理基于 ProductSku 表实现。
 
 ## 2. activity_price 字段使用逻辑
 
@@ -59,31 +62,24 @@
 ## 5. 总结
 
 **activity_products 表的作用**：
-- 主要作为**活动与商品的关联表**，存储活动商品的配置信息
-- 存储活动商品的**基础价格**、**基础库存**和**购买限制**
-- 实际业务操作（价格计算、库存管理）主要基于 `ProductSku` 表
-
-**字段使用特点**：
-- `price` 字段：作为活动商品的基础价格配置，实际交易使用SKU价格
-- `stock` 字段：作为活动商品的基础库存配置，实际库存操作使用SKU库存
+- 主要作为**活动与商品的关联表**，建立活动与商品/SKU之间的关联关系
+- 存储活动商品的基本配置信息，如商品类型、状态等
+- 实际业务操作（价格计算、库存管理）完全基于 `ProductSku` 表
 
 **设计意图**：
-- 通过 `activity_products` 表统一管理活动商品的配置
+- 通过 `activity_products` 表统一管理活动与商品的关联关系
 - 通过 `ProductSku` 表实现更精细的SKU级别的价格和库存管理
 - 这种设计既保证了活动配置的一致性，又支持了SKU级别的灵活管理
+- 移除未使用的价格和库存字段，简化表结构，提高系统维护性
 
 ## 6. 代码优化建议
 
-1. **字段命名优化**：
-   - 考虑将 `activity_products.price` 重命名为 `base_price`，明确其作为基础价格的作用
-   - 考虑将 `activity_products.stock` 重命名为 `base_stock`，明确其作为基础库存的作用
-
-2. **业务逻辑优化**：
-   - 确保 `activity_products` 表的价格和库存与 `ProductSku` 表保持同步
-   - 可以添加同步机制，当活动商品配置更新时，自动更新相关SKU的价格和库存
-
-3. **代码注释优化**：
+1. **代码注释优化**：
    - 在相关服务方法中添加注释，明确说明价格和库存的使用逻辑
    - 特别是在库存管理相关方法中，明确说明操作的是 `ProductSku` 表的库存
+
+2. **性能优化**：
+   - 考虑为 activity_products 表添加适当的索引，提高查询性能
+   - 优化活动商品关联的查询逻辑，减少数据库查询次数
 
 通过以上分析，我们可以看到 activity_products 表在系统中主要起到配置和关联的作用，而实际的价格计算和库存管理操作则基于 ProductSku 表进行，这种设计既保证了系统的灵活性，又实现了业务逻辑的清晰分离。

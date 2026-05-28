@@ -291,6 +291,24 @@
 | `/api/payment/fake-pay` | `GET`    | 伪支付页面   | `order_id`                                                                                               | 返回支付成功页面（HTML）                                      |
 | `/api/payment/callback` | `POST`   | 支付回调     | `{"order_id": "ORD202603120001", "transaction_id": "TRX1234567890", "status": "success", "amount": 199.98}` | `{"message": "Payment callback received", "order_id": "...", "transaction_id": "...", "status": "..."}` |
 
+### 6.8 活动API
+
+| 接口路径 | 方法 | 功能描述 | 请求参数 | 成功响应 |
+| :--- | :--- | :--- | :--- | :--- |
+| `/api/activities` | `GET` | 获取活动列表 | 无 | `{"id": 1, "name": "string", "status": "active", "start_time": "...", "end_time": "..."}` |
+| `/api/activities/:id` | `GET` | 获取活动详情 | 无 | `{"id": 1, "name": "string", "description": "string", "status": "active", "start_time": "...", "end_time": "...", "products": [...]}` |
+| `/api/activities/:id/skus` | `GET` | 获取活动商品SKU列表 | 无 | `[{"sku_id": 1, "sku_code": "string", "price": 99.99, "stock": 100, "product_id": 1, "product_name": "string", "description": "string", "detail": "string", "is_activity": 1, "main_image": "..."}]` |
+
+### 6.9 活动订单API
+
+| 接口路径 | 方法 | 功能描述 | 请求参数 | 成功响应 |
+| :--- | :--- | :--- | :--- | :--- |
+| `/api/activity-orders` | `POST` | 创建活动订单 | `{"address_id": 1, "activity_id": 1, "items": [{"sku_id": 1, "quantity": 1}]}` | `{"order_id": 1, "order_no": "ACT...", "amount": 99.99}` |
+| `/api/activity-orders` | `GET` | 获取活动订单列表 | `page`, `limit` | `{"orders": [...], "total": 10}` |
+| `/api/activity-orders/:id` | `GET` | 获取活动订单详情 | 无 | `{"order_id": 1, "order_no": "ACT...", "status": "pending", "items": [...], "address": {...}}` |
+| `/api/activity-orders/:id/cancel` | `PUT` | 取消活动订单 | 无 | `{"message": "订单已取消"}` |
+| `/api/activity-orders/:id/confirm` | `PUT` | 确认收货 | 无 | `{"message": "确认收货成功"}` |
+
 ## 二、前端页面功能实现
 
 ### 1. 后台用户管理页面

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -9,6 +10,7 @@ import (
 	"shop-backend/utils"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -28,13 +30,41 @@ func NewActivityOrderService(db *gorm.DB) *ActivityOrderService {
 
 // ActivityOrderItem 活动订单商品项
 type ActivityOrderItem struct {
+	AddressID int
 	ProductID int
 	SkuID     int
 	Quantity  int
 }
 
+// ActivityOrderResponse 活动订单响应结构体
+type ActivityOrderResponse struct {
+	ID           int                         `json:"id"`
+	OrderNo      string                      `json:"order_no"`
+	CustomerID   int                         `json:"customer_id"`
+	ActivityID   int                         `json:"activity_id"`
+	ActivityName string                      `json:"activity_name"`
+	TotalAmount  decimal.Decimal             `json:"total_amount"`
+	Status       string                      `json:"status"`
+	CreatedAt    time.Time                   `json:"created_at"`
+	Items        []ActivityOrderItemResponse `json:"items"`
+}
+
+// ActivityOrderItemResponse 活动订单项响应结构体
+type ActivityOrderItemResponse struct {
+	ID            int             `json:"id"`
+	OrderID       int             `json:"order_id"`
+	ProductID     int             `json:"product_id"`
+	SkuID         int             `json:"sku_id"`
+	ProductName   string          `json:"product_name"`
+	SkuAttributes string          `json:"sku_attributes"`
+	ProductImage  string          `json:"product_image"`
+	Price         decimal.Decimal `json:"price"`
+	Quantity      int             `json:"quantity"`
+	TotalAmount   decimal.Decimal `json:"total_amount"`
+}
+
 // CreateActivityOrder 创建活动订单
-func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID int, items []ActivityOrderItem) (*models.Order, error) {
+func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID int, addressID int, items []ActivityOrderItem) (*OrderInfo, error) {
 	tx := s.DB.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -56,17 +86,17 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 		return nil, errors.New("活动已结束或未开始")
 	}
 
-	var totalAmount float64
+	var address models.Address
+	if err := tx.Where("id = ? AND customer_id = ?", addressID, customerID).First(&address).Error; err != nil {
+		tx.Rollback()
+		return nil, errors.New("收货地址不存在")
+	}
+
+	var totalAmount decimal.Decimal
 	orderItems := make([]models.OrderItem, 0, len(items))
 
 	for _, item := range items {
-		err := s.activityService.CheckUserActivityLimit(activityID, item.ProductID, customerID)
-		if err != nil {
-			tx.Rollback()
-			return nil, err
-		}
-
-		err = s.activityService.CheckActivityStock(activityID, item.ProductID, item.SkuID, item.Quantity)
+		err := s.activityService.CheckActivityStock(activityID, item.ProductID, item.SkuID, item.Quantity)
 		if err != nil {
 			tx.Rollback()
 			return nil, err
@@ -79,15 +109,40 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 			return nil, errors.New("商品SKU不存在")
 		}
 
-		itemAmount := sku.Price * float64(item.Quantity)
-		totalAmount += itemAmount
+		itemAmount := sku.Price.Mul(decimal.NewFromInt(int64(item.Quantity)))
+		totalAmount = totalAmount.Add(itemAmount)
+
+		var product models.Product
+		s.DB.Where("id = ?", item.ProductID).First(&product)
+
+		skuAttrs := "{}"
+		var skuSpecs []models.ProductSkuSpec
+		s.DB.Where("sku_id = ?", item.SkuID).Find(&skuSpecs)
+		if len(skuSpecs) > 0 {
+			attrs := make(map[string]string)
+			for _, spec := range skuSpecs {
+				var specification models.ProductSpecification
+				s.DB.Where("id = ?", spec.SpecID).First(&specification)
+				var specValue models.ProductSpecificationValue
+				s.DB.Where("id = ?", spec.SpecValueID).First(&specValue)
+				if specification.ID > 0 && specValue.ID > 0 {
+					attrs[specification.Name] = specValue.Value
+				}
+			}
+			if len(attrs) > 0 {
+				attrsJSON, _ := json.Marshal(attrs)
+				skuAttrs = string(attrsJSON)
+			}
+		}
 
 		orderItem := models.OrderItem{
-			ProductID:   item.ProductID,
-			SkuID:       item.SkuID,
-			Quantity:    item.Quantity,
-			Price:       sku.Price,
-			TotalAmount: itemAmount,
+			ProductID:     item.ProductID,
+			SkuID:         item.SkuID,
+			Quantity:      item.Quantity,
+			Price:         sku.Price,
+			TotalAmount:   itemAmount,
+			ProductName:   product.Name,
+			SkuAttributes: skuAttrs,
 		}
 		orderItems = append(orderItems, orderItem)
 
@@ -105,13 +160,15 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 		OrderNo:        orderNo,
 		ActivityID:     activityID,
 		TotalAmount:    totalAmount,
+		AddressID:      addressID,
+		MerchantID:     1, // TODO:默认商户ID,后续改成多商户
 		Status:         constants.OrderStatusPending,
 		PaymentStatus:  constants.PaymentStatusPending,
 		ShippingStatus: constants.ShippingStatusPending,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
-
+	utils.Info("AddressID = %v, order.AddressID = %v", addressID, order.AddressID)
 	if err := tx.Create(order).Error; err != nil {
 		tx.Rollback()
 		return nil, err
@@ -129,11 +186,20 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 		return nil, err
 	}
 
-	return order, nil
+	paymentURL := fmt.Sprintf("/api/payment/fake-pay?orderNo=%s", orderNo)
+
+	return &OrderInfo{
+		ID:         order.ID,
+		OrderID:    orderNo,
+		Amount:     totalAmount,
+		PaymentURL: paymentURL,
+		Status:     order.Status,
+		CreatedAt:  order.CreatedAt,
+	}, nil
 }
 
 // GetActivityOrders 获取用户活动订单列表
-func (s *ActivityOrderService) GetActivityOrders(customerID int, page, pageSize int) ([]models.Order, int64, error) {
+func (s *ActivityOrderService) GetActivityOrders(customerID int, page, pageSize int) ([]ActivityOrderResponse, int64, error) {
 	var orders []models.Order
 	var total int64
 
@@ -146,17 +212,65 @@ func (s *ActivityOrderService) GetActivityOrders(customerID int, page, pageSize 
 		return nil, 0, result.Error
 	}
 
-	for i := range orders {
+	responseOrders := make([]ActivityOrderResponse, len(orders))
+	for i, order := range orders {
+		// 查询活动名称
+		var activity models.Activity
+		s.DB.Select("name").Where("id = ?", order.ActivityID).First(&activity)
+
+		// 查询订单商品
 		var items []models.OrderItem
-		s.DB.Where("order_id = ?", orders[i].ID).Find(&items)
-		orders[i].Items = items
+		s.DB.Where("order_id = ?", order.ID).Find(&items)
+
+		// 转换商品项
+		responseItems := make([]ActivityOrderItemResponse, len(items))
+		for j, item := range items {
+			// 查询商品主图
+			var productImage models.ProductImage
+			s.DB.Where("product_id = ? AND is_main = ?", item.ProductID, true).First(&productImage)
+			productImageURL := ""
+			if productImage.ID > 0 {
+				productImageURL = productImage.ImageURL
+			} else {
+				// 如果没有主图，查询第一张图片
+				s.DB.Where("product_id = ?", item.ProductID).First(&productImage)
+				if productImage.ID > 0 {
+					productImageURL = productImage.ImageURL
+				}
+			}
+
+			responseItems[j] = ActivityOrderItemResponse{
+				ID:            item.ID,
+				OrderID:       item.OrderID,
+				ProductID:     item.ProductID,
+				SkuID:         item.SkuID,
+				ProductName:   item.ProductName,
+				SkuAttributes: item.SkuAttributes,
+				ProductImage:  productImageURL,
+				Price:         item.Price,
+				Quantity:      item.Quantity,
+				TotalAmount:   item.TotalAmount,
+			}
+		}
+
+		responseOrders[i] = ActivityOrderResponse{
+			ID:           order.ID,
+			OrderNo:      order.OrderNo,
+			CustomerID:   order.CustomerID,
+			ActivityID:   order.ActivityID,
+			ActivityName: activity.Name,
+			TotalAmount:  order.TotalAmount,
+			Status:       order.Status,
+			CreatedAt:    order.CreatedAt,
+			Items:        responseItems,
+		}
 	}
 
-	return orders, total, nil
+	return responseOrders, total, nil
 }
 
 // GetActivityOrderByID 根据ID获取活动订单详情
-func (s *ActivityOrderService) GetActivityOrderByID(orderID int, customerID int) (*models.Order, error) {
+func (s *ActivityOrderService) GetActivityOrderByID(orderID int, customerID int) (*ActivityOrderResponse, error) {
 	var order models.Order
 
 	result := s.DB.Where("id = ? AND customer_id = ? AND activity_id > 0", orderID, customerID).First(&order)
@@ -168,11 +282,58 @@ func (s *ActivityOrderService) GetActivityOrderByID(orderID int, customerID int)
 		return nil, result.Error
 	}
 
+	// 查询活动名称
+	var activity models.Activity
+	s.DB.Select("name").Where("id = ?", order.ActivityID).First(&activity)
+
+	// 查询订单商品
 	var items []models.OrderItem
 	s.DB.Where("order_id = ?", order.ID).Find(&items)
-	order.Items = items
 
-	return &order, nil
+	// 转换商品项
+	responseItems := make([]ActivityOrderItemResponse, len(items))
+	for j, item := range items {
+		// 查询商品主图
+		var productImage models.ProductImage
+		s.DB.Where("product_id = ? AND is_main = ?", item.ProductID, true).First(&productImage)
+		productImageURL := ""
+		if productImage.ID > 0 {
+			productImageURL = productImage.ImageURL
+		} else {
+			// 如果没有主图，查询第一张图片
+			s.DB.Where("product_id = ?", item.ProductID).First(&productImage)
+			if productImage.ID > 0 {
+				productImageURL = productImage.ImageURL
+			}
+		}
+
+		responseItems[j] = ActivityOrderItemResponse{
+			ID:            item.ID,
+			OrderID:       item.OrderID,
+			ProductID:     item.ProductID,
+			SkuID:         item.SkuID,
+			ProductName:   item.ProductName,
+			SkuAttributes: item.SkuAttributes,
+			ProductImage:  productImageURL,
+			Price:         item.Price,
+			Quantity:      item.Quantity,
+			TotalAmount:   item.TotalAmount,
+		}
+	}
+
+	responseOrder := &ActivityOrderResponse{
+		ID:           order.ID,
+		OrderNo:      order.OrderNo,
+		CustomerID:   order.CustomerID,
+		ActivityID:   order.ActivityID,
+		ActivityName: activity.Name,
+		TotalAmount:  order.TotalAmount,
+		Status:       order.Status,
+		CreatedAt:    order.CreatedAt,
+		Items:        responseItems,
+	}
+
+	return responseOrder, nil
 }
 
 // generateOrderNo 生成订单号
@@ -192,7 +353,8 @@ func (s *ActivityOrderService) CancelActivityOrder(orderID int, customerID int) 
 	}()
 
 	var order models.Order
-	result := tx.Where("id = ? AND customer_id = ? AND activity_id > 0 AND status = ?", orderID, customerID, constants.OrderStatusPending).First(&order)
+	result := tx.Where("id = ? AND customer_id = ? AND activity_id > 0 AND status IN ?",
+		orderID, customerID, []string{constants.OrderStatusPending, constants.OrderStatusPaid}).First(&order)
 	if result.Error != nil {
 		tx.Rollback()
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {

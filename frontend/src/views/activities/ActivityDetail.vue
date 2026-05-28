@@ -94,12 +94,12 @@
         <el-table-column prop="product_name" label="商品名称"></el-table-column>
         <el-table-column prop="sku_id" label="SKU ID" width="100"></el-table-column>
         <el-table-column prop="sku_code" label="SKU名称"></el-table-column>
-        <el-table-column prop="activity_price" label="活动价格" width="120">
+        <el-table-column prop="activity_price" label="sku价格" width="120">
           <template #default="scope">
             ¥{{ scope.row.activity_price !== undefined && scope.row.activity_price !== null ? scope.row.activity_price : scope.row.price }}
           </template>
         </el-table-column>
-        <el-table-column prop="activity_stock" label="活动库存" width="120">
+        <el-table-column prop="activity_stock" label="sku库存" width="120">
           <template #default="scope">
             {{ scope.row.activity_stock || scope.row.stock }}
           </template>

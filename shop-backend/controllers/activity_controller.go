@@ -77,17 +77,34 @@ func (c *ActivityController) GetActivityProductSkus(ctx *gin.Context) {
 		return
 	}
 
-	productID, err := strconv.Atoi(ctx.Param("product_id"))
-	if err != nil {
-		c.ResponseError(ctx, errors.CodeParamError, err)
-		return
-	}
-
-	skus, err := c.activityService.GetActivityProductSkus(activityID, productID)
+	skus, err := c.activityService.GetActivityProductSkus(activityID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeInternalError, err)
 		return
 	}
 
 	c.ResponseSuccess(ctx, skus)
+}
+
+// GetActivitySkuDetail 获取活动商品SKU详情
+func (c *ActivityController) GetActivitySkuDetail(ctx *gin.Context) {
+	activityID, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		c.ResponseError(ctx, errors.CodeParamError, err)
+		return
+	}
+
+	skuID, err := strconv.Atoi(ctx.Param("sku_id"))
+	if err != nil {
+		c.ResponseError(ctx, errors.CodeParamError, err)
+		return
+	}
+
+	sku, err := c.activityService.GetActivitySkuDetail(activityID, skuID)
+	if err != nil {
+		c.ResponseError(ctx, errors.CodeInternalError, err)
+		return
+	}
+
+	c.ResponseSuccess(ctx, sku)
 }

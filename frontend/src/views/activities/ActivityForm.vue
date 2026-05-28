@@ -50,25 +50,6 @@
             <el-table :data="selectedProducts" style="width: 100%; margin-top: 10px">
               <el-table-column prop="product_name" label="商品名称"></el-table-column>
               <el-table-column prop="sku_name" label="SKU名称"></el-table-column>
-              <el-table-column prop="activity_price" label="活动价格">
-                <template #default="scope">
-                  <el-input-number 
-                    v-model="scope.row.activity_price" 
-                    :min="0" 
-                    :step="0.01" 
-                    :precision="2"
-                  />
-                </template>
-              </el-table-column>
-              <el-table-column prop="activity_stock" label="活动库存">
-                <template #default="scope">
-                  <el-input-number 
-                    v-model="scope.row.activity_stock" 
-                    :min="0" 
-                    :step="1"
-                  />
-                </template>
-              </el-table-column>
               <el-table-column label="操作" width="100">
                 <template #default="scope">
                   <el-button size="small" type="danger" @click="removeProduct(scope.$index)">删除</el-button>
@@ -360,9 +341,7 @@ export default {
           product_id: this.currentProduct.id,
           product_name: this.currentProduct.name,
           sku_id: sku.id,
-          sku_name: sku.sku_name || sku.sku_code,
-          activity_price: sku.price,
-          activity_stock: sku.stock
+          sku_name: sku.sku_name || sku.sku_code
         });
       });
       
@@ -401,9 +380,6 @@ export default {
               data.products = this.selectedProducts.map(product => ({
                 product_id: product.product_id,
                 sku_id: product.sku_id,
-                original_price: product.activity_price,
-                activity_price: product.activity_price,
-                stock: product.activity_stock,
                 product_type: this.activityForm.type
               }));
             }

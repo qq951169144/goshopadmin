@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 // Cart 购物车模型
@@ -21,7 +23,7 @@ type CartItem struct {
 	ProductID int       `json:"product_id" gorm:"index"`
 	SkuID     int       `json:"sku_id" gorm:"index"`
 	Quantity  int       `json:"quantity" gorm:"not null;default:1"`
-	Price     float64   `json:"price" gorm:"not null"`
+	Price     decimal.Decimal   `json:"price" gorm:"not null"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	// 关联关系（GORM预加载使用，非外键约束）

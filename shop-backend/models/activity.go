@@ -2,13 +2,14 @@ package models
 
 import (
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 // Activity 活动模型
 type Activity struct {
 	ID          int               `json:"id" gorm:"primaryKey"`
 	Name        string            `json:"name" gorm:"size:100;not null"`
-	Description string            `json:"description" gorm:"type:text"`
 	Status      string            `json:"status" gorm:"size:20;not null;default:active"`
 	StartTime   time.Time         `json:"start_time" gorm:"not null"`
 	EndTime     time.Time         `json:"end_time" gorm:"not null"`
@@ -22,7 +23,7 @@ type ActivityProduct struct {
 	ID         int       `json:"id" gorm:"primaryKey"`
 	ActivityID int       `json:"activity_id" gorm:"not null;index"`
 	ProductID  int       `json:"product_id" gorm:"not null;index"`
-	Price      float64   `json:"price" gorm:"type:decimal(10,2);not null"`
+	Price      decimal.Decimal   `json:"price" gorm:"type:decimal(10,2);not null"`
 	Stock      int       `json:"stock" gorm:"not null;default:0"`
 	Limit      int       `json:"limit" gorm:"not null;default:0"`
 	CreatedAt  time.Time `json:"created_at"`

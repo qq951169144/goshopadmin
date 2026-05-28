@@ -20,28 +20,24 @@ type ProductController struct {
 	merchantService *services.MerchantService
 }
 
-// CreateProductRequest 创建商品请求
-
+// CreateProductRequest 创建商品请求,不再传price上来，order表price属于冗余废弃
 type CreateProductRequest struct {
-	Name        string  `json:"name" binding:"required"`
-	Description string  `json:"description"`
-	Detail      string  `json:"detail"`
-	Price       float64 `json:"price"`
-	Stock       int     `json:"stock"`
-	CategoryID  int     `json:"category_id" binding:"required"`
-	Status      string  `json:"status"`
+	Name        string `json:"name" binding:"required"`
+	Description string `json:"description"`
+	Detail      string `json:"detail"`
+	Stock       int    `json:"stock"`
+	CategoryID  int    `json:"category_id" binding:"required"`
+	Status      string `json:"status"`
 }
 
-// UpdateProductRequest 更新商品请求
-
+// UpdateProductRequest 更新商品请求, 不再传price上来，order表price属于冗余废弃
 type UpdateProductRequest struct {
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Detail      string  `json:"detail"`
-	Price       float64 `json:"price"`
-	Stock       int     `json:"stock"`
-	CategoryID  int     `json:"category_id"`
-	Status      string  `json:"status"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Detail      string `json:"detail"`
+	Stock       int    `json:"stock"`
+	CategoryID  int    `json:"category_id"`
+	Status      string `json:"status"`
 }
 
 // CreateCategoryRequest 创建分类请求
@@ -197,7 +193,6 @@ func (c *ProductController) CreateProduct(ctx *gin.Context) {
 		Name:        req.Name,
 		Description: req.Description,
 		Detail:      req.Detail,
-		Price:       req.Price,
 		Stock:       req.Stock,
 		CategoryID:  req.CategoryID,
 		Status:      req.Status,

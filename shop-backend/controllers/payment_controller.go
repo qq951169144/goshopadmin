@@ -7,9 +7,13 @@ import (
 	"shop-backend/cache"
 	"shop-backend/constants"
 	"shop-backend/errors"
+	"shop-backend/pkg/mq"
+	"shop-backend/pkg/pool"
 	"shop-backend/services"
+	"shop-backend/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -29,6 +33,10 @@ func NewPaymentController(db *gorm.DB, cacheUtil *cache.CacheUtil) *PaymentContr
 // FakePay 伪支付接口
 func (c *PaymentController) FakePay(ctx *gin.Context) {
 	orderNo := ctx.Query("orderNo")
+	if orderNo == "" {
+		c.ResponseError(ctx, errors.CodeParamMissing, nil)
+		return
+	}
 
 	// 查找订单
 	order, err := c.orderService.GetOrderByOrderNo(orderNo)
@@ -37,14 +45,37 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 		return
 	}
 
-	// 模拟支付回调
-	go func() {
+	// 使用工作池处理异步任务
+	pool.SubmitTask(func() {
 		// 生成交易ID
 		transactionID := fmt.Sprintf("TRX%s", time.Now().Format("20060102150405"))
 
 		// 更新订单状态和支付状态
-		c.orderService.UpdateOrderStatus(orderNo, constants.OrderStatusPaid, constants.PaymentStatusSuccess, transactionID)
-	}()
+		err := c.orderService.UpdateOrderStatus(orderNo, order.CustomerID, constants.OrderStatusPaid, constants.PaymentStatusSuccess, transactionID)
+		if err != nil {
+			utils.Error("更新订单状态失败: %v", err)
+			return
+		}
+
+		// 使用连接池获取MQ连接
+		conn, err := pool.GetMQConn()
+		if err != nil {
+			utils.Error("获取MQ连接失败: %v", err)
+			return
+		}
+		defer pool.PutMQConn(conn)
+
+		producer := mq.NewProducer(conn.(*mq.Connection))
+		msg := map[string]interface{}{
+			"order_id":   order.ID,
+			"status":     constants.OrderStatusPaid,
+			"updated_at": time.Now(),
+		}
+		err = producer.Publish(constants.MQExchangeOrderStatus, constants.MQRoutingKeyOrderStatus, msg)
+		if err != nil {
+			utils.Error("发送订单状态变更消息失败: %v", err)
+		}
+	})
 
 	// 返回 JSON 响应
 	c.ResponseSuccess(ctx, gin.H{
@@ -56,10 +87,10 @@ func (c *PaymentController) FakePay(ctx *gin.Context) {
 
 // PaymentCallbackRequest 支付回调请求结构
 type PaymentCallbackRequest struct {
-	OrderNo       string  `json:"order_no" binding:"required"`
-	TransactionID string  `json:"transaction_id" binding:"required"`
-	Status        string  `json:"status" binding:"required"`
-	Amount        float64 `json:"amount" binding:"required"`
+	OrderNo       string            `json:"order_no" binding:"required"`
+	TransactionID string            `json:"transaction_id" binding:"required"`
+	Status        string            `json:"status" binding:"required"`
+	Amount        decimal.Decimal   `json:"amount" binding:"required"`
 }
 
 // PaymentCallback 支付回调
@@ -78,17 +109,38 @@ func (c *PaymentController) PaymentCallback(ctx *gin.Context) {
 	}
 
 	// 验证金额
-	if order.TotalAmount != req.Amount {
+	if !order.TotalAmount.Equal(req.Amount) {
 		c.ResponseError(ctx, errors.CodeParamInvalid, nil)
 		return
 	}
 
 	// 更新订单状态
-	err = c.orderService.UpdateOrderStatus(req.OrderNo, req.Status, constants.PaymentStatusSuccess, req.TransactionID)
+	err = c.orderService.UpdateOrderStatus(req.OrderNo, order.CustomerID, req.Status, constants.PaymentStatusSuccess, req.TransactionID)
 	if err != nil {
 		c.ResponseError(ctx, errors.CodeDBError, err)
 		return
 	}
+
+	// 使用工作池发送状态变更消息
+	pool.SubmitTask(func() {
+		conn, err := pool.GetMQConn()
+		if err != nil {
+			utils.Error("获取MQ连接失败: %v", err)
+			return
+		}
+		defer pool.PutMQConn(conn)
+
+		producer := mq.NewProducer(conn.(*mq.Connection))
+		msg := map[string]interface{}{
+			"order_id":   order.ID,
+			"status":     req.Status,
+			"updated_at": time.Now(),
+		}
+		err = producer.Publish(constants.MQExchangeOrderStatus, constants.MQRoutingKeyOrderStatus, msg)
+		if err != nil {
+			utils.Error("发送订单状态变更消息失败: %v", err)
+		}
+	})
 
 	c.ResponseSuccess(ctx, gin.H{
 		"message":        "Payment callback received",

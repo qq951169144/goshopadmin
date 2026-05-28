@@ -29,7 +29,7 @@ type Dependencies struct {
 }
 
 // SetupRoutes 设置所有路由
-func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Config) {
+func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Config, monitor *utils.Monitor) {
 	// 初始化缓存工具
 	ctx := context.Background()
 	cacheUtil := cache.NewCacheUtil(db, redisClient)
@@ -246,6 +246,12 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 				redeemCodes.POST("/verify", deps.RedeemCodeController.VerifyRedeemCode)
 				redeemCodes.GET("/logs", deps.RedeemCodeController.GetRedeemCodeLogs)
 				redeemCodes.PUT("/:id/status", deps.RedeemCodeController.UpdateRedeemCodeStatus)
+			}
+
+			// 监控路由
+			monitorRoutes := protected.Group("/monitor")
+			{
+				monitor.RegisterHTTPHandlers(monitorRoutes)
 			}
 		}
 	}

@@ -28,6 +28,7 @@ type Dependencies struct {
 	ActivityController      *controllers.ActivityController
 	RedeemCodeController    *controllers.RedeemCodeController
 	ActivityOrderController *controllers.ActivityOrderController
+	HealthController        *controllers.HealthController
 }
 
 // SetupRoutes 设置所有路由
@@ -62,6 +63,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 		ActivityController:      controllers.NewActivityController(db),
 		RedeemCodeController:    controllers.NewRedeemCodeController(db),
 		ActivityOrderController: controllers.NewActivityOrderController(db),
+		HealthController:        controllers.NewHealthController(),
 	}
 
 	// 1. 健康检查
@@ -76,6 +78,13 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 	// 路径前缀: /api
 	api := r.Group("/api")
 	{
+		// 2.0 健康检查路由
+		// 路径: /api/health/mq
+		health := api.Group("/health")
+		{
+			health.GET("/mq", deps.HealthController.CheckMQ)
+		}
+
 		// 2.1 验证码路由
 		// 路径: /api/captcha, /api/captcha/verify
 		api.GET("/captcha", deps.CaptchaController.GenerateCaptcha)
@@ -179,7 +188,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			activities.GET("", deps.ActivityController.GetActiveActivities)
 			activities.GET("/:id", deps.ActivityController.GetActivity)
 			activities.GET("/:id/products", deps.ActivityController.GetActivityProducts)
-			activities.GET("/:id/products/:product_id/skus", deps.ActivityController.GetActivityProductSkus)
+			activities.GET("/:id/skus", deps.ActivityController.GetActivityProductSkus)
+			activities.GET("/:id/skus/:sku_id", deps.ActivityController.GetActivitySkuDetail)
 		}
 
 		// 2.10 兑换码路由

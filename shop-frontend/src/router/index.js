@@ -62,6 +62,36 @@ const router = createRouter({
       path: '/checkout',
       name: 'checkout',
       component: () => import('../views/OrderConfirm.vue')
+    },
+    {
+      path: '/activity/:id',
+      name: 'activity-detail',
+      component: () => import('../views/ActivityDetail.vue')
+    },
+    {
+      path: '/activity/order/confirm',
+      name: 'activity-order-confirm',
+      component: () => import('../views/ActivityOrderConfirm.vue')
+    },
+    {
+      path: '/activity/orders',
+      name: 'activity-orders',
+      component: () => import('../views/ActivityOrderList.vue')
+    },
+    {
+      path: '/activity/order/:id',
+      name: 'activity-order-detail',
+      component: () => import('../views/ActivityOrderDetail.vue')
+    },
+    {
+      path: '/messages',
+      name: 'messages',
+      component: () => import('../views/MessageList.vue')
+    },
+    {
+      path: '/customer/service',
+      name: 'customer-service',
+      component: () => import('../views/CustomerService.vue')
     }
   ]
 })
