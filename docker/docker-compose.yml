@@ -159,7 +159,7 @@ services:
     image: golang:1.24-alpine
     container_name: goshopadmin-shop-backend
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"  # 仅本机可访问，Prometheus 通过 Docker 内部网络访问
     volumes:
       - ../shop-backend:/app  # 开发环境挂载本地代码
     working_dir: /app
@@ -219,8 +219,7 @@ services:
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_AUTH_ANONYMOUS_ENABLED=false
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
