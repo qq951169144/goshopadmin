@@ -86,7 +86,7 @@ func registerPrometheusMetrics() {
 	)
 }
 
-func updatePrometheusMetrics(stats *RuntimeStats) {
+func updatePrometheusMetrics(stats *RuntimeStats, gcDelta uint32) {
 	goroutineCount.Set(float64(stats.GoroutineCount))
 
 	for module, count := range stats.ModuleStats {
@@ -100,6 +100,8 @@ func updatePrometheusMetrics(stats *RuntimeStats) {
 
 	threadCount.Set(float64(stats.ThreadStats.ThreadCount))
 	cgoCallCount.Set(float64(stats.ThreadStats.CgoCallCount))
+
+	gcCountTotal.Add(float64(gcDelta))
 
 	mutexContentionsTotal.Add(float64(stats.MutexStats.Contentions))
 	mutexDelaySecondsTotal.Add(stats.MutexStats.Delay / 1e9)

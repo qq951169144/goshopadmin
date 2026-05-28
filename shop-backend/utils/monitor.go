@@ -122,7 +122,13 @@ func (m *Monitor) collectOnce() {
 	}
 	m.mu.Unlock()
 
-	updatePrometheusMetrics(&stats)
+	gcDelta := stats.MemoryStats.NumGC - m.lastGCCount
+	if gcDelta > 0 {
+		updatePrometheusMetrics(&stats, gcDelta)
+	} else {
+		updatePrometheusMetrics(&stats, 0)
+	}
+	m.lastGCCount = stats.MemoryStats.NumGC
 
 	m.checkAlerts(&stats)
 
