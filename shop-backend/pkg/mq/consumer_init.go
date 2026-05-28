@@ -58,20 +58,24 @@ func InitConsumers(orderService *services.OrderService, activityOrderService *se
 
 	// 启动订单超时消费者
 	orderConsumer := NewOrderConsumer(orderService)
-	err = consumer.Consume(constants.MQQueueOrderDeadLetter, orderConsumer.HandleTimeoutOrder)
+	err = consumer.Consume(constants.MQQueueOrderDeadLetter, orderConsumer.HandleTimeoutOrder, nil)
 	if err != nil {
 		return err
 	}
 
 	// 启动活动订单消费者
 	activityConsumer := NewActivityConsumer(activityOrderService, productService)
-	err = consumer.Consume(constants.MQQueueActivityOrder, activityConsumer.HandleActivityOrder)
+	err = consumer.Consume(constants.MQQueueActivityOrder, activityConsumer.HandleActivityOrder, nil)
 	if err != nil {
 		return err
 	}
 
-	// 启动活动订单超时消费者
-	err = consumer.Consume(constants.MQQueueActivityOrderDeadLetter, activityConsumer.HandleTimeoutActivityOrder)
+	// 启动活动订单超时消费者（配置重试机制）
+	activityOrderRetryConfig := &RetryConfig{
+		DelayQueue: constants.MQQueueActivityOrderDelay,
+		TTL:        constants.MQOrderTimeoutTTL,
+	}
+	err = consumer.Consume(constants.MQQueueActivityOrderDeadLetter, activityConsumer.HandleTimeoutActivityOrder, activityOrderRetryConfig)
 	if err != nil {
 		return err
 	}
@@ -81,14 +85,14 @@ func InitConsumers(orderService *services.OrderService, activityOrderService *se
 	if err != nil {
 		return err
 	}
-	err = consumer.Consume(constants.MQQueueActivityOrderAlert, activityConsumer.HandleAlertMessage)
+	err = consumer.Consume(constants.MQQueueActivityOrderAlert, activityConsumer.HandleAlertMessage, nil)
 	if err != nil {
 		return err
 	}
 
 	// 启动状态变更消费者
 	statusConsumer := NewStatusConsumer()
-	err = consumer.Consume(constants.MQQueueOrderStatus, statusConsumer.HandleOrderStatus)
+	err = consumer.Consume(constants.MQQueueOrderStatus, statusConsumer.HandleOrderStatus, nil)
 	if err != nil {
 		return err
 	}

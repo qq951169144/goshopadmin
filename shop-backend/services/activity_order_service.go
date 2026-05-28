@@ -190,7 +190,7 @@ func (s *ActivityOrderService) CreateActivityOrder(customerID int, activityID in
 
 	return &OrderInfo{
 		ID:         order.ID,
-		OrderID:    orderNo,
+		OrderNo:    orderNo,
 		Amount:     totalAmount,
 		PaymentURL: paymentURL,
 		Status:     order.Status,

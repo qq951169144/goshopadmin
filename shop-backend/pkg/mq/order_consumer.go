@@ -25,7 +25,7 @@ func (oc *OrderConsumer) HandleTimeoutOrder(msg []byte) error {
 
 	// 解析消息
 	var message struct {
-		OrderID   int    `json:"order_id"`
+		OrderNo   string `json:"order_no"`
 		CreatedAt string `json:"created_at"`
 	}
 
@@ -34,10 +34,10 @@ func (oc *OrderConsumer) HandleTimeoutOrder(msg []byte) error {
 		return err
 	}
 
-	// 获取订单信息
-	order, err := oc.orderService.GetOrderByID(message.OrderID)
+	// 获取订单信息（根据订单号查询）
+	order, err := oc.orderService.GetOrderByOrderNo(message.OrderNo)
 	if err != nil {
-		utils.Error("[MQ] 获取超时订单失败 | 队列: %s | orderID: %d | 错误: %v", constants.MQQueueOrderDeadLetter, message.OrderID, err)
+		utils.Error("[MQ] 获取超时订单失败 | 队列: %s | orderNo: %s | 错误: %v", constants.MQQueueOrderDeadLetter, message.OrderNo, err)
 		return err
 	}
 
@@ -47,12 +47,12 @@ func (oc *OrderConsumer) HandleTimeoutOrder(msg []byte) error {
 	// CancelOrder方法内部已包含状态检查等逻辑
 	err = oc.orderService.CancelOrder(order.OrderNo, order.CustomerID)
 	if err != nil {
-		utils.Error("[MQ] 取消超时订单失败 | 队列: %s | orderID: %d | customerID: %d | 错误: %v", constants.MQQueueOrderDeadLetter, message.OrderID, order.CustomerID, err)
+		utils.Error("[MQ] 取消超时订单失败 | 队列: %s | orderID: %d | customerID: %d | 错误: %v", constants.MQQueueOrderDeadLetter, order.ID, order.CustomerID, err)
 		return err
 	}
 
-	utils.Info("[MQ] 超时订单已取消 | 队列: %s | orderID: %d | customerID: %d", constants.MQQueueOrderDeadLetter, message.OrderID, order.CustomerID)
+	utils.Info("[MQ] 超时订单已取消 | 队列: %s | orderID: %d | customerID: %d", constants.MQQueueOrderDeadLetter, order.ID, order.CustomerID)
 
-	utils.Info("[MQ] 超时订单处理完成 | 队列: %s | orderID: %d", constants.MQQueueOrderDeadLetter, message.OrderID)
+	utils.Info("[MQ] 超时订单处理完成 | 队列: %s | orderID: %d", constants.MQQueueOrderDeadLetter, order.ID)
 	return nil
 }

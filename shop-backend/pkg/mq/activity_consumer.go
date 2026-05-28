@@ -66,7 +66,7 @@ func (ac *ActivityConsumer) HandleActivityOrder(msg []byte) error {
 		return err
 	}
 
-	utils.Info("[MQ] 活动订单创建成功 | 队列: %s | orderID: %d | orderNo: %s | amount: %s | customerID: %d", constants.MQQueueActivityOrder, order.ID, order.OrderID, order.Amount, req.CustomerID)
+	utils.Info("[MQ] 活动订单创建成功 | 队列: %s | orderID: %d | orderNo: %s | amount: %s | customerID: %d", constants.MQQueueActivityOrder, order.ID, order.OrderNo, order.Amount, req.CustomerID)
 
 	// 使用工作池发送延迟消息，30分钟后检查订单状态
 	pool.SubmitTask(func() {
@@ -81,8 +81,9 @@ func (ac *ActivityConsumer) HandleActivityOrder(msg []byte) error {
 
 		// 构建延迟消息
 		delayMsg := map[string]interface{}{
-			"order_id":   order.ID,
-			"created_at": order.CreatedAt,
+			"order_no":    order.OrderNo,
+			"created_at":  order.CreatedAt,
+			"retry_count": 0,
 		}
 
 		utils.Info("[MQ] 发送活动订单延迟消息 | 交换机: %s | 队列: %s | TTL: %dms | 数据: %v", constants.MQExchangeActivity, constants.MQQueueActivityOrderDelay, constants.MQOrderTimeoutTTL, delayMsg)
@@ -105,7 +106,7 @@ func (ac *ActivityConsumer) HandleTimeoutActivityOrder(msg []byte) error {
 	utils.Info("[MQ] 开始处理超时活动订单消息 | 队列: %s | 消息: %s", constants.MQQueueActivityOrderDeadLetter, string(msg))
 
 	var message struct {
-		OrderID   int    `json:"order_id"`
+		OrderNo   string `json:"order_no"`
 		CreatedAt string `json:"created_at"`
 	}
 
@@ -114,9 +115,9 @@ func (ac *ActivityConsumer) HandleTimeoutActivityOrder(msg []byte) error {
 		return err
 	}
 
-	order, err := ac.getOrderForTimeout(message.OrderID)
+	order, err := ac.getOrderForTimeout(message.OrderNo)
 	if err != nil {
-		utils.Error("[MQ] 获取超时活动订单失败 | 队列: %s | orderID: %d | 错误: %v", constants.MQQueueActivityOrderDeadLetter, message.OrderID, err)
+		utils.Error("[MQ] 获取超时活动订单失败 | 队列: %s | orderNo: %s | 错误: %v", constants.MQQueueActivityOrderDeadLetter, message.OrderNo, err)
 		return err
 	}
 
@@ -127,28 +128,28 @@ func (ac *ActivityConsumer) HandleTimeoutActivityOrder(msg []byte) error {
 		return nil
 	}
 
-	err = ac.activityOrderService.CancelActivityOrder(message.OrderID, order.CustomerID)
+	err = ac.activityOrderService.CancelActivityOrder(order.ID, order.CustomerID)
 	if err != nil {
-		utils.Error("[MQ] 取消超时活动订单失败 | 队列: %s | orderID: %d | customerID: %d | 错误: %v", constants.MQQueueActivityOrderDeadLetter, message.OrderID, order.CustomerID, err)
+		utils.Error("[MQ] 取消超时活动订单失败 | 队列: %s | orderID: %d | customerID: %d | 错误: %v", constants.MQQueueActivityOrderDeadLetter, order.ID, order.CustomerID, err)
 
-		currentOrder, checkErr := ac.getOrderForTimeout(message.OrderID)
+		currentOrder, checkErr := ac.getOrderForTimeout(message.OrderNo)
 		if checkErr == nil && currentOrder.Status == constants.OrderStatusCancelled {
-			utils.Info("[MQ] 订单已处于取消状态，视为处理成功 | 队列: %s | orderID: %d", constants.MQQueueActivityOrderDeadLetter, message.OrderID)
+			utils.Info("[MQ] 订单已处于取消状态，视为处理成功 | 队列: %s | orderID: %d", constants.MQQueueActivityOrderDeadLetter, order.ID)
 			return nil
 		}
 
 		return err
 	}
 
-	utils.Info("[MQ] 超时活动订单已取消 | 队列: %s | orderID: %d | customerID: %d", constants.MQQueueActivityOrderDeadLetter, message.OrderID, order.CustomerID)
+	utils.Info("[MQ] 超时活动订单已取消 | 队列: %s | orderID: %d | customerID: %d", constants.MQQueueActivityOrderDeadLetter, order.ID, order.CustomerID)
 
-	utils.Info("[MQ] 超时活动订单处理完成 | 队列: %s | orderID: %d", constants.MQQueueActivityOrderDeadLetter, message.OrderID)
+	utils.Info("[MQ] 超时活动订单处理完成 | 队列: %s | orderID: %d", constants.MQQueueActivityOrderDeadLetter, order.ID)
 	return nil
 }
 
-func (ac *ActivityConsumer) getOrderForTimeout(orderID int) (*models.Order, error) {
+func (ac *ActivityConsumer) getOrderForTimeout(orderNo string) (*models.Order, error) {
 	var order models.Order
-	result := ac.activityOrderService.DB.Where("id = ? AND activity_id > 0", orderID).First(&order)
+	result := ac.activityOrderService.DB.Where("order_no = ? AND activity_id > 0", orderNo).First(&order)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, errors.New("订单不存在")

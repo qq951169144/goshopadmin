@@ -91,7 +91,7 @@ func (c *OrderController) CreateOrder(ctx *gin.Context) {
 
 		// 订单延迟消息
 		msg := map[string]interface{}{
-			"order_id":   order.OrderID,
+			"order_no":   order.OrderNo,
 			"created_at": time.Now(),
 		}
 

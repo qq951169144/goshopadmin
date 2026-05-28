@@ -48,7 +48,7 @@ type CreateOrderRequest struct {
 // OrderInfo 订单信息
 type OrderInfo struct {
 	ID         int             `json:"id"`
-	OrderID    string          `json:"order_id"`
+	OrderNo    string          `json:"order_no"`
 	Amount     decimal.Decimal `json:"amount"`
 	PaymentURL string          `json:"payment_url"`
 	Status     string          `json:"status"`
@@ -222,7 +222,7 @@ func (s *OrderService) CreateOrder(req CreateOrderRequest) (*OrderInfo, error) {
 
 	return &OrderInfo{
 		ID:         order.ID,
-		OrderID:    orderNo,
+		OrderNo:    orderNo,
 		Amount:     totalAmount,
 		PaymentURL: paymentURL,
 		Status:     constants.OrderStatusPending,
