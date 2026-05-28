@@ -6,7 +6,6 @@ import (
 
 	"shop-backend/cache"
 	"shop-backend/models"
-	"shop-backend/utils"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -92,7 +91,6 @@ func (s *ProductService) GetProducts(req GetProductsRequest) (*GetProductsRespon
 	// 1. 尝试从多级缓存获取数据
 	var cachedResponse GetProductsResponse
 	err := s.multiLevelCache.Get(ctx, cacheKey, &cachedResponse)
-	utils.Info("检查日志生成:cachedResponse = %s", cachedResponse)
 	if err == nil {
 		// 缓存命中，直接返回
 		return &cachedResponse, nil
@@ -191,7 +189,6 @@ func (s *ProductService) GetProducts(req GetProductsRequest) (*GetProductsRespon
 			Total:    0,
 		}, nil
 	}
-	utils.Info("检查日志生成:redisCacheResult = %s", result)
 	return result.(*GetProductsResponse), nil
 }
 

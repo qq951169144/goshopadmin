@@ -85,18 +85,16 @@ const formatDateTime = (date) => {
 
 const getStatusLabel = (status) => {
   const statusMap = {
-    'pending': '未开始',
-    'ongoing': '进行中',
-    'ended': '已结束'
+    'active': '进行中',
+    'inactive': '已结束'
   }
   return statusMap[status] || status
 }
 
 const getStatusClass = (status) => {
   const classMap = {
-    'pending': 'status-pending',
-    'ongoing': 'status-ongoing',
-    'ended': 'status-ended'
+    'active': 'status-ongoing',
+    'inactive': 'status-ended'
   }
   return classMap[status] || ''
 }
@@ -109,11 +107,8 @@ const getBuyBtnText = (status, stock) => {
   if (stock <= 0) {
     return '已售罄'
   }
-  if (status === 'ended') {
+  if (status === 'inactive') {
     return '已结束'
-  }
-  if (status === 'pending') {
-    return '未开始'
   }
   return '抢购'
 }

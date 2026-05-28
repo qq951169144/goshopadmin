@@ -342,13 +342,13 @@ func (s *OrderService) GetOrderDetail(orderNo string, customerID int) (map[strin
 
 	// 7. 构建响应数据
 	responseData := map[string]interface{}{
-		"order_id":   order.ID,
-		"order_no":   order.OrderNo,
-		"amount":     order.TotalAmount,
-		"status":     order.Status,
-		"created_at": order.CreatedAt,
-		"address":    addressInfo,
-		"items":      items,
+		"order_id":     order.ID,
+		"order_no":     order.OrderNo,
+		"total_amount": order.TotalAmount,
+		"status":       order.Status,
+		"created_at":   order.CreatedAt,
+		"address":      addressInfo,
+		"items":        items,
 	}
 
 	// 8. 设置缓存

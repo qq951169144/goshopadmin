@@ -87,14 +87,6 @@
           <span class="label">商品总额</span>
           <span class="value">¥{{ formatPrice(order.total_amount) }}</span>
         </div>
-        <div class="amount-item">
-          <span class="label">运费</span>
-          <span class="value">¥{{ formatPrice(order.shipping_fee || 0) }}</span>
-        </div>
-        <div class="amount-item" v-if="order.discount > 0">
-          <span class="label">优惠</span>
-          <span class="value discount">-¥{{ formatPrice(order.discount) }}</span>
-        </div>
         <div class="amount-total">
           <span class="label">实付款</span>
           <span class="value">¥{{ formatPrice(order.total_amount) }}</span>
