@@ -62,21 +62,26 @@ dist-ssr/
 *.sql.gz
 
 # 日志文件
-logs/
+logs/*
+!.gitkeep
 *.log
 
 # 临时文件
-tmp/
-temp/
+tmp/*
+!.gitkeep
+temp/*
+!.gitkeep
 
 # Trae IDE 配置目录
 .trae/
 
 # Docker数据目录
-docker/data/
+docker/data/*
+!.gitkeep
 
 # 上传文件目录
-backend/uploads/
+backend/uploads/*
+!.gitkeep
 
 # 备忘录文件
 备忘录.md
