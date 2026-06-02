@@ -1,0 +1,6 @@
+# Docker数据目录保护
+# 防止 git 在合并、切换分支、拉取时处理这些文件
+docker/data/** -merge
+docker/data/** -diff
+docker/data/** export-ignore
+docker/data/** merge=ours
