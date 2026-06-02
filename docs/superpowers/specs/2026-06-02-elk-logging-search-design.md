@@ -617,18 +617,20 @@ search-service/
 │   ├── product_controller.go  # 商品搜索
 │   ├── order_controller.go    # 订单搜索
 │   ├── user_controller.go     # 用户搜索
-│   └── customer_controller.go # 客户搜索
+│   ├── customer_controller.go # 客户搜索
+│   └── health_controller.go   # 健康检查（ES 连通性 + IK 插件 + 数据新鲜度）
 ├── errors/
 │   └── code.go             # 错误码定义
 ├── middleware/
 │   ├── cors.go             # CORS 中间件
-│   └── logger.go           # 请求日志中间件
+│   ├── logger.go           # 请求日志中间件
+│   └── rate_limit.go       # 请求限流中间件（防止 ES 过载）
 ├── models/
 │   └── es_models.go        # ES 文档模型定义
 ├── routes/
 │   └── routes.go           # 路由配置
 ├── services/
-│   ├── es_client.go        # ES 客户端管理
+│   ├── es_client.go        # ES 客户端管理（含连接池 + 熔断器）
 │   ├── product_service.go  # 商品搜索服务
 │   ├── order_service.go    # 订单搜索服务
 │   ├── user_service.go     # 用户搜索服务
@@ -824,7 +826,38 @@ GET /api/search/suggest
 }
 ```
 
-### 4.3 ES 查询策略
+### 4.3 健康检查 API
+
+search-service 提供多维度健康检查，供业务后端判断搜索服务可用性，实现降级决策。
+
+```
+GET /health
+
+响应：
+{
+  "status": "healthy",              // healthy / degraded / unhealthy
+  "elasticsearch": {
+    "connected": true,              // ES 连接状态
+    "cluster_status": "green",      // green / yellow / red
+    "ik_plugin_installed": true     // IK 分词器是否已安装
+  },
+  "data_freshness": {
+    "products_last_sync": "2026-06-02T15:03:30Z",  // products 最后同步时间
+    "orders_last_sync": "2026-06-02T15:03:15Z",     // orders 最后同步时间
+    "max_delay_seconds": 30                          // 最大允许延迟（秒）
+  }
+}
+```
+
+**健康状态判定逻辑**：
+
+| 条件 | 状态 | 业务后端行为 |
+|------|------|------------|
+| ES 连接正常 + IK 已安装 + 同步延迟 < 30s | `healthy` | 正常使用 ES 搜索 |
+| ES 连接正常但 IK 未安装，或同步延迟 > 30s | `degraded` | 使用 ES 搜索但提示功能受限 |
+| ES 连接失败 | `unhealthy` | 降级到 MySQL 查询 |
+
+### 4.4 ES 查询策略
 
 #### 商品搜索查询构建
 
@@ -853,7 +886,42 @@ highlight := elastic.NewHighlight().
     PostTags("</em>")
 ```
 
-### 4.4 数据补齐服务（sync_service）
+### 4.5 ES 客户端熔断与限流
+
+#### 4.5.1 熔断器（Circuit Breaker）
+
+search-service 的 ES 客户端内置熔断器，防止 ES 故障时请求堆积导致级联崩溃。
+
+```go
+// es_client.go 熔断器配置
+type CircuitBreakerConfig struct {
+    MaxFailures    int           // 连续失败阈值（默认 5 次）
+    ResetTimeout   time.Duration // 熔断恢复等待时间（默认 30s）
+    HalfOpenMax    int           // 半开状态最大试探请求（默认 1 次）
+}
+
+// 熔断器状态机
+// Closed（正常）→ 连续失败达 MaxFailures → Open（熔断，直接返回错误）
+// Open → 等待 ResetTimeout → HalfOpen（试探）→ 成功则 Closed，失败则 Open
+```
+
+#### 4.5.2 请求限流
+
+```go
+// rate_limit.go 限流配置
+type RateLimitConfig struct {
+    MaxRequestsPerSecond float64 // 每秒最大请求数（默认 50）
+    MaxConcurrentSearches int    // 最大并发搜索数（默认 20）
+    SearchTimeout        time.Duration // 单次搜索超时（默认 3s）
+}
+```
+
+**限流策略**：
+- 超过 QPS 限制的请求返回 429 Too Many Requests
+- 超过并发限制的请求排队等待，等待超时返回 503
+- 搜索超时自动取消，返回部分结果或错误提示
+
+### 4.6 数据补齐服务（sync_service）
 
 Logstash JDBC 同步只能处理扁平数据，无法直接组装 nested 对象（SKU 明细、订单明细）。search-service 内置定时补齐服务，周期性从 MySQL 读取关联数据并更新到 ES。
 
@@ -872,7 +940,7 @@ Logstash JDBC 同步只能处理扁平数据，无法直接组装 nested 对象�
 - 需要维护 Logstash Ruby 代码，增加运维成本
 - search-service 用 Go 实现，类型安全、可测试、可维护
 
-### 4.5 与业务后端的集成方式
+### 4.7 与业务后端的集成方式
 
 业务后端（backend/shop-backend）通过 HTTP REST 调用 search-service：
 
@@ -880,20 +948,73 @@ Logstash JDBC 同步只能处理扁平数据，无法直接组装 nested 对象�
 前端 → backend/shop-backend → search-service → Elasticsearch
 ```
 
-**调用示例（backend 代理搜索请求）**：
+#### 4.7.1 降级策略（Fallback to MySQL）
+
+业务后端内置搜索降级机制，当 search-service 不可用时自动回退到 MySQL 查询。
+
+```go
+// backend/services/search_proxy_service.go
+type SearchProxyService struct {
+    searchServiceURL string
+    httpClient       *http.Client
+    circuitBreaker   *CircuitBreaker
+    db               *gorm.DB
+}
+
+func (s *SearchProxyService) SearchProducts(ctx *gin.Context, params SearchParams) {
+    if s.circuitBreaker.IsOpen() {
+        // 熔断状态：直接走 MySQL
+        s.searchFromMySQL(ctx, params)
+        return
+    }
+
+    resp, err := s.callSearchService(params)
+    if err != nil {
+        // 调用失败：记录失败次数，降级到 MySQL
+        s.circuitBreaker.RecordFailure()
+        utils.Warn("search-service 调用失败，降级到 MySQL: %v", err)
+        s.searchFromMySQL(ctx, params)
+        return
+    }
+
+    s.circuitBreaker.RecordSuccess()
+    // 转发 search-service 响应
+    s.forwardResponse(ctx, resp)
+}
+```
+
+**降级触发条件**：
+
+| 条件 | 触发降级 | 恢复条件 |
+|------|---------|---------|
+| search-service 连续 3 次调用超时（>2s） | 是 | 熔断器等待 30s 后试探 |
+| search-service 返回 5xx 错误 | 是 | 熔断器等待 30s 后试探 |
+| search-service /health 返回 `unhealthy` | 是 | 下次健康检查通过 |
+| search-service 容器停止 | 是 | 容器重启后健康检查通过 |
+
+**MySQL 降级查询限制**：
+- 降级查询仅支持基本关键词搜索（LIKE），不支持中文分词
+- 降级查询增加 3s 超时限制，防止 MySQL 过载
+- 降级时前端显示提示："搜索服务暂时不可用，结果可能不完整"
+
+#### 4.7.2 调用示例（backend 代理搜索请求）
 
 ```go
 // backend/controllers/search_controller.go
 func (c *SearchController) SearchProducts(ctx *gin.Context) {
-    keyword := ctx.Query("keyword")
-    resp, err := http.Get(fmt.Sprintf("http://search-service:8082/api/search/products?keyword=%s", url.QueryEscape(keyword)))
-    // 转发响应...
+    params := SearchParams{
+        Keyword:    ctx.Query("keyword"),
+        CategoryID: ctx.Query("category_id"),
+        // ...
+    }
+    c.searchProxyService.SearchProducts(ctx, params)
 }
 ```
 
 **为什么不让前端直接调用 search-service**：
 - 统一认证鉴权：前端请求经过业务后端的 Auth 中间件
 - 避免暴露内部服务：search-service 不对外暴露端口（仅 Docker 内网可访问）
+- 降级保护：业务后端可以在 search-service 不可用时回退到 MySQL
 - 请求聚合：业务后端可以组合搜索结果和业务逻辑
 
 ---
@@ -1063,9 +1184,13 @@ elasticsearch:
     memlock:
       soft: -1
       hard: -1
+    nofile:
+      soft: 65536
+      hard: 65536
   volumes:
     - es-data:/usr/share/elasticsearch/data
-    - ./elk/elasticsearch/ik:/usr/share/elasticsearch/plugins/ik
+    - ./elk/elasticsearch/plugins:/usr/share/elasticsearch/plugins
+    - ./elk/elasticsearch/scripts/es-init.sh:/usr/share/elasticsearch/es-init.sh
   networks:
     - goshopadmin-network
   restart: always
@@ -1074,6 +1199,7 @@ elasticsearch:
     interval: 30s
     timeout: 10s
     retries: 5
+    start_period: 60s
 
 # Logstash
 logstash:
@@ -1130,6 +1256,11 @@ filebeat:
   depends_on:
     elasticsearch:
       condition: service_healthy
+  healthcheck:
+    test: ["CMD-SHELL", "filebeat test config -c /usr/share/filebeat/filebeat.yml -e || exit 1"]
+    interval: 60s
+    timeout: 10s
+    retries: 3
 
 # search-service
 search-service:
@@ -1163,6 +1294,7 @@ search-service:
     interval: 30s
     timeout: 10s
     retries: 3
+    start_period: 30s
 ```
 
 ### 7.2 新增数据卷
@@ -1282,7 +1414,8 @@ export const searchAPI = {
 
 | 文件路径 | 说明 |
 |---------|------|
-| `docker/elk/elasticsearch/ik/` | IK 分词器插件目录 |
+| `docker/elk/elasticsearch/plugins/ik/` | IK 分词器插件目录（预下载） |
+| `docker/elk/elasticsearch/scripts/es-init.sh` | ES 初始化脚本（检查 IK 插件、创建索引模板和 ILM 策略） |
 | `docker/elk/logstash/pipeline/products.conf` | 商品同步 Pipeline |
 | `docker/elk/logstash/pipeline/orders.conf` | 订单同步 Pipeline |
 | `docker/elk/logstash/pipeline/users.conf` | 用户同步 Pipeline |
@@ -1317,13 +1450,86 @@ export const searchAPI = {
 
 ## 11. 风险与应对
 
-| 风险 | 影响 | 应对措施 |
-|------|------|---------|
-| ES 内存不足导致 OOM | 搜索服务不可用 | 限制 JVM 堆内存 1GB，监控内存使用，必要时调整 |
-| Logstash JDBC 同步延迟 | 搜索结果与数据库不一致 | 前端提示"数据可能有延迟"，关键查询仍走 MySQL |
-| IK 分词器未安装 | 中文搜索不可用 | ES 启动前检查插件，Dockerfile 预装 |
-| Filebeat 权限不足无法读取 Docker 日志 | 容器日志缺失 | Filebeat 以 root 用户运行，挂载 Docker socket |
-| search-service 不可用时搜索功能全部失效 | 用户体验差 | 业务后端增加降级逻辑：search-service 不可用时回退到 MySQL 查询 |
+### 风险 1：ES 内存不足导致 OOM
+
+| 维度 | 内容 |
+|------|------|
+| **影响** | 搜索服务不可用，严重时导致容器被 OOM Kill |
+| **根因** | JVM 堆内存设置不合理、查询结果集过大、索引数据量增长超预期 |
+
+**应对设计**：
+
+1. **JVM 堆内存硬限制**：ES_JAVA_OPTS 设置 `-Xms1g -Xmx1g`，且 Docker memory limit 设为 2GB（堆内存的 2 倍，留给 OS cache 和 Lucene off-heap）
+2. **search-service 请求限流**（见 4.5.2 节）：限制 QPS 50、并发搜索 20、超时 3s，防止突发流量打爆 ES
+3. **ES 查询优化**：所有搜索 API 强制分页（page_size 上限 50），禁止 `match_all` 无条件查询，`detail` 字段设置 `index: false` 减少内存占用
+4. **ILM 自动清理**（见 2.3 节）：日志索引 7 天自动删除，每天 rollover 限制单索引 500MB
+5. **监控告警**：Kibana 仪表盘增加 ES 节点内存使用率监控，超过 85% 阈值告警
+
+### 风险 2：Logstash JDBC 同步延迟
+
+| 维度 | 内容 |
+|------|------|
+| **影响** | 搜索结果与数据库不一致，用户看到过期数据 |
+| **根因** | Logstash 轮询间隔、SQL 查询慢、MySQL 负载高 |
+
+**应对设计**：
+
+1. **数据新鲜度健康检查**（见 4.3 节）：search-service `/health` 接口暴露每个索引的最后同步时间，业务后端据此判断是否降级
+2. **分级同步频率**：orders 15s、products 30s、users/customers 60s，按业务变更频率分配资源
+3. **业务后端降级策略**（见 4.7.1 节）：当同步延迟超过 30s 时，健康状态变为 `degraded`，前端提示"数据可能有延迟"
+4. **关键查询走 MySQL**：订单详情、支付状态等强一致性场景，始终直接查询 MySQL，不依赖 ES
+5. **Logstash last_run 持久化**：Logstash 同步位点写入 Docker volume，容器重启后从上次位置继续，避免全量重同步
+
+### 风险 3：IK 分词器未安装
+
+| 维度 | 内容 |
+|------|------|
+| **影响** | 中文搜索不可用，搜索结果质量极差 |
+| **根因** | IK 插件未预装、ES 升级后插件不兼容、插件目录挂载失败 |
+
+**应对设计**：
+
+1. **预下载 IK 插件到项目目录**：`docker/elk/elasticsearch/plugins/ik/` 目录预置 IK 插件文件，Docker Compose 挂载到 ES 容器的 plugins 目录，避免运行时下载
+2. **ES 初始化脚本**（`es-init.sh`）：ES 启动后自动执行以下检查：
+   ```bash
+   # 检查 IK 插件是否已安装
+   curl -sf http://localhost:9200/_cat/plugins | grep ik || echo "WARNING: IK plugin not found"
+   # 创建索引模板和 ILM 策略
+   curl -X PUT http://localhost:9200/_index_template/products -d @/templates/products.json
+   curl -X PUT http://localhost:9200/_ilm/policy/app-logs-policy -d @/templates/ilm.json
+   ```
+3. **search-service 健康检查**（见 4.3 节）：`/health` 接口检测 `ik_plugin_installed` 字段，IK 未安装时状态变为 `degraded`
+4. **降级策略**：IK 未安装时，search-service 自动将中文分词查询降级为标准分词器（standard analyzer），搜索质量降低但不会完全失败
+
+### 风险 4：Filebeat 权限不足无法读取 Docker 日志
+
+| 维度 | 内容 |
+|------|------|
+| **影响** | 容器日志缺失，无法排查线上问题 |
+| **根因** | Windows Docker 环境下 Docker socket 权限、容器日志路径差异 |
+
+**应对设计**：
+
+1. **Filebeat 以 root 用户运行**：Docker Compose 中设置 `user: root`
+2. **Docker socket 挂载**：`/var/run/docker.sock:/var/run/docker.sock:ro`
+3. **Filebeat 健康检查**：Docker Compose 中配置 Filebeat 配置文件验证 healthcheck
+4. **应用日志双保险**：即使 Filebeat 无法收集容器日志，应用日志文件（`/app/logs/`）通过 volume 挂载仍可被 Filebeat 收集
+5. **Windows 环境适配**：Windows Docker Desktop 下容器日志路径为 `C:\ProgramData\Docker\containers\`，Filebeat 配置中需根据操作系统调整路径（在 docker-compose.yml 中通过环境变量区分）
+
+### 风险 5：search-service 不可用时搜索功能全部失效
+
+| 维度 | 内容 |
+|------|------|
+| **影响** | 前端搜索功能完全不可用，用户体验极差 |
+| **根因** | search-service 进程崩溃、ES 连接失败、内存溢出 |
+
+**应对设计**：
+
+1. **业务后端熔断器**（见 4.7.1 节）：backend/shop-backend 内置 CircuitBreaker，连续 3 次调用失败后自动熔断，30s 后试探恢复
+2. **自动降级到 MySQL**（见 4.7.1 节）：熔断状态下搜索请求自动回退到 MySQL LIKE 查询，前端提示"搜索服务暂时不可用，结果可能不完整"
+3. **search-service 自动重启**：Docker Compose 设置 `restart: always`，进程崩溃后自动重启
+4. **search-service 健康检查**：Docker Compose 配置 `/health` 端点健康检查，start_period 30s 给予启动缓冲
+5. **ES 客户端熔断器**（见 4.5.1 节）：search-service 内部对 ES 连接也做熔断保护，ES 短暂不可用时快速失败而非阻塞等待
 
 ---
 
