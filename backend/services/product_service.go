@@ -70,9 +70,20 @@ func (s *ProductService) GetProductsByMerchantID(merchantID int, name string) ([
 		query = query.Where("name LIKE ?", "%"+name+"%")
 	}
 
-	result := query.Preload("Category").Preload("Images").Find(&products)
+	result := query.Preload("Category").Preload("Images").Preload("Skus").Find(&products)
 	if result.Error != nil {
 		return nil, result.Error
+	}
+
+	// 计算每个商品的总库存（所有启用SKU的库存总和）
+	for i := range products {
+		totalStock := 0
+		for _, sku := range products[i].Skus {
+			if sku.Status == constants.StatusActive {
+				totalStock += sku.Stock
+			}
+		}
+		products[i].Stock = totalStock
 	}
 
 	// 将查询结果写入缓存

@@ -53,12 +53,6 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="is_activity" label="活动专用" width="100">
-          <template #default="scope">
-            <el-tag v-if="scope.row.is_activity" type="warning">是</el-tag>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="scope">
             <el-button size="small" @click="handleEditSku(scope.row)">编辑</el-button>
@@ -127,23 +121,6 @@
           </el-radio-group>
         </el-form-item>
         
-        <!-- 活动专用SKU -->
-        <el-form-item label="活动专用SKU">
-          <el-checkbox v-model="skuForm.is_activity" @change="handleActivityChange">是</el-checkbox>
-        </el-form-item>
-        
-        <!-- 活动选择器 -->
-        <el-form-item label="关联活动" v-if="skuForm.is_activity">
-          <el-select v-model="skuForm.activity_id" placeholder="选择活动">
-            <el-option
-              v-for="activity in activities"
-              :key="activity.id"
-              :label="activity.name"
-              :value="activity.id"
-            />
-          </el-select>
-        </el-form-item>
-        
         <!-- 规格组合选择 -->
         <el-form-item label="规格组合" v-if="!skuForm.id && specifications.length > 0">
           <div v-for="spec in specifications" :key="spec.id" class="spec-select-row">
@@ -170,7 +147,7 @@
 </template>
 
 <script>
-import { productApi, activityApi } from '@/api/auth'
+import { productApi } from '@/api/auth'
 
 export default {
   name: 'ProductSkus',
@@ -197,7 +174,6 @@ export default {
       },
       generatedSKUs: [],
       skuDialogVisible: false,
-      activities: [],
       skuForm: {
         id: null,
         sku_code: '',
@@ -205,8 +181,6 @@ export default {
         original_price: 0,
         stock: 0,
         status: 'active',
-        is_activity: false,
-        activity_id: null,
         spec_combinations: {}
       },
       skuRules: {
@@ -244,26 +218,12 @@ export default {
         this.localProductName = this.productName
         this.getSpecifications()
         this.getSkus()
-        this.getActivities()
       } else if (this.$route.params.id) {
         // 通过路由参数传入（兼容旧方式）
         this.localProductId = parseInt(this.$route.params.id)
         this.getProductInfo()
         this.getSpecifications()
         this.getSkus()
-        this.getActivities()
-      }
-    },
-    // 获取活动列表
-    getActivities() {
-      activityApi.getActivities().then(data => {
-        this.activities = data.list || []
-      }).catch(() => {})
-    },
-    // 处理活动专用SKU变化
-    handleActivityChange() {
-      if (!this.skuForm.is_activity) {
-        this.skuForm.activity_id = null
       }
     },
     // 返回
@@ -365,8 +325,6 @@ export default {
         original_price: 0,
         stock: 0,
         status: 'active',
-        is_activity: false,
-        activity_id: null,
         spec_combinations: {}
       }
       this.skuDialogVisible = true
@@ -379,9 +337,7 @@ export default {
         price: sku.price,
         original_price: sku.original_price || 0,
         stock: sku.stock,
-        status: sku.status,
-        is_activity: sku.is_activity || false,
-        activity_id: sku.activity_id || null
+        status: sku.status
       }
       this.skuDialogVisible = true
     },
