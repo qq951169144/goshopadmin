@@ -2,6 +2,8 @@ package routes
 
 import (
 	"context"
+	"net"
+	"net/http"
 
 	"shop-backend/cache"
 	"shop-backend/config"
@@ -9,8 +11,10 @@ import (
 	"shop-backend/middleware"
 	"shop-backend/utils"
 
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gorm.io/gorm"
 )
 
@@ -29,10 +33,48 @@ type Dependencies struct {
 	RedeemCodeController    *controllers.RedeemCodeController
 	ActivityOrderController *controllers.ActivityOrderController
 	HealthController        *controllers.HealthController
+	MonitorController       *controllers.MonitorController
+}
+
+// metricsIPWhitelist 创建 IP 白名单中间件，仅允许内部网络访问 /metrics 端点
+// 允许的网段：172.16.0.0/12（Docker 默认网段）、192.168.0.0/16（局域网）、127.0.0.1（本机）
+// 防止 /metrics 端点暴露运行时指标到公网
+func metricsIPWhitelist() gin.HandlerFunc {
+	allowedCIDRs := []string{
+		"172.16.0.0/12",
+		"192.168.0.0/16",
+		"127.0.0.1/32",
+		"::1/128",
+	}
+
+	parsedNetworks := make([]*net.IPNet, 0, len(allowedCIDRs))
+	for _, cidr := range allowedCIDRs {
+		_, network, err := net.ParseCIDR(cidr)
+		if err == nil {
+			parsedNetworks = append(parsedNetworks, network)
+		}
+	}
+
+	return func(c *gin.Context) {
+		ip := net.ParseIP(c.ClientIP())
+		if ip == nil {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		for _, network := range parsedNetworks {
+			if network.Contains(ip) {
+				c.Next()
+				return
+			}
+		}
+
+		c.AbortWithStatus(http.StatusForbidden)
+	}
 }
 
 // SetupRoutes 设置所有路由
-func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Config) {
+func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *config.Config, monitor *utils.Monitor) {
 	// 初始化缓存工具并预热布隆过滤器
 	ctx := context.Background()
 	cacheUtil := cache.NewCacheUtil(db, redisClient)
@@ -64,6 +106,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 		RedeemCodeController:    controllers.NewRedeemCodeController(db),
 		ActivityOrderController: controllers.NewActivityOrderController(db),
 		HealthController:        controllers.NewHealthController(),
+		MonitorController:       controllers.NewMonitorController(monitor),
 	}
 
 	// 1. 健康检查
@@ -219,5 +262,26 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			activityOrders.GET("/:id", deps.ActivityOrderController.GetActivityOrder)
 			activityOrders.PUT("/:id/cancel", deps.ActivityOrderController.CancelActivityOrder)
 		}
+
+		// 2.12 监控路由（需要认证）
+		// 路径前缀: /api/monitor
+		monitor := api.Group("/monitor")
+		monitor.Use(middleware.Auth())
+		{
+			// 路径: /api/monitor/stats, /api/monitor/stats/history
+			monitor.GET("/stats", deps.MonitorController.GetCurrentStats)
+			monitor.GET("/stats/history", deps.MonitorController.GetHistoryStats)
+		}
 	}
+
+	// Prometheus metrics 端点
+	// 使用 IP 白名单中间件保护，仅允许 Docker 内部网络和本机访问
+	// Prometheus 在同一 Docker 网络内通过容器名访问此端点
+	r.GET("/metrics", metricsIPWhitelist(), gin.WrapH(promhttp.Handler()))
+
+	// pprof 性能分析端点（需要认证保护）
+	// pprof 暴露 CPU、内存、协程等敏感运行时数据，必须认证后才能访问
+	pprofGroup := r.Group("/debug/pprof")
+	pprofGroup.Use(middleware.Auth())
+	pprof.RouteRegister(pprofGroup)
 }

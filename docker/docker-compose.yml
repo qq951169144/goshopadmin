@@ -101,7 +101,7 @@ services:
       - rabbitmq
     command: sh -c "go mod download && go run main.go"  # 开发环境使用go run
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -111,7 +111,7 @@ services:
     image: node:20-alpine
     container_name: goshopadmin-frontend
     ports:
-      - "3000:3000"  # Vite开发服务器端口
+      - "5173:3000"  # Vite开发服务器端口
     volumes:
       - ../frontend:/app  # 开发环境挂载本地代码
       - frontend-build:/app/dist  # 生产环境挂载构建产物到卷
@@ -159,7 +159,7 @@ services:
     image: golang:1.24-alpine
     container_name: goshopadmin-shop-backend
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"  # 仅本机可访问，Prometheus 通过 Docker 内部网络访问
     volumes:
       - ../shop-backend:/app  # 开发环境挂载本地代码
     working_dir: /app
@@ -185,7 +185,51 @@ services:
       - redis
     command: sh -c "go mod download && go run main.go"  # 开发环境使用go run
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus监控服务
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: goshopadmin-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - goshopadmin-network
+    restart: always
+    depends_on:
+      - shop-backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana可视化服务
+  grafana:
+    image: grafana/grafana:latest
+    container_name: goshopadmin-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - goshopadmin-network
+    restart: always
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -245,6 +289,18 @@ volumes:
     driver_opts:
       type: none
       device: ../shop-frontend/dist
+      o: bind
+  prometheus-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/prometheus
+      o: bind
+  grafana-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/grafana
       o: bind
 
 networks:

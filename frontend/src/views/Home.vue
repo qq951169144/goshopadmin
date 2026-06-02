@@ -61,6 +61,10 @@
               <el-icon><calendar /></el-icon>
               <span>活动管理</span>
             </el-menu-item>
+            <el-menu-item index="monitor">
+              <el-icon><monitor /></el-icon>
+              <span>系统监控</span>
+            </el-menu-item>
           </el-menu>
         </el-aside>
         
@@ -184,7 +188,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import { ArrowDown, House, User, Position, Lock, Shop, Goods, Grid, Calendar } from '@element-plus/icons-vue';
+import { ArrowDown, House, User, Position, Lock, Shop, Goods, Grid, Calendar, Monitor } from '@element-plus/icons-vue';
 import { authApi } from '../api/auth';
 
 // 导入子组件
@@ -230,6 +234,11 @@ const hasPermission = (permissionCode) => {
 
 // 处理菜单选择
 const handleMenuSelect = (key) => {
+  if (key === 'monitor') {
+    const grafanaUrl = import.meta.env.VITE_GRAFANA_URL || 'http://localhost:3000'
+    window.open(grafanaUrl, '_blank')
+    return
+  }
   activeMenu.value = key;
   currentView.value = key;
   currentProduct.value = null;
