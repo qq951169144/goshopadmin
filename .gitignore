@@ -77,7 +77,6 @@ temp/*
 
 # Docker数据目录
 docker/data/**
-!docker/data/.gitkeep
 
 # 上传文件目录
 backend/uploads/*
