@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # 订单微服务
+  order-service:
+    build:
+      context: ./services/order-service
+      dockerfile: Dockerfile
+    ports:
+      - "8090:8090"
+    environment:
+      - SERVER_PORT=8090
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=goshopadmin_order
+      - PRODUCT_SERVICE_URL=http://product-service:8091
+      - CUSTOMER_SERVICE_URL=http://customer-service:8092
+    depends_on:
+      - mysql
+    restart: on-failure
+
+  # 商品微服务
+  product-service:
+    build:
+      context: ./services/product-service
+      dockerfile: Dockerfile
+    ports:
+      - "8091:8091"
+    environment:
+      - SERVER_PORT=8091
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=goshopadmin_product
+    depends_on:
+      - mysql
+    restart: on-failure
+
+  # 客户微服务
+  customer-service:
+    build:
+      context: ./services/customer-service
+      dockerfile: Dockerfile
+    ports:
+      - "8092:8092"
+    environment:
+      - SERVER_PORT=8092
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=goshopadmin_customer
+    depends_on:
+      - mysql
+    restart: on-failure
+
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-sql:/docker-entrypoint-initdb.d
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    restart: on-failure
+
+volumes:
+  mysql_data:
