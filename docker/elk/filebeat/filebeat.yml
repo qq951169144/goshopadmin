@@ -1,0 +1,189 @@
+# ============================================================================
+# Filebeat 配置文件
+# ============================================================================
+# Filebeat 是轻量级日志收集器，它监控指定的日志文件，将新日志行发送到 Elasticsearch。
+#
+# 本配置收集两类日志：
+#   1. 应用日志：backend 和 shop-backend 输出的 JSON 格式日志
+#   2. 容器日志：Docker 容器的标准输出/标准错误日志
+#
+# 数据流：
+#   应用日志文件 → Filebeat → Elasticsearch（app-logs-* 索引）
+#   Docker 容器日志 → Filebeat → Elasticsearch（container-logs-* 索引）
+# ============================================================================
+
+# ============================================================================
+# Filebeat 输入配置
+# ============================================================================
+# filebeat.inputs: 定义 Filebeat 要收集的日志源
+# 每个 input 是一个独立的日志收集配置
+# ============================================================================
+filebeat.inputs:
+
+  # --------------------------------------------------------------------------
+  # 应用日志输入 - backend（后台管理系统）
+  # --------------------------------------------------------------------------
+  # 收集 backend 服务输出的 JSON 格式日志文件
+  # 日志文件路径：/logs/backend/*.log（Docker 卷挂载路径）
+  # --------------------------------------------------------------------------
+  - type: log
+    # enabled: 是否启用此输入
+    #   设为 true 表示启用
+    enabled: true
+
+    # paths: 要监控的日志文件路径列表
+    #   支持通配符，*.log 匹配目录下所有 .log 文件
+    #   这些路径是容器内部的路径，通过 Docker 卷挂载映射到宿主机
+    paths:
+      - /logs/backend/*.log
+
+    # json.keys_under_root: 将 JSON 字段放在根级别
+    #   默认情况下，Filebeat 会把 JSON 解析出的字段放在 json 对象下
+    #   设为 true 后，字段直接放在事件根级别，方便 Elasticsearch 索引
+    #   例如：{"json": {"log_level": "ERROR"}} → {"log_level": "ERROR"}
+    json.keys_under_root: true
+
+    # json.add_error_key: 解析失败时添加 error.message 和 error.type 字段
+    #   如果日志行不是有效的 JSON，Filebeat 会添加错误信息，方便排查
+    json.add_error_key: true
+
+    # json.overwrite_keys: 用 JSON 字段覆盖 Filebeat 默认字段
+    #   设为 true 后，如果 JSON 中有 @timestamp 字段，会覆盖 Filebeat 的 @timestamp
+    #   这样可以使用日志本身的生成时间，而不是 Filebeat 收集的时间
+    json.overwrite_keys: true
+
+    # fields: 添加自定义字段
+    #   这些字段会附加到每条日志事件上，用于区分不同来源的日志
+    fields:
+      # log_type: 日志类型标识，用于在 output 中路由到不同的索引
+      log_type: "app"
+      # service: 服务名称，标识日志来自哪个服务
+      service: "backend"
+
+    # fields_under_root: 将自定义字段放在根级别
+    #   设为 true 后，log_type 和 service 字段直接在事件根级别
+    fields_under_root: true
+
+    # tags: 标签，用于过滤和路由
+    tags: ["app-logs"]
+
+  # --------------------------------------------------------------------------
+  # 应用日志输入 - shop-backend（C端商城）
+  # --------------------------------------------------------------------------
+  # 收集 shop-backend 服务输出的 JSON 格式日志文件
+  # 配置与 backend 相同，只是路径和 service 字段不同
+  # --------------------------------------------------------------------------
+  - type: log
+    enabled: true
+    paths:
+      - /logs/shop-backend/*.log
+    json.keys_under_root: true
+    json.add_error_key: true
+    json.overwrite_keys: true
+    fields:
+      log_type: "app"
+      service: "shop-backend"
+    fields_under_root: true
+    tags: ["app-logs"]
+
+  # --------------------------------------------------------------------------
+  # Docker 容器日志输入
+  # --------------------------------------------------------------------------
+  # 收集所有 Docker 容器的标准输出和标准错误日志
+  # Filebeat 的 container 类型输入专门用于收集 Docker 容器日志
+  # 它会自动解析 Docker 的 JSON 日志格式
+  # --------------------------------------------------------------------------
+  - type: container
+    enabled: true
+
+    # paths: 容器日志文件路径
+    #   Docker 默认将容器日志存储在 /var/lib/docker/containers/ 目录下
+    #   每个容器有一个以容器ID命名的子目录，里面是 *-json.log 文件
+    #   我们通过 Docker 卷挂载将此目录映射到 Filebeat 容器中
+    paths:
+      - /var/lib/docker/containers/*/*.log
+
+    # processors: 处理器，在收集日志时对数据进行转换
+    processors:
+      # add_docker_metadata: 自动添加 Docker 元数据
+      #   会添加容器名称、容器ID、镜像名称等信息
+      #   方便在 Kibana 中按容器名称筛选日志
+      - add_docker_metadata:
+          # host: Docker daemon 的地址
+          #   unix:///var/run/docker.sock 是 Docker 默认的 Unix socket
+          host: "unix:///var/run/docker.sock"
+
+    # fields: 添加自定义字段
+    fields:
+      # log_type: container 表示这是容器日志，用于路由到 container-logs 索引
+      log_type: "container"
+
+    fields_under_root: true
+    tags: ["container-logs"]
+
+# ============================================================================
+# Filebeat 处理器配置
+# ============================================================================
+# processors: 全局处理器，对所有输入的事件生效
+# ============================================================================
+processors:
+  # --------------------------------------------------------------------------
+  # add_host_metadata: 添加主机元数据
+  #   自动添加主机名、IP地址、操作系统等信息
+  #   在多主机环境中可以区分日志来源
+  # --------------------------------------------------------------------------
+  - add_host_metadata:
+      when.not.contains.tags: "container-logs"
+
+  # --------------------------------------------------------------------------
+  # drop_fields: 删除不需要的字段
+  #   Filebeat 会自动添加一些字段（如 agent、ecs、input 等）
+  #   这些字段占用存储空间但在我们的场景中不需要，删除以减少存储
+  # --------------------------------------------------------------------------
+  - drop_fields:
+      fields: ["agent", "ecs", "input", "log.offset"]
+      ignore_missing: true
+
+# ============================================================================
+# Filebeat 输出配置
+# ============================================================================
+# filebeat.outputs: 定义收集到的日志发送到哪里
+# 我们直接输出到 Elasticsearch，不经过 Logstash
+# 因为日志数据不需要复杂的转换处理，直接写入 ES 效率更高
+# ============================================================================
+output.elasticsearch:
+  # hosts: Elasticsearch 地址列表
+  hosts: ["http://elasticsearch:9200"]
+
+  # indices: 根据条件路由到不同的索引
+  #   不同的日志类型写入不同的索引，方便管理和查询
+  indices:
+    # 应用日志 → app-logs-日期 格式的索引
+    #   %{+yyyy.MM.dd} 是日期格式化，每天一个索引
+    #   例如：app-logs-2026.06.03
+    #   条件：当 tags 包含 "app-logs" 时
+    - index: "app-logs-%{+yyyy.MM.dd}"
+      when.contains:
+        tags: "app-logs"
+
+    # 容器日志 → container-logs-日期 格式的索引
+    #   例如：container-logs-2026.06.03
+    #   条件：当 tags 包含 "container-logs" 时
+    - index: "container-logs-%{+yyyy.MM.dd}"
+      when.contains:
+        tags: "container-logs"
+
+# ============================================================================
+# 日志配置
+# ============================================================================
+# logging.level: Filebeat 自身的日志级别
+# logging.to_files: 是否将日志写入文件
+# logging.files.path: 日志文件目录
+# ============================================================================
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  rotateeverybytes: 10485760

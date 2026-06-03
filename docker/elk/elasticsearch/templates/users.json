@@ -1,0 +1,59 @@
+{
+  "_comment": "============================================================================",
+  "_comment_2": "用户索引模板 - users（后台管理系统用户/管理员）",
+  "_comment_3": "============================================================================",
+  "_comment_4": "用户索引存储后台管理系统的管理员信息，结构较简单。",
+  "_comment_5": "核心设计说明：",
+  "_comment_6": "  - username/email 使用 keyword：管理员用户名和邮箱需要精确匹配，不需要分词",
+  "_comment_7": "  - role_name 使用 keyword：角色名称用于精确筛选",
+  "_comment_8": "  - status 使用 keyword：用户状态枚举值精确匹配",
+  "_comment_9": "  - 不需要 IK 分词器：管理员信息以英文/数字为主，无需中文分词",
+  "_comment_10": "============================================================================",
+  "index_patterns": ["users"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "id": {
+          "type": "integer",
+          "_comment": "用户ID"
+        },
+        "username": {
+          "type": "keyword",
+          "_comment": "用户名，keyword 类型用于精确匹配和排序，管理员用户名通常不含中文"
+        },
+        "email": {
+          "type": "keyword",
+          "_comment": "邮箱地址，keyword 类型用于精确匹配"
+        },
+        "role_id": {
+          "type": "integer",
+          "_comment": "角色ID，用于按角色筛选"
+        },
+        "role_name": {
+          "type": "keyword",
+          "_comment": "角色名称（冗余字段），如'超级管理员'、'运营人员'，keyword 用于精确匹配和聚合"
+        },
+        "status": {
+          "type": "keyword",
+          "_comment": "用户状态（active/inactive），枚举值精确匹配"
+        },
+        "created_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "创建时间"
+        },
+        "updated_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "更新时间，Logstash 增量同步依据此字段"
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "_comment_shards": "分片数1：单节点部署",
+      "number_of_replicas": 0,
+      "_comment_replicas": "副本数0：单节点无副本"
+    }
+  }
+}

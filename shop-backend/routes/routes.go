@@ -34,6 +34,7 @@ type Dependencies struct {
 	ActivityOrderController *controllers.ActivityOrderController
 	HealthController        *controllers.HealthController
 	MonitorController       *controllers.MonitorController
+	SearchController        *controllers.SearchController
 }
 
 // metricsIPWhitelist 创建 IP 白名单中间件，仅允许内部网络访问 /metrics 端点
@@ -107,6 +108,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 		ActivityOrderController: controllers.NewActivityOrderController(db),
 		HealthController:        controllers.NewHealthController(),
 		MonitorController:       controllers.NewMonitorController(monitor),
+		SearchController:        controllers.NewSearchController(),
 	}
 
 	// 1. 健康检查
@@ -271,6 +273,16 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			// 路径: /api/monitor/stats, /api/monitor/stats/history
 			monitor.GET("/stats", deps.MonitorController.GetCurrentStats)
 			monitor.GET("/stats/history", deps.MonitorController.GetHistoryStats)
+		}
+
+		// 2.13 搜索路由（需要认证）
+		// 路径前缀: /api/search
+		search := api.Group("/search")
+		search.Use(middleware.Auth())
+		{
+			search.GET("/products", deps.SearchController.SearchProducts)
+			search.GET("/orders", deps.SearchController.SearchOrders)
+			search.GET("/suggest", deps.SearchController.Suggest)
 		}
 	}
 

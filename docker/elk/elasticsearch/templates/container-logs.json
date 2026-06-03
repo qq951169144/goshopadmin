@@ -1,0 +1,53 @@
+{
+  "_comment": "============================================================================",
+  "_comment_2": "容器日志索引模板 - container-logs",
+  "_comment_3": "============================================================================",
+  "_comment_4": "容器日志索引存储 Docker 容器的标准输出/标准错误日志。",
+  "_comment_5": "核心设计说明：",
+  "_comment_6": "  - 绑定 ILM 策略：容器日志量较大，需要自动清理",
+  "_comment_7": "  - 使用滚动索引模式：container-logs-* 匹配滚动后的索引",
+  "_comment_8": "  - container_name 使用 keyword：容器名称用于精确筛选，如只看 backend 容器日志",
+  "_comment_9": "  - stream 使用 keyword：区分 stdout（标准输出）和 stderr（标准错误）",
+  "_comment_10": "  - message 使用 IK 分词：容器日志内容可能包含中文，需要搜索",
+  "_comment_11": "  - source 使用 keyword：日志来源标识",
+  "_comment_12": "============================================================================",
+  "index_patterns": ["container-logs-*"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "@timestamp": {
+          "type": "date",
+          "_comment": "日志时间戳，由 Filebeat 自动添加"
+        },
+        "container_name": {
+          "type": "keyword",
+          "_comment": "容器名称（如 goshopadmin-backend），keyword 用于按容器筛选日志"
+        },
+        "message": {
+          "type": "text",
+          "analyzer": "ik_max_word",
+          "search_analyzer": "ik_smart",
+          "_comment": "日志消息内容，支持中文分词搜索"
+        },
+        "stream": {
+          "type": "keyword",
+          "_comment": "输出流类型（stdout/stderr），keyword 用于精确筛选。stderr 通常是错误信息"
+        },
+        "source": {
+          "type": "keyword",
+          "_comment": "日志来源标识，用于区分不同来源的容器日志"
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "_comment_shards": "分片数1：单节点部署",
+      "number_of_replicas": 0,
+      "_comment_replicas": "副本数0：单节点无副本",
+      "lifecycle.name": "app-logs-policy",
+      "_comment_lifecycle": "绑定 ILM 策略，与 app-logs 共用同一个策略",
+      "lifecycle.rollover_alias": "container-logs",
+      "_comment_rollover_alias": "滚动索引别名"
+    }
+  }
+}

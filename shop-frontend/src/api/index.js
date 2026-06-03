@@ -365,4 +365,14 @@ export const activityOrderAPI = {
   confirmActivityOrder: (id) => api.put(`/activity-orders/${id}/confirm`)
 }
 
+// 搜索相关API
+export const searchAPI = {
+  // 搜索商品
+  searchProducts: (params) => api.get('/search/products', { params }),
+  // 搜索订单
+  searchOrders: (params) => api.get('/search/orders', { params }),
+  // 搜索建议
+  suggest: (params) => api.get('/search/suggest', { params })
+}
+
 export default api

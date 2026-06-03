@@ -382,4 +382,18 @@ export const activityApi = {
   getRedeemCodeStats: (activityId) => api.get(`/activities/${activityId}/redeem-codes/stats`)
 };
 
+// 搜索相关API
+export const searchAPI = {
+  // 搜索商品
+  searchProducts: (params) => api.get('/search/products', { params }),
+  // 搜索订单
+  searchOrders: (params) => api.get('/search/orders', { params }),
+  // 搜索用户
+  searchUsers: (params) => api.get('/search/users', { params }),
+  // 搜索客户
+  searchCustomers: (params) => api.get('/search/customers', { params }),
+  // 搜索建议
+  suggest: (params) => api.get('/search/suggest', { params })
+};
+
 export default api;

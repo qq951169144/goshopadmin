@@ -1,0 +1,88 @@
+{
+  "_comment": "============================================================================",
+  "_comment_2": "应用日志索引模板 - app-logs",
+  "_comment_3": "============================================================================",
+  "_comment_4": "应用日志索引存储 backend 和 shop-backend 的结构化日志（JSON 格式）。",
+  "_comment_5": "核心设计说明：",
+  "_comment_6": "  - 绑定 ILM 策略：日志数据自动管理生命周期，7天后自动删除",
+  "_comment_7": "  - 使用滚动索引模式：app-logs-* 匹配 app-logs-000001, app-logs-000002 等",
+  "_comment_8": "  - log_level 使用 keyword：日志级别（INFO/WARN/ERROR）需要精确筛选",
+  "_comment_9": "  - service 使用 keyword：服务名（backend/shop-backend）需要精确筛选",
+  "_comment_10": "  - message/error_message 使用 IK 分词：日志内容需要中文搜索",
+  "_comment_11": "  - latency_ms 使用 long：响应时间（毫秒），用于性能分析",
+  "_comment_12": "  - request_id 使用 keyword：请求追踪ID，用于链路追踪",
+  "_comment_13": "============================================================================",
+  "index_patterns": ["app-logs-*"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "@timestamp": {
+          "type": "date",
+          "_comment": "日志时间戳，由 Filebeat 自动添加，用于时间范围查询"
+        },
+        "log_level": {
+          "type": "keyword",
+          "_comment": "日志级别（INFO/WARN/ERROR/DEBUG），keyword 类型用于精确筛选，如只看 ERROR 日志"
+        },
+        "message": {
+          "type": "text",
+          "analyzer": "ik_max_word",
+          "search_analyzer": "ik_smart",
+          "_comment": "日志消息内容，支持中文分词搜索，方便搜索包含特定关键词的日志"
+        },
+        "service": {
+          "type": "keyword",
+          "_comment": "服务名称（backend/shop-backend），keyword 用于按服务筛选日志"
+        },
+        "caller": {
+          "type": "keyword",
+          "_comment": "调用位置（如 controllers/user.go:42），keyword 用于精确匹配"
+        },
+        "request_id": {
+          "type": "keyword",
+          "_comment": "请求追踪ID，用于关联同一请求的多条日志，实现链路追踪"
+        },
+        "method": {
+          "type": "keyword",
+          "_comment": "HTTP 方法（GET/POST/PUT/DELETE），用于按请求类型筛选"
+        },
+        "path": {
+          "type": "keyword",
+          "_comment": "请求路径（如 /api/products），keyword 用于精确匹配"
+        },
+        "status_code": {
+          "type": "integer",
+          "_comment": "HTTP 状态码（200/404/500 等），用于按状态码筛选和统计"
+        },
+        "latency_ms": {
+          "type": "long",
+          "_comment": "响应时间（毫秒），long 类型支持范围查询，如查找慢请求 latency_ms > 1000"
+        },
+        "client_ip": {
+          "type": "keyword",
+          "_comment": "客户端IP地址，用于访问来源分析"
+        },
+        "error_code": {
+          "type": "integer",
+          "_comment": "业务错误码（如 4001/5000 等），用于按错误类型筛选"
+        },
+        "error_message": {
+          "type": "text",
+          "analyzer": "ik_max_word",
+          "search_analyzer": "ik_smart",
+          "_comment": "错误消息内容，支持中文分词搜索"
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "_comment_shards": "分片数1：单节点部署",
+      "number_of_replicas": 0,
+      "_comment_replicas": "副本数0：单节点无副本",
+      "lifecycle.name": "app-logs-policy",
+      "_comment_lifecycle": "绑定 ILM 策略，自动管理索引生命周期",
+      "lifecycle.rollover_alias": "app-logs",
+      "_comment_rollover_alias": "滚动索引别名，写入数据时使用此别名"
+    }
+  }
+}

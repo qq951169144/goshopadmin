@@ -56,6 +56,10 @@ const (
 	CodeSeckillStockInsufficient = 4070 // 秒杀库存不足
 	CodeSeckillNotStarted        = 4071 // 秒杀未开始
 	CodeSeckillEnded             = 4072 // 秒杀已结束
+
+	// 4080 - 搜索相关错误
+	CodeSearchError       = 4080 // 搜索执行失败
+	CodeSearchUnavailable = 4081 // 搜索服务不可用
 )
 
 // ErrorMessage 错误码对应的前端友好提示
@@ -93,6 +97,8 @@ var ErrorMessage = map[int]string{
 	CodeSeckillStockInsufficient: "秒杀库存不足",
 	CodeSeckillNotStarted:        "秒杀活动未开始",
 	CodeSeckillEnded:             "秒杀活动已结束",
+	CodeSearchError:       "搜索执行失败",
+	CodeSearchUnavailable: "搜索服务暂时不可用",
 }
 
 // GetErrorMessage 获取错误码对应的友好提示

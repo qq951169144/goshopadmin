@@ -127,6 +127,12 @@ const routes = [
         name: 'RedeemCodeVerify',
         component: () => import('../views/activities/RedeemCodeVerify.vue'),
         meta: { requiresPermission: 'activity:manage' }
+      },
+      {
+        path: 'search',
+        name: 'Search',
+        component: () => import('../views/search/Search.vue'),
+        meta: { requiresAuth: true }
       }
     ]
   }

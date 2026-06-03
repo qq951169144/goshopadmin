@@ -1,0 +1,144 @@
+{
+  "_comment": "============================================================================",
+  "_comment_2": "订单索引模板 - orders",
+  "_comment_3": "============================================================================",
+  "_comment_4": "订单索引用于订单搜索和数据分析，包含订单基本信息和商品明细。",
+  "_comment_5": "核心设计说明：",
+  "_comment_6": "  - order_no 使用 keyword：订单号需要精确匹配，不需要分词",
+  "_comment_7": "  - items 使用 nested 类型：确保订单商品的属性不会跨商品混淆",
+  "_comment_8": "  - 多个时间字段：记录订单各阶段的时间点，用于流程分析",
+  "_comment_9": "  - status/payment_status/shipping_status 使用 keyword：枚举值精确匹配",
+  "_comment_10": "  - customer_name/merchant_name 冗余存储：避免查询时再关联其他表",
+  "_comment_11": "============================================================================",
+  "index_patterns": ["orders"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "id": {
+          "type": "integer",
+          "_comment": "订单ID，整数类型"
+        },
+        "order_no": {
+          "type": "keyword",
+          "_comment": "订单编号，如 'ORD202606030001'，keyword 类型用于精确匹配和排序"
+        },
+        "customer_id": {
+          "type": "integer",
+          "_comment": "客户ID，用于按客户筛选订单"
+        },
+        "customer_name": {
+          "type": "keyword",
+          "_comment": "客户名称（冗余字段），避免查询时关联客户表，keyword 用于精确匹配"
+        },
+        "merchant_id": {
+          "type": "integer",
+          "_comment": "商家ID，用于按商家筛选订单"
+        },
+        "merchant_name": {
+          "type": "keyword",
+          "_comment": "商家名称（冗余字段），避免查询时关联商家表"
+        },
+        "activity_id": {
+          "type": "integer",
+          "_comment": "活动ID，关联促销活动，0 表示非活动订单"
+        },
+        "total_amount": {
+          "type": "double",
+          "_comment": "订单总金额，用于金额统计和筛选"
+        },
+        "status": {
+          "type": "keyword",
+          "_comment": "订单状态（pending/paid/shipped/completed/cancelled），枚举值精确匹配"
+        },
+        "payment_status": {
+          "type": "keyword",
+          "_comment": "支付状态（pending/success/failed），枚举值精确匹配"
+        },
+        "shipping_status": {
+          "type": "keyword",
+          "_comment": "物流状态（pending/shipped/delivered/returned），枚举值精确匹配"
+        },
+        "address_id": {
+          "type": "integer",
+          "_comment": "收货地址ID"
+        },
+        "payment_method": {
+          "type": "keyword",
+          "_comment": "支付方式（alipay/wechat/bank_card 等），keyword 精确匹配"
+        },
+        "items": {
+          "type": "nested",
+          "_comment": "订单商品列表，nested 类型确保每个商品的属性独立存储。例如：商品A的价格不会和商品B的数量混淆",
+          "properties": {
+            "product_id": {
+              "type": "integer",
+              "_comment": "商品ID"
+            },
+            "product_name": {
+              "type": "text",
+              "analyzer": "ik_max_word",
+              "search_analyzer": "ik_smart",
+              "_comment": "商品名称，支持中文分词搜索，方便按商品名搜索订单"
+            },
+            "sku_id": {
+              "type": "integer",
+              "_comment": "SKU ID"
+            },
+            "sku_attributes": {
+              "type": "keyword",
+              "_comment": "SKU 属性描述，如 '颜色:红色;尺码:XL'，keyword 用于精确匹配"
+            },
+            "price": {
+              "type": "double",
+              "_comment": "商品单价"
+            },
+            "quantity": {
+              "type": "integer",
+              "_comment": "购买数量"
+            },
+            "total_amount": {
+              "type": "double",
+              "_comment": "小计金额（price × quantity）"
+            }
+          }
+        },
+        "paid_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "支付时间，用于支付流程分析"
+        },
+        "shipped_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "发货时间，用于发货时效分析"
+        },
+        "delivered_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "送达时间，用于物流时效分析"
+        },
+        "cancelled_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "取消时间，用于取消流程分析"
+        },
+        "created_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "创建时间"
+        },
+        "updated_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "更新时间，Logstash 增量同步依据此字段"
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "_comment_shards": "分片数1：单节点部署",
+      "number_of_replicas": 0,
+      "_comment_replicas": "副本数0：单节点无副本"
+    }
+  }
+}

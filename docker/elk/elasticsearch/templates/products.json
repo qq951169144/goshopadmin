@@ -1,0 +1,184 @@
+{
+  "_comment": "============================================================================",
+  "_comment_2": "商品索引模板 - products",
+  "_comment_3": "============================================================================",
+  "_comment_4": "商品索引是系统中最重要的搜索索引，支持中文分词搜索和 SKU 级别的精确查询。",
+  "_comment_5": "核心设计说明：",
+  "_comment_6": "  - name 字段使用 ik_max_word 分词 + keyword 子字段：既能中文搜索，又能精确排序",
+  "_comment_7": "  - description 字段使用 IK 分词：商品描述需要中文搜索",
+  "_comment_8": "  - detail 字段设置 index=false：详情内容不需要搜索，节省存储空间",
+  "_comment_9": "  - skus 使用 nested 类型：确保 SKU 之间不会产生错误的关联匹配",
+  "_comment_10": "  - images 使用 keyword 类型：图片 URL 不需要分词，直接存储路径",
+  "_comment_11": "  - status/audit_status 使用 keyword：状态值是枚举，需要精确匹配",
+  "_comment_12": "============================================================================",
+  "index_patterns": ["products"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "id": {
+          "type": "integer",
+          "_comment": "商品ID，整数类型，用于精确匹配"
+        },
+        "name": {
+          "type": "text",
+          "analyzer": "ik_max_word",
+          "search_analyzer": "ik_smart",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "_comment": "keyword 子字段：用于排序和精确匹配，如按名称排序"
+            }
+          },
+          "_comment": "商品名称，使用 IK 分词器。ik_max_word 在索引时最细粒度拆分（如'华为手机'→'华为','手机'），ik_smart 在搜索时智能拆分，提高召回率"
+        },
+        "description": {
+          "type": "text",
+          "analyzer": "ik_max_word",
+          "search_analyzer": "ik_smart",
+          "_comment": "商品简介，需要中文分词搜索"
+        },
+        "detail": {
+          "type": "text",
+          "analyzer": "ik_max_word",
+          "search_analyzer": "ik_smart",
+          "index": false,
+          "_comment": "商品详情（富文本），设置 index=false 表示不建立倒排索引，节省空间，但仍可通过 _source 查看"
+        },
+        "category_id": {
+          "type": "integer",
+          "_comment": "分类ID，用于按分类筛选商品"
+        },
+        "category_name": {
+          "type": "keyword",
+          "_comment": "分类名称，keyword 类型用于精确匹配和聚合统计"
+        },
+        "merchant_id": {
+          "type": "integer",
+          "_comment": "商家ID，用于按商家筛选商品"
+        },
+        "merchant_name": {
+          "type": "keyword",
+          "_comment": "商家名称，keyword 类型用于精确匹配"
+        },
+        "status": {
+          "type": "keyword",
+          "_comment": "商品状态（active/inactive），枚举值使用 keyword 精确匹配"
+        },
+        "audit_status": {
+          "type": "keyword",
+          "_comment": "审核状态（pending/approved/rejected），枚举值使用 keyword 精确匹配"
+        },
+        "price": {
+          "type": "double",
+          "_comment": "商品展示价格（默认SKU价格）"
+        },
+        "min_price": {
+          "type": "double",
+          "_comment": "最低价格（所有SKU中的最低价），用于价格区间筛选"
+        },
+        "max_price": {
+          "type": "double",
+          "_comment": "最高价格（所有SKU中的最高价），用于价格区间筛选"
+        },
+        "total_stock": {
+          "type": "integer",
+          "_comment": "总库存（所有SKU库存之和），用于库存筛选"
+        },
+        "is_activity": {
+          "type": "integer",
+          "_comment": "是否参与活动（0=否，1=是），整数类型用于精确匹配"
+        },
+        "main_image": {
+          "type": "keyword",
+          "_comment": "主图URL，keyword 类型直接存储路径，不需要分词"
+        },
+        "images": {
+          "type": "keyword",
+          "_comment": "图片URL列表，存储为 keyword 数组，每个元素是一个图片路径"
+        },
+        "skus": {
+          "type": "nested",
+          "_comment": "SKU 列表，使用 nested 类型。为什么用 nested？默认的 object 类型会把所有 SKU 的字段扁平化，导致跨 SKU 的错误匹配。nested 类型保证每个 SKU 作为独立文档存储，查询时不会混淆不同 SKU 的属性",
+          "properties": {
+            "id": {
+              "type": "integer",
+              "_comment": "SKU ID"
+            },
+            "sku_code": {
+              "type": "keyword",
+              "_comment": "SKU 编码，用于精确匹配"
+            },
+            "price": {
+              "type": "double",
+              "_comment": "SKU 售价"
+            },
+            "original_price": {
+              "type": "double",
+              "_comment": "SKU 原价，用于显示划线价"
+            },
+            "stock": {
+              "type": "integer",
+              "_comment": "SKU 库存数量"
+            },
+            "status": {
+              "type": "keyword",
+              "_comment": "SKU 状态（active/inactive）"
+            },
+            "is_activity": {
+              "type": "integer",
+              "_comment": "SKU 是否参与活动（0=否，1=是）"
+            },
+            "activity_id": {
+              "type": "integer",
+              "_comment": "关联的活动ID"
+            },
+            "specs": {
+              "type": "nested",
+              "_comment": "规格属性列表，nested 类型确保规格名和规格值正确关联。例如：颜色=红色 不会和 尺码=XL 混淆",
+              "properties": {
+                "spec_name": {
+                  "type": "keyword",
+                  "_comment": "规格名称，如'颜色'、'尺码'"
+                },
+                "spec_value": {
+                  "type": "keyword",
+                  "_comment": "规格值，如'红色'、'XL'"
+                }
+              }
+            }
+          }
+        },
+        "created_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "创建时间，支持三种格式：MySQL格式、ISO8601格式、时间戳毫秒"
+        },
+        "updated_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "更新时间，Logstash 增量同步依据此字段判断数据是否有更新"
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "_comment_shards": "分片数设为1：单节点部署不需要分片，多个分片反而增加开销",
+      "number_of_replicas": 0,
+      "_comment_replicas": "副本数设为0：单节点没有其他节点存放副本，设为0避免集群状态为yellow",
+      "analysis": {
+        "analyzer": {
+          "ik_max_word": {
+            "type": "custom",
+            "tokenizer": "ik_max_word",
+            "_comment": "ik_max_word 分词器：索引时使用，最细粒度拆分，提高搜索召回率"
+          },
+          "ik_smart": {
+            "type": "custom",
+            "tokenizer": "ik_smart",
+            "_comment": "ik_smart 分词器：搜索时使用，智能拆分，减少无关结果"
+          }
+        }
+      }
+    }
+  }
+}

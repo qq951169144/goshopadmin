@@ -92,6 +92,11 @@ const router = createRouter({
       path: '/customer/service',
       name: 'customer-service',
       component: () => import('../views/CustomerService.vue')
+    },
+    {
+      path: '/search',
+      name: 'search-results',
+      component: () => import('../views/SearchResults.vue')
     }
   ]
 })

@@ -1,0 +1,77 @@
+{
+  "_comment": "============================================================================",
+  "_comment_2": "客户索引模板 - customers（C端商城消费者）",
+  "_comment_3": "============================================================================",
+  "_comment_4": "客户索引存储C端商城的消费者信息。",
+  "_comment_5": "核心设计说明：",
+  "_comment_6": "  - nickname 使用 IK 分词 + keyword 子字段：昵称可能包含中文，需要支持搜索",
+  "_comment_7": "  - username/phone/email 使用 keyword：这些字段需要精确匹配",
+  "_comment_8": "  - avatar 设置 index=false：头像URL不需要搜索，节省索引空间",
+  "_comment_9": "  - last_login_at：记录最后登录时间，用于活跃度分析",
+  "_comment_10": "============================================================================",
+  "index_patterns": ["customers"],
+  "template": {
+    "mappings": {
+      "properties": {
+        "id": {
+          "type": "integer",
+          "_comment": "客户ID"
+        },
+        "username": {
+          "type": "keyword",
+          "_comment": "用户名，keyword 类型用于精确匹配"
+        },
+        "phone": {
+          "type": "keyword",
+          "_comment": "手机号，keyword 类型用于精确匹配和排序"
+        },
+        "email": {
+          "type": "keyword",
+          "_comment": "邮箱地址，keyword 类型用于精确匹配"
+        },
+        "nickname": {
+          "type": "text",
+          "analyzer": "ik_max_word",
+          "search_analyzer": "ik_smart",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "_comment": "keyword 子字段：用于排序和精确匹配"
+            }
+          },
+          "_comment": "昵称，支持中文分词搜索。例如搜索'小明'可以匹配到'快乐的小明'"
+        },
+        "status": {
+          "type": "keyword",
+          "_comment": "客户状态（active/inactive），枚举值精确匹配"
+        },
+        "avatar": {
+          "type": "keyword",
+          "index": false,
+          "_comment": "头像URL，设置 index=false 不建立索引，节省空间，但仍可通过 _source 查看"
+        },
+        "last_login_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "最后登录时间，用于活跃度分析和筛选"
+        },
+        "created_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "注册时间"
+        },
+        "updated_at": {
+          "type": "date",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "_comment": "更新时间，Logstash 增量同步依据此字段"
+        }
+      }
+    },
+    "settings": {
+      "number_of_shards": 1,
+      "_comment_shards": "分片数1：单节点部署",
+      "number_of_replicas": 0,
+      "_comment_replicas": "副本数0：单节点无副本"
+    }
+  }
+}

@@ -72,6 +72,7 @@ services:
       - "8080:8080"
     volumes:
       - ../backend:/app  # 开发环境挂载本地代码
+      - backend-logs:/app/logs  # 日志目录挂载，供 Filebeat 收集
     working_dir: /app
     environment:
       - SERVER_PORT=8080
@@ -92,6 +93,7 @@ services:
       - MQ_PASSWORD=guest
       - MQ_VHOST=/
       - GOPROXY=https://goproxy.cn,direct
+      - SEARCH_SERVICE_URL=http://search-service:8082
     networks:
       - goshopadmin-network
     restart: always
@@ -162,6 +164,7 @@ services:
       - "127.0.0.1:8081:8081"  # 仅本机可访问，Prometheus 通过 Docker 内部网络访问
     volumes:
       - ../shop-backend:/app  # 开发环境挂载本地代码
+      - shop-backend-logs:/app/logs  # 日志目录挂载，供 Filebeat 收集
     working_dir: /app
     environment:
       - SERVER_PORT=8081
@@ -177,6 +180,7 @@ services:
       - JWT_SECRET=your-secret-key
       - JWT_EXPIRE_HOUR=24
       - GOPROXY=https://goproxy.cn,direct
+      - SEARCH_SERVICE_URL=http://search-service:8082
     networks:
       - goshopadmin-network
     restart: always
@@ -259,6 +263,183 @@ services:
       timeout: 10s
       retries: 3
 
+  # ============================================================================
+  # ELK 日志与搜索服务
+  # ============================================================================
+  # ELK 是 Elasticsearch + Logstash + Kibana 的组合，用于日志收集和全文搜索
+  # Elasticsearch: 搜索引擎，存储和索引数据
+  # Logstash: 数据同步引擎，从 MySQL 同步业务数据到 ES
+  # Kibana: 可视化界面，查看和搜索 ES 数据
+  # Filebeat: 轻量级日志收集器，收集应用日志和容器日志
+  # search-service: 搜索服务，提供搜索 API 给前端调用
+  # ============================================================================
+
+  # Elasticsearch 搜索引擎服务
+  elasticsearch:
+    image: elasticsearch:8.17.0
+    container_name: goshopadmin-elasticsearch
+    ports:
+      - "9200:9200"  # REST API 端口，浏览器和客户端通过此端口访问 ES
+    volumes:
+      # ES 数据持久化目录，存储索引数据
+      - es-data:/usr/share/elasticsearch/data
+      # 初始化脚本目录，ES 启动后自动执行
+      - ./elk/elasticsearch/scripts/es-init.sh:/usr/share/elasticsearch/scripts/es-init.sh
+      # 索引模板目录，包含 ILM 策略和各业务索引模板
+      - ./elk/elasticsearch/templates:/usr/share/elasticsearch/templates
+    environment:
+      # discovery.type: 单节点模式
+      #   设为 single-node 表示只运行一个 ES 节点，不需要集群发现
+      #   适用于开发和测试环境，生产环境应使用集群模式
+      - discovery.type=single-node
+      # ES_JAVA_OPTS: JVM 内存设置
+      #   -Xms512m: 初始堆内存 512MB
+      #   -Xmx512m: 最大堆内存 512MB
+      #   生产环境建议设为物理内存的 50%，但不超过 32GB
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      # xpack.security.enabled: 关闭安全认证
+      #   开发环境关闭，避免需要配置用户名密码
+      #   生产环境必须开启
+      - xpack.security.enabled=false
+      # xpack.security.enrollment.enabled: 关闭安全注册
+      - xpack.security.enrollment.enabled=false
+    networks:
+      - goshopadmin-network
+    restart: always
+    # mem_limit: 容器内存限制 2GB
+    #   ES 是内存密集型应用，需要足够的内存
+    #   2GB 包含 JVM 堆内存（512MB）+ ES 堆外内存 + 操作系统缓存
+    mem_limit: 2g
+    healthcheck:
+      # 检查 ES 集群健康状态，green 或 yellow 表示就绪
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\\|yellow\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s  # ES 启动较慢，给 60 秒初始等待时间
+
+  # Logstash 数据同步服务
+  logstash:
+    image: logstash:8.17.0
+    container_name: goshopadmin-logstash
+    volumes:
+      # Logstash 主配置文件
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      # Pipeline 配置目录，包含各业务同步的 .conf 文件
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline
+      # MySQL JDBC 驱动，Logstash 需要此驱动连接 MySQL
+      - ./elk/logstash/mysql-connector-j.jar:/usr/share/logstash/mysql-connector-j.jar
+      # 增量同步位置记录目录，Logstash 把上次同步位置保存在此
+      - logstash-last-run:/usr/share/logstash/last_run
+    environment:
+      # LS_JAVA_OPTS: Logstash JVM 内存设置
+      #   Logstash 也基于 JVM，需要分配内存
+      - "LS_JAVA_OPTS=-Xms256m -Xmx256m"
+    networks:
+      - goshopadmin-network
+    restart: always
+    depends_on:
+      elasticsearch:
+        condition: service_healthy  # 等 ES 健康检查通过后再启动
+      mysql:
+        condition: service_healthy  # 等 MySQL 健康检查通过后再启动
+    healthcheck:
+      # 检查 Logstash API 是否可用
+      test: ["CMD-SHELL", "curl -s http://localhost:9600/_node/pipelines | grep -q 'pipelines' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s  # Logstash 启动较慢，给 60 秒初始等待时间
+
+  # Kibana 可视化界面服务
+  kibana:
+    image: kibana:8.17.0
+    container_name: goshopadmin-kibana
+    ports:
+      - "5601:5601"  # Kibana Web 界面端口
+    volumes:
+      # Kibana 配置文件
+      - ./elk/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
+    networks:
+      - goshopadmin-network
+    restart: always
+    depends_on:
+      elasticsearch:
+        condition: service_healthy  # 等 ES 健康检查通过后再启动
+    healthcheck:
+      # 检查 Kibana 状态 API 是否可用
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q '\"overall\":{\"level\":\"available\"' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Filebeat 日志收集服务
+  filebeat:
+    image: elastic/filebeat:8.17.0
+    container_name: goshopadmin-filebeat
+    # user: root
+    #   Filebeat 需要以 root 用户运行，因为：
+    #   1. 需要读取 Docker 容器日志目录（/var/lib/docker/containers）
+    #   2. 需要访问 Docker socket（/var/run/docker.sock）获取容器元数据
+    user: root
+    volumes:
+      # Filebeat 配置文件
+      - ./elk/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      # backend 应用日志目录（只读）
+      - backend-logs:/logs/backend:ro
+      # shop-backend 应用日志目录（只读）
+      - shop-backend-logs:/logs/shop-backend:ro
+      # Docker 容器日志目录（只读），用于收集容器标准输出日志
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # Docker socket，用于获取容器元数据（容器名称、镜像等）
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - goshopadmin-network
+    restart: always
+    depends_on:
+      elasticsearch:
+        condition: service_healthy  # 等 ES 健康检查通过后再启动
+    healthcheck:
+      # 检查 Filebeat 进程是否运行
+      test: ["CMD-SHELL", "filebeat test config -c /usr/share/filebeat/filebeat.yml || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 搜索服务（Go 微服务）
+  search-service:
+    image: golang:1.24-alpine
+    container_name: goshopadmin-search-service
+    ports:
+      - "8082:8082"  # 搜索服务 API 端口
+    volumes:
+      - ../search-service:/app  # 开发环境挂载本地代码
+    working_dir: /app
+    environment:
+      - SERVER_PORT=8082
+      - ES_URL=http://elasticsearch:9200  # Elasticsearch 连接地址
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=password
+      - DB_NAME=goshopadmin
+      - GOPROXY=https://goproxy.cn,direct
+    networks:
+      - goshopadmin-network
+    restart: always
+    depends_on:
+      elasticsearch:
+        condition: service_healthy  # 等 ES 健康检查通过后再启动
+      mysql:
+        condition: service_healthy  # 等 MySQL 健康检查通过后再启动
+    command: sh -c "go mod download && go run main.go"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   mysql-data:
     driver: local
@@ -301,6 +482,31 @@ volumes:
     driver_opts:
       type: none
       device: ./data/grafana
+      o: bind
+  # ELK 相关数据卷
+  es-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/elasticsearch
+      o: bind
+  logstash-last-run:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/logstash/last_run
+      o: bind
+  backend-logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: ../backend/logs
+      o: bind
+  shop-backend-logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: ../shop-backend/logs
       o: bind
 
 networks:

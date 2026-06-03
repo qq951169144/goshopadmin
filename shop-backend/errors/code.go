@@ -55,6 +55,10 @@ const (
 	CodeCaptchaError      = 4093 // 验证码错误
 	CodeUserExists        = 4094 // 用户名已存在
 
+	// 4080 - 搜索相关错误
+	CodeSearchError       = 4080 // 搜索执行失败
+	CodeSearchUnavailable = 4081 // 搜索服务不可用
+
 	// 5000 - 服务器错误 (5xx 服务端错误)
 	CodeInternalError = 5000 // 内部错误
 	CodeDBError       = 5001 // 数据库错误
@@ -98,6 +102,8 @@ var ErrorMessage = map[int]string{
 	CodeStockInsufficient:        "库存不足",
 	CodeCaptchaError:             "验证码错误",
 	CodeUserExists:               "用户名已存在",
+	CodeSearchError:       "搜索执行失败",
+	CodeSearchUnavailable: "搜索服务暂时不可用",
 	CodeInternalError:            "系统繁忙，请稍后重试",
 	CodeDBError:                  "数据操作失败",
 	CodeCacheError:               "缓存服务异常",
