@@ -17,16 +17,8 @@
 # Elasticsearch 的连接地址（在 Docker 网络中，ES 的主机名是 elasticsearch）
 ES_URL="http://elasticsearch:9200"
 
-# 等待 Elasticsearch 完全启动
-# ES 启动后需要一些时间来完成内部初始化，status=green 或 yellow 表示已就绪
-echo "=========================================="
-echo "等待 Elasticsearch 启动..."
-echo "=========================================="
-until curl -s "$ES_URL/_cluster/health" | grep -q '"status":"green\|yellow"'; do
-  echo "Elasticsearch 尚未就绪，5秒后重试..."
-  sleep 5
-done
-echo "Elasticsearch 已就绪！"
+# 注意：ES 健康检查已由 es-entrypoint.sh 完成，此处不再重复等待
+# es-entrypoint.sh 在调用本脚本前已确认 ES 处于 green/yellow 状态
 
 # ============================================================================
 # 第一步：检查 IK 中文分词插件
@@ -43,7 +35,7 @@ IK_INSTALLED=$(curl -s "$ES_URL/_cat/plugins" | grep "ik" || true)
 if [ -z "$IK_INSTALLED" ]; then
   echo "⚠️  警告：IK 分词插件未安装！中文搜索将无法正常工作。"
   echo "请在 Dockerfile 或启动命令中安装 IK 插件："
-  echo "  elasticsearch-plugin install https://github.com/medcl/elasticsearch-analysis-ik/releases/download/v8.17.0/elasticsearch-analysis-ik-8.17.0.zip"
+  echo "  elasticsearch-plugin install https://get.infini.cloud/elasticsearch/analysis-ik/8.17.0"
 else
   echo "✅ IK 分词插件已安装"
   echo "$IK_INSTALLED"

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 // Config 应用配置结构
@@ -42,6 +44,9 @@ type Config struct {
 
 // LoadConfig 加载配置，返回配置实例
 func LoadConfig() (*Config, error) {
+	// 加载 .env 文件（如果存在），不会覆盖已存在的系统环境变量
+	_ = godotenv.Load()
+
 	// 服务器配置
 	serverPort, err := strconv.Atoi(getEnv("SERVER_PORT", "8080"))
 	if err != nil {

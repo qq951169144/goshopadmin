@@ -85,3 +85,6 @@ backend/uploads/*
 # 备忘录文件
 备忘录.md
 订单流程调通后续开发计划.md
+
+# Superpowers 文档目录
+docs/superpowers/

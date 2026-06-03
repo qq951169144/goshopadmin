@@ -45,9 +45,6 @@ type ProductDoc struct {
 	// MainImage 主图URL，用于搜索结果展示
 	MainImage string `json:"main_image"`
 
-	// Sales 销量，用于排序
-	Sales int `json:"sales"`
-
 	// Skus SKU 列表，嵌套文档，包含商品的规格和价格信息
 	Skus []SkuDoc `json:"skus"`
 

@@ -64,10 +64,6 @@
           "type": "keyword",
           "_comment": "商品状态（active/inactive），枚举值使用 keyword 精确匹配"
         },
-        "audit_status": {
-          "type": "keyword",
-          "_comment": "审核状态（pending/approved/rejected），枚举值使用 keyword 精确匹配"
-        },
         "price": {
           "type": "double",
           "_comment": "商品展示价格（默认SKU价格）"
@@ -91,10 +87,6 @@
         "main_image": {
           "type": "keyword",
           "_comment": "主图URL，keyword 类型直接存储路径，不需要分词"
-        },
-        "images": {
-          "type": "keyword",
-          "_comment": "图片URL列表，存储为 keyword 数组，每个元素是一个图片路径"
         },
         "skus": {
           "type": "nested",

@@ -197,7 +197,7 @@ CREATE TABLE IF NOT EXISTS product_skus (
     sku_code VARCHAR(50) NOT NULL,
     attributes JSON,
     price DECIMAL(10,2) NOT NULL,
-    original_price DECIMAL(10,2) DEFAULT 0 COMMENT '原价',
+    original_price DECIMAL(10,2) DEFAULT 0.00 COMMENT '原价',
     stock INT NOT NULL,
     is_activity TINYINT(1) DEFAULT 0 COMMENT '是否为活动专用SKU：0-否，1-是',
     activity_id INT DEFAULT NULL COMMENT '关联活动ID（当is_activity=1时有效）',
@@ -221,7 +221,7 @@ CREATE TABLE IF NOT EXISTS product_specifications (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_product_specifications_product_id (product_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 创建规格值表
 CREATE TABLE IF NOT EXISTS product_specification_values (
@@ -233,7 +233,7 @@ CREATE TABLE IF NOT EXISTS product_specification_values (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_specification_values_spec_id (spec_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 创建SKU规格关联表
 CREATE TABLE IF NOT EXISTS product_sku_specs (
@@ -245,7 +245,7 @@ CREATE TABLE IF NOT EXISTS product_sku_specs (
     INDEX idx_sku_specs_sku_id (sku_id),
     INDEX idx_sku_specs_spec_id (spec_id),
     INDEX idx_sku_specs_spec_value_id (spec_value_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 创建商品图片表
 CREATE TABLE IF NOT EXISTS product_images (
@@ -273,8 +273,7 @@ CREATE TABLE IF NOT EXISTS customers (
     nickname VARCHAR(50) DEFAULT NULL,
     avatar VARCHAR(255) DEFAULT NULL,
     last_login_at DATETIME DEFAULT NULL,
-    last_login_ip VARCHAR(50) DEFAULT NULL,
-    INDEX idx_customers_phone (phone)
+    last_login_ip VARCHAR(50) DEFAULT NULL
 );
 
 -- 创建地址表
@@ -490,7 +489,7 @@ CREATE TABLE IF NOT EXISTS carts (
     INDEX `idx_carts_customer_id` (`customer_id`),
     INDEX `idx_carts_session_id` (`session_id`),
     INDEX `idx_carts_customer_session` (`customer_id`, `session_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 创建购物车项表
 CREATE TABLE IF NOT EXISTS cart_items (

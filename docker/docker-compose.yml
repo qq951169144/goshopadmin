@@ -276,17 +276,20 @@ services:
 
   # Elasticsearch 搜索引擎服务
   elasticsearch:
-    image: elasticsearch:8.17.0
+    build:
+      context: ./elk/elasticsearch
+      dockerfile: Dockerfile
+    image: goshopadmin-elasticsearch:8.17.0
     container_name: goshopadmin-elasticsearch
     ports:
       - "9200:9200"  # REST API 端口，浏览器和客户端通过此端口访问 ES
     volumes:
       # ES 数据持久化目录，存储索引数据
       - es-data:/usr/share/elasticsearch/data
-      # 初始化脚本目录，ES 启动后自动执行
-      - ./elk/elasticsearch/scripts/es-init.sh:/usr/share/elasticsearch/scripts/es-init.sh
-      # 索引模板目录，包含 ILM 策略和各业务索引模板
-      - ./elk/elasticsearch/templates:/usr/share/elasticsearch/templates
+      # 索引模板目录（只读），修改模板后重启容器即可生效，无需重新构建镜像
+      - ./elk/elasticsearch/templates:/usr/share/elasticsearch/templates:ro
+      # 初始化脚本目录（只读），修改脚本后重启容器即可生效
+      - ./elk/elasticsearch/scripts:/usr/share/elasticsearch/scripts:ro
     environment:
       # discovery.type: 单节点模式
       #   设为 single-node 表示只运行一个 ES 节点，不需要集群发现
@@ -400,16 +403,21 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy  # 等 ES 健康检查通过后再启动
+    # 覆盖默认 entrypoint，先复制配置文件到可写目录修复权限问题再启动 filebeat
+    # Windows 挂载的文件权限为 777 且为只读，filebeat 出于安全考虑拒绝加载
+    # 需要先复制到可写目录、chmod 修复权限，再启动 filebeat
+    entrypoint: ["/bin/bash", "-c", "cp /usr/share/filebeat/filebeat.yml /tmp/filebeat.yml && chmod go-w /tmp/filebeat.yml && exec /usr/bin/tini -- /usr/local/bin/docker-entrypoint -c /tmp/filebeat.yml --environment=container"]
     healthcheck:
       # 检查 Filebeat 进程是否运行
-      test: ["CMD-SHELL", "filebeat test config -c /usr/share/filebeat/filebeat.yml || exit 1"]
+      # 使用 pgrep 检查 filebeat 进程，避免 entrypoint 干扰导致命令解析错误
+      test: ["CMD-SHELL", "pgrep -x filebeat > /dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   # 搜索服务（Go 微服务）
   search-service:
-    image: golang:1.24-alpine
+    image: golang:1.25-alpine
     container_name: goshopadmin-search-service
     ports:
       - "8082:8082"  # 搜索服务 API 端口
@@ -418,7 +426,7 @@ services:
     working_dir: /app
     environment:
       - SERVER_PORT=8082
-      - ES_URL=http://elasticsearch:9200  # Elasticsearch 连接地址
+      - ES_HOSTS=http://elasticsearch:9200  # Elasticsearch 连接地址
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_USER=root

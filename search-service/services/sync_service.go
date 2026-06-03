@@ -32,29 +32,28 @@ var (
 
 // SKU同步用的 MySQL 查询结果结构
 type skuRow struct {
-	ID          int             `gorm:"column:id"`
-	ProductID   int             `gorm:"column:product_id"`
-	SkuName     string          `gorm:"column:sku_name"`
-	Price       float64         `gorm:"column:price"`
-	Stock       int             `gorm:"column:stock"`
-	Image       string          `gorm:"column:image"`
-	SpecValues  json.RawMessage `gorm:"column:spec_values"`
-	UpdatedAt   time.Time       `gorm:"column:updated_at"`
-	ProductName string          `gorm:"column:product_name"`
+	ID            int             `gorm:"column:id"`
+	ProductID     int             `gorm:"column:product_id"`
+	SkuCode       string          `gorm:"column:sku_code"`
+	Price         float64         `gorm:"column:price"`
+	OriginalPrice float64         `gorm:"column:original_price"`
+	Stock         int             `gorm:"column:stock"`
+	Attributes    json.RawMessage `gorm:"column:attributes"`
+	UpdatedAt     time.Time       `gorm:"column:updated_at"`
 }
 
 // 订单明细同步用的 MySQL 查询结果结构
 type orderItemRow struct {
-	ID          int       `gorm:"column:id"`
-	OrderID     int       `gorm:"column:order_id"`
-	ProductID   int       `gorm:"column:product_id"`
-	ProductName string    `gorm:"column:product_name"`
-	SkuID       int       `gorm:"column:sku_id"`
-	SkuName     string    `gorm:"column:sku_name"`
-	Price       float64   `gorm:"column:price"`
-	Quantity    int       `gorm:"column:quantity"`
-	Subtotal    float64   `gorm:"column:subtotal"`
-	UpdatedAt   time.Time `gorm:"column:updated_at"`
+	ID            int             `gorm:"column:id"`
+	OrderID       int             `gorm:"column:order_id"`
+	ProductID     int             `gorm:"column:product_id"`
+	ProductName   string          `gorm:"column:product_name"`
+	SkuID         int             `gorm:"column:sku_id"`
+	SkuAttributes json.RawMessage `gorm:"column:sku_attributes"`
+	Price         float64         `gorm:"column:price"`
+	Quantity      int             `gorm:"column:quantity"`
+	TotalAmount   float64         `gorm:"column:total_amount"`
+	UpdatedAt     time.Time       `gorm:"column:updated_at"`
 }
 
 // StartSyncService 启动数据同步定时任务
@@ -131,10 +130,9 @@ func syncProductSkus() {
 
 	var skus []skuRow
 	err := database.Raw(`
-		SELECT s.id, s.product_id, s.sku_name, s.price, s.stock, s.image,
-		       s.spec_values, s.updated_at, p.name as product_name
-		FROM skus s
-		JOIN products p ON s.product_id = p.id
+		SELECT s.id, s.product_id, s.sku_code, s.price, s.original_price, s.stock,
+		       s.attributes, s.updated_at
+		FROM product_skus s
 		WHERE s.updated_at >= ?
 		ORDER BY s.product_id, s.id
 	`, fiveMinutesAgo).Scan(&skus).Error
@@ -160,19 +158,19 @@ func syncProductSkus() {
 		// 构建 SKU 文档列表
 		var skuDocs []map[string]interface{}
 		for _, sku := range skuList {
-			var specValues map[string]string
-			if len(sku.SpecValues) > 0 {
-				json.Unmarshal(sku.SpecValues, &specValues)
+			var attributes map[string]string
+			if len(sku.Attributes) > 0 {
+				json.Unmarshal(sku.Attributes, &attributes)
 			}
 
 			skuDocs = append(skuDocs, map[string]interface{}{
-				"id":          sku.ID,
-				"product_id":  sku.ProductID,
-				"sku_name":    sku.SkuName,
-				"price":       sku.Price,
-				"stock":       sku.Stock,
-				"image":       sku.Image,
-				"spec_values": specValues,
+				"id":             sku.ID,
+				"product_id":     sku.ProductID,
+				"sku_code":       sku.SkuCode,
+				"price":          sku.Price,
+				"original_price": sku.OriginalPrice,
+				"stock":          sku.Stock,
+				"attributes":     attributes,
 			})
 		}
 
@@ -236,8 +234,8 @@ func syncOrderItems() {
 	var items []orderItemRow
 	err := database.Raw(`
 		SELECT oi.id, oi.order_id, oi.product_id, oi.product_name,
-		       oi.sku_id, oi.sku_name, oi.price, oi.quantity,
-		       oi.subtotal, oi.updated_at
+		       oi.sku_id, oi.sku_attributes, oi.price, oi.quantity,
+		       oi.total_amount, oi.updated_at
 		FROM order_items oi
 		WHERE oi.updated_at >= ?
 		ORDER BY oi.order_id, oi.id
@@ -264,15 +262,20 @@ func syncOrderItems() {
 		// 构建订单明细文档列表
 		var itemDocs []map[string]interface{}
 		for _, item := range itemList {
+			var skuAttributes map[string]interface{}
+			if len(item.SkuAttributes) > 0 {
+				json.Unmarshal(item.SkuAttributes, &skuAttributes)
+			}
+
 			itemDocs = append(itemDocs, map[string]interface{}{
-				"id":           item.ID,
-				"product_id":   item.ProductID,
-				"product_name": item.ProductName,
-				"sku_id":       item.SkuID,
-				"sku_name":     item.SkuName,
-				"price":        item.Price,
-				"quantity":     item.Quantity,
-				"subtotal":     item.Subtotal,
+				"id":             item.ID,
+				"product_id":     item.ProductID,
+				"product_name":   item.ProductName,
+				"sku_id":         item.SkuID,
+				"sku_attributes": skuAttributes,
+				"price":          item.Price,
+				"quantity":       item.Quantity,
+				"total_amount":   item.TotalAmount,
 			})
 		}
 
