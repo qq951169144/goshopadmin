@@ -13,13 +13,13 @@ import (
 
 // RuntimeStats 运行时统计快照，包含单次采集的所有监控指标
 type RuntimeStats struct {
-	GoroutineCount int           `json:"goroutine_count"`
-	ModuleStats    ModuleStats   `json:"module_stats"`
-	MemoryStats    MemoryStats   `json:"memory_stats"`
-	ThreadStats    ThreadStats   `json:"thread_stats"`
-	MutexStats     MutexStats    `json:"mutex_stats"`
-	Timestamp      time.Time     `json:"timestamp"`
-	ServiceName    string        `json:"service_name"`
+	GoroutineCount int         `json:"goroutine_count"`
+	ModuleStats    ModuleStats `json:"module_stats"`
+	MemoryStats    MemoryStats `json:"memory_stats"`
+	ThreadStats    ThreadStats `json:"thread_stats"`
+	MutexStats     MutexStats  `json:"mutex_stats"`
+	Timestamp      time.Time   `json:"timestamp"`
+	ServiceName    string      `json:"service_name"`
 }
 
 // ModuleStats 按模块分组的协程统计，key 为模块名，value 为该模块的协程数量
@@ -143,7 +143,8 @@ func (m *Monitor) collectOnce() {
 
 	// 计算 GC 增量：本次采集的 GC 次数减去上次记录的 GC 次数
 	// Prometheus Counter 只能递增，因此需要计算增量后 Add
-	gcDelta := stats.MemoryStats.NumGC - m.lastGCCount
+	// 转为 int 避免无符号整数下溢导致负数判断失效
+	gcDelta := int(stats.MemoryStats.NumGC) - int(m.lastGCCount)
 	if gcDelta < 0 {
 		gcDelta = 0
 	}
@@ -158,7 +159,7 @@ func (m *Monitor) collectOnce() {
 	m.lastCgoCallCount = stats.ThreadStats.CgoCallCount
 
 	// 将本次采集的指标推送到 Prometheus
-	updatePrometheusMetrics(&stats, gcDelta, cgoDelta)
+	updatePrometheusMetrics(&stats, uint32(gcDelta), cgoDelta)
 
 	// 检查是否触发告警条件
 	m.checkAlerts(&stats)

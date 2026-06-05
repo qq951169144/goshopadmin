@@ -11,6 +11,10 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3000,
       proxy: {
+        '/api/search': {
+          target: env.VITE_SEARCH_PROXY_TARGET || 'http://search-service:8082',
+          changeOrigin: true
+        },
         '/api': {
           target: env.VITE_API_PROXY_TARGET || 'http://backend:8080',
           changeOrigin: true

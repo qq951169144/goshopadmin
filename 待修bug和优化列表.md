@@ -56,3 +56,48 @@
 - **问题描述**：引入elk
 - **优先级**：高
 - **完成状态**：TODO:使用superpowers-zh完成该功能，待功能测试
+
+## 10. 订单取消逻辑有问题，支付的莫名被取消了
+
+- **问题描述**：订单取消逻辑有问题，支付的莫名被取消了
+- **优先级**：高
+- **完成状态**：未完成
+
+
+## 11. 订单管理点击进去，没有任何请求search-service的接口
+
+- **问题描述**：订单管理点击进去，没有任何请求search-service的接口
+- **优先级**：高
+- **完成状态**：待测试
+- **文件列表**：
+  -`D:\code\goshopadmin\frontend\src\views\Home.vue`
+  -`D:\code\goshopadmin\search-service\controllers\order_controller.go`
+  -`D:\code\goshopadmin\search-service`
+
+
+## 12. api/search/customer/orders接口有问题
+
+- **问题描述**：api/search/customer/orders接口有问题，带了authorization值验证，经过查看和其他接口带的token是一致的，auth.go返回4012无效token
+- **优先级**：高
+- **完成状态**：待测试
+- **文件列表**：
+  -`D:\code\goshopadmin\search-service\middleware\auth.go`
+
+
+## 12. 综合搜素侧边栏删除
+
+- **问题描述**：综合搜素侧边栏删除,包含他跳转的页面
+- **优先级**：高
+- **完成状态**：待测试
+- **文件列表**：
+  -`D:\code\goshopadmin\frontend\src\views\Home.vue`
+
+## 13. AdminAuth 和 CustomerAuth 要从Authorization header提取token
+
+- **问题描述**：AdminAuth 和 CustomerAuth 要从Authorization header提取token，验证方法要和backend和shop-backend的相同
+- **优先级**：高
+- **完成状态**：待测试
+- **文件列表**：
+  -`D:\code\goshopadmin\search-service\middleware\auth.go`
+  -`D:\code\goshopadmin\backend\middleware\auth.go`
+  -`D:\code\goshopadmin\shop-backend\middleware\auth.go`

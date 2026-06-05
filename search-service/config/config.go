@@ -26,6 +26,12 @@ type Config struct {
 
 	// DBName MySQL 数据库名称
 	DBName string
+
+	// JWTSecretAdmin 管理端 JWT 密钥，与 backend 共享
+	JWTSecretAdmin string
+
+	// JWTSecretCustomer C端 JWT 密钥，与 shop-backend 共享
+	JWTSecretCustomer string
 }
 
 // globalConfig 全局配置变量，包内私有，通过 GetConfig 获取
@@ -45,7 +51,9 @@ func LoadConfig() *Config {
 		DBPort:     getEnv("DB_PORT", "3306"),
 		DBUser:     getEnv("DB_USER", "root"),
 		DBPassword: getEnv("DB_PASSWORD", "password"),
-		DBName:     getEnv("DB_NAME", "goshopadmin"),
+		DBName:            getEnv("DB_NAME", "goshopadmin"),
+		JWTSecretAdmin:    getEnv("JWT_SECRET_ADMIN", "pqe9SIYpdZf4SPZAcjo4c8T6UcKChcTi"),
+		JWTSecretCustomer: getEnv("JWT_SECRET_CUSTOMER", "1a4tx4pQczv8y1HMX9KytdUeP2rrVt9q"),
 	}
 
 	return globalConfig

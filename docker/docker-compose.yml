@@ -75,25 +75,7 @@ services:
       - backend-logs:/app/logs  # 日志目录挂载，供 Filebeat 收集
     working_dir: /app
     environment:
-      - SERVER_PORT=8080
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USER=root
-      - DB_PASSWORD=password
-      - DB_NAME=goshopadmin
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=
-      - REDIS_DB=0
-      - JWT_SECRET=your-secret-key
-      - JWT_EXPIRE_HOUR=24
-      - MQ_HOST=rabbitmq
-      - MQ_PORT=5672
-      - MQ_USER=guest
-      - MQ_PASSWORD=guest
-      - MQ_VHOST=/
       - GOPROXY=https://goproxy.cn,direct
-      - SEARCH_SERVICE_URL=http://search-service:8082
     networks:
       - goshopadmin-network
     restart: always
@@ -167,20 +149,7 @@ services:
       - shop-backend-logs:/app/logs  # 日志目录挂载，供 Filebeat 收集
     working_dir: /app
     environment:
-      - SERVER_PORT=8081
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USER=root
-      - DB_PASSWORD=password
-      - DB_NAME=goshopadmin
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=
-      - REDIS_DB=0
-      - JWT_SECRET=your-secret-key
-      - JWT_EXPIRE_HOUR=24
       - GOPROXY=https://goproxy.cn,direct
-      - SEARCH_SERVICE_URL=http://search-service:8082
     networks:
       - goshopadmin-network
     restart: always
@@ -425,13 +394,6 @@ services:
       - ../search-service:/app  # 开发环境挂载本地代码
     working_dir: /app
     environment:
-      - SERVER_PORT=8082
-      - ES_HOSTS=http://elasticsearch:9200  # Elasticsearch 连接地址
-      - DB_HOST=mysql
-      - DB_PORT=3306
-      - DB_USER=root
-      - DB_PASSWORD=password
-      - DB_NAME=goshopadmin
       - GOPROXY=https://goproxy.cn,direct
     networks:
       - goshopadmin-network

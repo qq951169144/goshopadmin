@@ -42,11 +42,12 @@
         @click="navigateToProduct(product.id)"
       >
         <div class="product-image">
-          <img :src="getImageUrl(product.image)" :alt="product.name" />
+          <img :src="getImageUrl(product.main_image)" :alt="stripTags(product.name)" />
         </div>
         <div class="product-info">
-          <h3 class="product-name" v-html="product.highlight_name || product.name"></h3>
-          <p class="product-price">¥{{ product.price }}</p>
+          <h3 class="product-name" v-html="product.name"></h3>
+          <p class="product-description" v-if="product.description" v-html="product.description"></p>
+          <p class="product-price">¥{{ product.min_price }}<span v-if="product.max_price && product.max_price !== product.min_price"> - ¥{{ product.max_price }}</span></p>
         </div>
       </div>
     </div>
@@ -95,6 +96,12 @@ const hasSearched = ref(false)
 const totalPages = computed(() => {
   return Math.ceil(total.value / pageSize.value)
 })
+
+// 去除HTML标签（用于alt属性等纯文本场景）
+const stripTags = (html) => {
+  if (!html) return ''
+  return html.replace(/<[^>]*>/g, '')
+}
 
 // 获取完整图片URL
 const getImageUrl = (imageUrl) => {
@@ -332,6 +339,23 @@ h1 {
 }
 
 .product-name :deep(em) {
+  color: #ff4757;
+  font-style: normal;
+  font-weight: bold;
+}
+
+.product-description {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
+  height: 36px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.product-description :deep(em) {
   color: #ff4757;
   font-style: normal;
   font-weight: bold;

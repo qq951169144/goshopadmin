@@ -49,24 +49,39 @@ func SetupRoutes(r *gin.Engine, deps *Dependencies) {
 	api.Use(middleware.RequestLogger())
 	api.Use(middleware.RateLimit())
 	{
+		// 公开接口（无需认证）
 		// 商品搜索
 		// GET /api/search/products?keyword=xxx&category_id=1&page=1&page_size=20
 		api.GET("/products", deps.ProductController.SearchProducts)
 
-		// 订单搜索
-		// GET /api/search/orders?keyword=xxx&status=paid&page=1&page_size=20
-		api.GET("/orders", deps.OrderController.SearchOrders)
-
-		// 用户搜索
-		// GET /api/search/users?keyword=xxx&role_id=1&page=1&page_size=20
-		api.GET("/users", deps.UserController.SearchUsers)
-
-		// 客户搜索
-		// GET /api/search/customers?keyword=xxx&status=active&page=1&page_size=20
-		api.GET("/customers", deps.CustomerController.SearchCustomers)
-
 		// 搜索建议
 		// GET /api/search/suggest?prefix=xxx&type=product
 		api.GET("/suggest", deps.SuggestController.Suggest)
+
+		// 管理端接口（需要管理端认证）
+		admin := api.Group("/admin")
+		admin.Use(middleware.AdminAuth())
+		{
+			// 管理端订单搜索
+			// GET /api/search/admin/orders?keyword=xxx&status=paid&page=1&page_size=20
+			admin.GET("/orders", deps.OrderController.SearchAdminOrders)
+
+			// 用户搜索
+			// GET /api/search/admin/users?keyword=xxx&role_id=1&page=1&page_size=20
+			admin.GET("/users", deps.UserController.SearchUsers)
+
+			// 客户搜索
+			// GET /api/search/admin/customers?keyword=xxx&status=active&page=1&page_size=20
+			admin.GET("/customers", deps.CustomerController.SearchCustomers)
+		}
+
+		// C端接口（需要C端认证）
+		customer := api.Group("/customer")
+		customer.Use(middleware.CustomerAuth())
+		{
+			// C端订单搜索（只查自己的订单）
+			// GET /api/search/customer/orders?keyword=xxx&status=paid&page=1&page_size=20
+			customer.GET("/orders", deps.OrderController.SearchCustomerOrders)
+		}
 	}
 }

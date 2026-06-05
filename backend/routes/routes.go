@@ -26,7 +26,6 @@ type Dependencies struct {
 	SkuController           *controllers.SkuController
 	ActivityController      *controllers.ActivityController
 	RedeemCodeController    *controllers.RedeemCodeController
-	SearchController        *controllers.SearchController
 }
 
 // SetupRoutes 设置所有路由
@@ -60,7 +59,6 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 		SkuController:           controllers.NewSkuController(db),
 		ActivityController:      controllers.NewActivityController(db),
 		RedeemCodeController:    controllers.NewRedeemCodeController(db),
-		SearchController:        controllers.NewSearchController(),
 	}
 
 	// 1. 通用路由（无需认证）
@@ -256,15 +254,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 				monitor.RegisterHTTPHandlers(monitorRoutes)
 			}
 
-			// 搜索路由（需要认证）
-			search := protected.Group("/search")
-			{
-				search.GET("/products", deps.SearchController.SearchProducts)
-				search.GET("/orders", deps.SearchController.SearchOrders)
-				search.GET("/users", deps.SearchController.SearchUsers)
-				search.GET("/customers", deps.SearchController.SearchCustomers)
-				search.GET("/suggest", deps.SearchController.Suggest)
-			}
+
 		}
 	}
 }

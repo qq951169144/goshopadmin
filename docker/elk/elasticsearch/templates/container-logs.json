@@ -4,7 +4,7 @@
   "_comment_3": "============================================================================",
   "_comment_4": "容器日志索引存储 Docker 容器的标准输出/标准错误日志。",
   "_comment_5": "核心设计说明：",
-  "_comment_6": "  - 绑定 ILM 策略：容器日志量较大，需要自动清理",
+  "_comment_6": "  - 绑定 ILM 策略：容器日志量较大，1天后自动删除",
   "_comment_7": "  - 使用滚动索引模式：container-logs-* 匹配滚动后的索引",
   "_comment_8": "  - container_name 使用 keyword：容器名称用于精确筛选，如只看 backend 容器日志",
   "_comment_9": "  - stream 使用 keyword：区分 stdout（标准输出）和 stderr（标准错误）",

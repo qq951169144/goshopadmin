@@ -61,6 +61,15 @@
               <el-icon><calendar /></el-icon>
               <span>活动管理</span>
             </el-menu-item>
+
+            <el-menu-item index="orders" v-if="hasPermission('order:manage')">
+              <el-icon><document /></el-icon>
+              <span>订单管理</span>
+            </el-menu-item>
+            <el-menu-item index="customers" v-if="hasPermission('customers:manage')">
+              <el-icon><user-filled /></el-icon>
+              <span>C端客户管理</span>
+            </el-menu-item>
             <el-menu-item index="monitor">
               <el-icon><monitor /></el-icon>
               <span>系统监控</span>
@@ -166,14 +175,20 @@
             />
             
             <!-- 兑换码导入导出 -->
-            <RedeemCodeImportExport 
-              v-else-if="currentView === 'redeem-code-import-export' && hasPermission('activity:manage')" 
+            <RedeemCodeImportExport
+              v-else-if="currentView === 'redeem-code-import-export' && hasPermission('activity:manage')"
               :activity-id="currentActivity?.id"
               @back="handleBackToRedeemCodes"
             />
-            
+
+            <!-- 订单管理 -->
+            <Orders v-else-if="currentView === 'orders' && hasPermission('order:manage')" :has-permission="hasPermission" />
+
+            <!-- C端客户管理 -->
+            <Customers v-else-if="currentView === 'customers' && hasPermission('customers:manage')" :has-permission="hasPermission" />
+
             <!-- 无权限提示 -->
-            <el-card v-else-if="(currentView === 'users' || currentView === 'roles' || currentView === 'permissions' || currentView === 'merchants' || currentView === 'products' || currentView === 'product-categories' || currentView === 'activities')">
+            <el-card v-else-if="(currentView === 'users' || currentView === 'roles' || currentView === 'permissions' || currentView === 'merchants' || currentView === 'products' || currentView === 'product-categories' || currentView === 'activities' || currentView === 'orders' || currentView === 'customers')">
               <div class="no-permission">
                 <el-empty description="您没有权限访问此页面" />
               </div>
@@ -188,7 +203,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import { ArrowDown, House, User, Position, Lock, Shop, Goods, Grid, Calendar, Monitor } from '@element-plus/icons-vue';
+import { ArrowDown, House, User, Position, Lock, Shop, Goods, Grid, Calendar, Monitor, Document, UserFilled } from '@element-plus/icons-vue';
 import { authApi } from '../api/auth';
 
 // 导入子组件
@@ -208,6 +223,8 @@ import RedeemCodes from './activities/RedeemCodes.vue';
 import RedeemCodeGenerate from './activities/RedeemCodeGenerate.vue';
 import RedeemCodeVerify from './activities/RedeemCodeVerify.vue';
 import RedeemCodeImportExport from './activities/RedeemCodeImportExport.vue';
+import Orders from './orders/Orders.vue';
+import Customers from './customers/Customers.vue';
 
 const activeMenu = ref('dashboard');
 const currentView = ref('dashboard'); // 当前视图：dashboard, users, roles, permissions, merchants, products, product-categories, specifications, skus, activities, activity-create, activity-edit, activity-detail, redeem-codes, redeem-code-generate, redeem-code-verify, redeem-code-import-export
@@ -380,6 +397,12 @@ onMounted(async () => {
   } else if (path.includes('/home/product-categories')) {
     activeMenu.value = 'product-categories';
     currentView.value = 'product-categories';
+  } else if (path.includes('/home/orders')) {
+    activeMenu.value = 'orders';
+    currentView.value = 'orders';
+  } else if (path.includes('/home/customers')) {
+    activeMenu.value = 'customers';
+    currentView.value = 'customers';
   } else if (path.includes('/home/activities')) {
     activeMenu.value = 'activities';
     // 处理活动相关子路由

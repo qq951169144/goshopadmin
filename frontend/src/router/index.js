@@ -132,7 +132,19 @@ const routes = [
         path: 'search',
         name: 'Search',
         component: () => import('../views/search/Search.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresPermission: 'user:manage' }
+      },
+      {
+        path: 'orders',
+        name: 'Orders',
+        component: () => import('../views/orders/Orders.vue'),
+        meta: { requiresPermission: 'order:manage' }
+      },
+      {
+        path: 'customers',
+        name: 'Customers',
+        component: () => import('../views/customers/Customers.vue'),
+        meta: { requiresPermission: 'customers:manage' }
       }
     ]
   }

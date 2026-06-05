@@ -1,36 +1,29 @@
 <template>
-  <div class="order-list-page">
+  <div class="order-search-results">
     <div class="page-header">
-      <h1>我的订单</h1>
-      <div class="order-search">
-        <input type="text" v-model="searchKeyword" placeholder="搜索订单号/商品名称" @keyup.enter="handleOrderSearch" />
-        <button @click="handleOrderSearch">搜索</button>
+      <h1>订单搜索</h1>
+      <div class="search-box">
+        <input type="text" v-model="keyword" placeholder="搜索订单号/商品名称" @keyup.enter="handleSearch" />
+        <button @click="handleSearch">搜索</button>
       </div>
     </div>
 
     <!-- 订单状态筛选 -->
-    <div class="filter-tabs">
-      <div 
-        v-for="tab in tabs" 
-        :key="tab.value"
-        class="tab-item"
-        :class="{ active: currentTab === tab.value }"
-        @click="currentTab = tab.value"
-      >
-        {{ tab.label }}
-      </div>
+    <div class="status-tabs">
+      <span :class="['tab', activeStatus === '' ? 'active' : '']" @click="changeStatus('')">全部</span>
+      <span :class="['tab', activeStatus === 'pending' ? 'active' : '']" @click="changeStatus('pending')">待支付</span>
+      <span :class="['tab', activeStatus === 'paid' ? 'active' : '']" @click="changeStatus('paid')">已支付</span>
+      <span :class="['tab', activeStatus === 'shipped' ? 'active' : '']" @click="changeStatus('shipped')">已发货</span>
+      <span :class="['tab', activeStatus === 'completed' ? 'active' : '']" @click="changeStatus('completed')">已完成</span>
+      <span :class="['tab', activeStatus === 'cancelled' ? 'active' : '']" @click="changeStatus('cancelled')">已取消</span>
     </div>
 
-    <!-- 订单列表 -->
+    <!-- 搜索结果列表 -->
     <div class="order-list">
-      <div v-if="loading" class="loading">加载中...</div>
-      <div v-else-if="filteredOrders.length === 0" class="empty-orders">
-        <div class="empty-icon">📋</div>
-        <p>暂无{{ currentTab === 'all' ? '' : getStatusLabel(currentTab) }}订单</p>
-        <button @click="goShopping">去购物</button>
-      </div>
-      <div v-else>
-        <div v-for="order in filteredOrders" :key="order.order_id" class="order-card">
+      <div v-if="loading" class="loading">搜索中...</div>
+
+      <div v-else-if="orders.length > 0">
+        <div v-for="order in orders" :key="order.order_id" class="order-card">
           <div class="order-header">
             <div class="order-info">
               <span class="order-no">订单号：{{ order.order_no }}</span>
@@ -67,21 +60,21 @@
               >
                 立即支付
               </button>
-              <button 
-                v-if="order.status === 'pending'" 
+              <button
+                v-if="order.status === 'pending'"
                 class="btn-default"
                 @click="cancelOrder(order.order_no)"
               >
                 取消订单
               </button>
-              <button 
-                v-if="order.status === 'shipped'" 
+              <button
+                v-if="order.status === 'shipped'"
                 class="btn-primary"
                 @click="confirmReceipt(order.order_no)"
               >
                 确认收货
               </button>
-              <button 
+              <button
                 class="btn-default"
                 @click="viewOrderDetail(order.order_no)"
               >
@@ -94,46 +87,81 @@
         <!-- 加载更多 -->
         <div v-if="hasMore" class="load-more" @click="loadMore">加载更多</div>
       </div>
+
+      <div v-else-if="hasSearched" class="empty">
+        <div class="empty-icon">📋</div>
+        <p>未找到相关订单</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { customerAPI, orderAPI, paymentAPI } from '../api'
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { searchAPI, orderAPI, paymentAPI } from '../api'
 
+const route = useRoute()
 const router = useRouter()
+const keyword = ref('')
+const activeStatus = ref('')
 const orders = ref([])
 const loading = ref(false)
-const currentTab = ref('all')
+const hasSearched = ref(false)
 const currentPage = ref(1)
-const pageSize = 10
-const hasMore = ref(true)
-const searchKeyword = ref('')
-
-const handleOrderSearch = () => {
-  if (searchKeyword.value.trim()) {
-    router.push(`/order-search?keyword=${encodeURIComponent(searchKeyword.value.trim())}`)
-  }
-}
+const hasMore = ref(false)
 
 const defaultImage = 'https://via.placeholder.com/80x80?text=No+Image'
 
-const tabs = [
-  { label: '全部', value: 'all' },
-  { label: '待付款', value: 'pending' },
-  { label: '待发货', value: 'paid' },
-  { label: '待收货', value: 'shipped' },
-  { label: '已完成', value: 'completed' }
-]
-
-const filteredOrders = computed(() => {
-  if (currentTab.value === 'all') {
-    return orders.value
+onMounted(() => {
+  keyword.value = route.query.keyword || ''
+  if (keyword.value) {
+    handleSearch()
   }
-  return orders.value.filter(order => order.status === currentTab.value)
 })
+
+const handleSearch = () => {
+  currentPage.value = 1
+  orders.value = []
+  fetchOrders()
+}
+
+const changeStatus = (status) => {
+  activeStatus.value = status
+  handleSearch()
+}
+
+const fetchOrders = async () => {
+  if (!keyword.value.trim()) return
+  loading.value = true
+  try {
+    const params = {
+      keyword: keyword.value,
+      page: currentPage.value,
+      page_size: 10
+    }
+    if (activeStatus.value) params.status = activeStatus.value
+    const response = await searchAPI.searchOrders(params)
+    const items = response.orders || response.items || response.data || []
+    if (currentPage.value === 1) {
+      orders.value = items
+    } else {
+      orders.value = [...orders.value, ...items]
+    }
+    hasMore.value = items.length >= 10
+    hasSearched.value = true
+  } catch (error) {
+    console.error('搜索订单失败:', error)
+    hasSearched.value = true
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadMore = () => {
+  currentPage.value++
+  fetchOrders()
+}
 
 const formatPrice = (price) => {
   if (!price) return '0.00'
@@ -185,10 +213,6 @@ const getStatusClass = (status) => {
   return classMap[status] || ''
 }
 
-const goShopping = () => {
-  router.push('/')
-}
-
 const viewOrderDetail = (orderNo) => {
   router.push(`/order/${orderNo}`)
 }
@@ -196,14 +220,11 @@ const viewOrderDetail = (orderNo) => {
 const payOrder = async (order) => {
   try {
     await paymentAPI.fakePay(order.order_no)
-    // 支付成功，跳转到订单详情页
     router.push(`/order/${order.order_no}`)
   } catch (error) {
-    // 支付失败，显示弹窗
     console.error('支付失败:', error)
     alert('支付失败: ' + (error.message || '请稍后重试'))
-    // 刷新订单列表
-    loadOrders()
+    handleSearch()
   }
 }
 
@@ -236,60 +257,10 @@ const confirmReceipt = async (orderNo) => {
     alert('确认收货失败')
   }
 }
-
-const loadOrders = async (page = 1, append = false) => {
-  if (loading.value) return
-  loading.value = true
-
-  try {
-    // 构建查询参数
-    const params = { page, limit: pageSize }
-    if (currentTab.value !== 'all') {
-      params.status = currentTab.value
-    }
-
-    const response = await customerAPI.getOrders(params)
-    const newOrders = response.orders || []
-    const total = response.total || 0
-
-    if (append) {
-      orders.value = [...orders.value, ...newOrders]
-    } else {
-      orders.value = newOrders
-    }
-
-    hasMore.value = orders.value.length < total
-    currentPage.value = page
-  } catch (error) {
-    console.error('加载订单失败:', error)
-    if (!append) {
-      orders.value = []
-      hasMore.value = false
-    }
-  } finally {
-    loading.value = false
-  }
-}
-
-const loadMore = () => {
-  if (!loading.value && hasMore.value) {
-    loadOrders(currentPage.value + 1, true)
-  }
-}
-
-onMounted(() => {
-  loadOrders()
-})
-
-watch(currentTab, () => {
-  currentPage.value = 1
-  hasMore.value = true
-  loadOrders(1, false)
-})
 </script>
 
 <style scoped>
-.order-list-page {
+.order-search-results {
   min-height: 100vh;
   background-color: #f5f5f5;
 }
@@ -304,16 +275,15 @@ watch(currentTab, () => {
 .page-header h1 {
   font-size: 18px;
   color: #333;
-  margin: 0;
+  margin: 0 0 12px 0;
 }
 
-.order-search {
+.search-box {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
 }
 
-.order-search input {
+.search-box input {
   flex: 1;
   padding: 8px 12px;
   border: 1px solid #ddd;
@@ -322,11 +292,11 @@ watch(currentTab, () => {
   outline: none;
 }
 
-.order-search input:focus {
+.search-box input:focus {
   border-color: #4CAF50;
 }
 
-.order-search button {
+.search-box button {
   padding: 8px 20px;
   background-color: #4CAF50;
   color: white;
@@ -336,30 +306,29 @@ watch(currentTab, () => {
   font-size: 14px;
 }
 
-/* 筛选标签 */
-.filter-tabs {
+/* 状态筛选标签 */
+.status-tabs {
   display: flex;
+  gap: 12px;
   background-color: white;
-  padding: 0 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid #eee;
   overflow-x: auto;
 }
 
-.tab-item {
-  flex: 1;
-  padding: 14px 8px;
-  text-align: center;
-  font-size: 14px;
-  color: #666;
+.tab {
+  padding: 6px 16px;
+  border-radius: 20px;
   cursor: pointer;
+  font-size: 14px;
   white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  transition: all 0.3s ease;
+  background: #f5f5f5;
+  color: #666;
 }
 
-.tab-item.active {
-  color: #4CAF50;
-  border-bottom-color: #4CAF50;
+.tab.active {
+  background: #4CAF50;
+  color: white;
 }
 
 /* 订单列表 */
@@ -368,7 +337,7 @@ watch(currentTab, () => {
 }
 
 .loading,
-.empty-orders {
+.empty {
   text-align: center;
   padding: 60px 20px;
   color: #999;
@@ -379,18 +348,7 @@ watch(currentTab, () => {
   margin-bottom: 16px;
 }
 
-.empty-orders p {
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-
-.empty-orders button {
-  padding: 10px 30px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 20px;
-  cursor: pointer;
+.empty p {
   font-size: 14px;
 }
 
@@ -455,6 +413,7 @@ watch(currentTab, () => {
 /* 订单商品 */
 .order-items {
   padding: 12px 16px;
+  cursor: pointer;
 }
 
 .order-item {

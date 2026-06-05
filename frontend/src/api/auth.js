@@ -387,11 +387,11 @@ export const searchAPI = {
   // 搜索商品
   searchProducts: (params) => api.get('/search/products', { params }),
   // 搜索订单
-  searchOrders: (params) => api.get('/search/orders', { params }),
+  searchOrders: (params) => api.get('/search/admin/orders', { params }),
   // 搜索用户
-  searchUsers: (params) => api.get('/search/users', { params }),
+  searchUsers: (params) => api.get('/search/admin/users', { params }),
   // 搜索客户
-  searchCustomers: (params) => api.get('/search/customers', { params }),
+  searchCustomers: (params) => api.get('/search/admin/customers', { params }),
   // 搜索建议
   suggest: (params) => api.get('/search/suggest', { params })
 };

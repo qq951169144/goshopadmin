@@ -4,7 +4,7 @@
   "_comment_3": "============================================================================",
   "_comment_4": "应用日志索引存储 backend 和 shop-backend 的结构化日志（JSON 格式）。",
   "_comment_5": "核心设计说明：",
-  "_comment_6": "  - 绑定 ILM 策略：日志数据自动管理生命周期，7天后自动删除",
+  "_comment_6": "  - 绑定 ILM 策略：日志数据自动管理生命周期，1天后自动删除",
   "_comment_7": "  - 使用滚动索引模式：app-logs-* 匹配 app-logs-000001, app-logs-000002 等",
   "_comment_8": "  - log_level 使用 keyword：日志级别（INFO/WARN/ERROR）需要精确筛选",
   "_comment_9": "  - service 使用 keyword：服务名（backend/shop-backend）需要精确筛选",

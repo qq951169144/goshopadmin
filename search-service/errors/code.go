@@ -20,6 +20,14 @@ const (
 	// CodeParamOutOfRange 参数超出范围
 	CodeParamOutOfRange = 4004
 
+	// 4010 - 认证错误
+	// CodeUnauthorized 未认证
+	CodeUnauthorized = 4010
+	// CodeTokenExpired Token 过期
+	CodeTokenExpired = 4011
+	// CodeTokenInvalid Token 无效
+	CodeTokenInvalid = 4012
+
 	// 4040 - 资源错误
 	// CodeNotFound 资源不存在
 	CodeNotFound = 4040
@@ -51,6 +59,9 @@ var ErrorMessage = map[int]string{
 	CodeParamMissing:      "参数缺失",
 	CodeParamInvalid:      "参数格式无效",
 	CodeParamOutOfRange:   "参数超出范围",
+	CodeUnauthorized:      "未认证",
+	CodeTokenExpired:      "Token 过期",
+	CodeTokenInvalid:      "Token 无效",
 	CodeNotFound:          "资源不存在",
 	CodeSearchError:       "搜索服务错误",
 	CodeSearchTimeout:     "搜索请求超时",

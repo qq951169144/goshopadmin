@@ -107,7 +107,7 @@ const goToActivityDetail = (activityId) => {
 
 const handleSearch = () => {
   if (searchKeyword.value.trim()) {
-    router.push(`/products?keyword=${encodeURIComponent(searchKeyword.value.trim())}`)
+    router.push(`/search?keyword=${encodeURIComponent(searchKeyword.value.trim())}`)
   }
 }
 

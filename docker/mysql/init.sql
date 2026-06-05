@@ -554,17 +554,18 @@ INSERT INTO permissions (name, code, description, category) VALUES
 ('商品分类管理', 'product:category', '管理商品分类', 'product'),
 ('商品SKU管理', 'product:sku', '管理商品SKU', 'product'),
 ('支付管理', 'order:payment', '管理订单支付', 'order'),
-('活动统计', 'activity:stats', '查看活动统计数据', 'activity');
+('活动统计', 'activity:stats', '查看活动统计数据', 'activity'),
+('C端客户管理', 'customers:manage', '管理C端客户信息', 'customers');
 
 -- 为超级管理员分配所有权限
 INSERT INTO role_permissions (role_id, permission_id) VALUES
 (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6),
-(1, 7), (1, 8), (1, 9), (1, 10), (1, 11), (1, 12), (1, 13), (1, 14);
+(1, 7), (1, 8), (1, 9), (1, 10), (1, 11), (1, 12), (1, 13), (1, 14), (1, 15);
 
 -- 为平台管理员分配部分权限
 INSERT INTO role_permissions (role_id, permission_id) VALUES
 (2, 1), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6),
-(2, 7), (2, 8), (2, 9), (2, 10), (2, 11), (2, 12), (2, 13), (2, 14);
+(2, 7), (2, 8), (2, 9), (2, 10), (2, 11), (2, 12), (2, 13), (2, 14), (2, 15);
 
 -- 为商户账号分配部分权限
 INSERT INTO role_permissions (role_id, permission_id) VALUES
