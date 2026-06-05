@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"shop-backend/errors"
 	"shop-backend/services"
+	"shop-backend/utils"
 	"gorm.io/gorm"
 )
 
@@ -47,6 +49,9 @@ func (c *CustomerController) GetProfile(ctx *gin.Context) {
 	c.ResponseSuccess(ctx, gin.H{
 		"username": customer.Username,
 		"email":    customer.Email,
+		"phone":    customer.Phone,
+		"nickname": customer.Nickname,
+		"avatar":   customer.Avatar,
 	})
 }
 
@@ -79,6 +84,9 @@ func (c *CustomerController) UpdateProfile(ctx *gin.Context) {
 		"message":  "Profile updated",
 		"username": customer.Username,
 		"email":    customer.Email,
+		"phone":    customer.Phone,
+		"nickname": customer.Nickname,
+		"avatar":   customer.Avatar,
 	})
 }
 
@@ -106,5 +114,49 @@ func (c *CustomerController) GetOrders(ctx *gin.Context) {
 	c.ResponseSuccess(ctx, gin.H{
 		"orders": orders,
 		"total":  total,
+	})
+}
+
+// UploadAvatar 上传客户头像
+func (c *CustomerController) UploadAvatar(ctx *gin.Context) {
+	// 从上下文中获取客户ID
+	customerID, exists := ctx.Get("customer_id")
+	if !exists {
+		c.ResponseError(ctx, errors.CodeUnauthorized, nil)
+		return
+	}
+
+	// 获取上传的文件
+	file, err := ctx.FormFile("avatar")
+	if err != nil {
+		c.ResponseError(ctx, errors.CodeParamInvalid, fmt.Errorf("获取上传文件失败: %w", err))
+		return
+	}
+
+	// 上传头像图片到存储
+	avatarURL, err := utils.UploadAvatar(file, customerID.(int))
+	if err != nil {
+		c.ResponseError(ctx, errors.CodeParamInvalid, err)
+		return
+	}
+
+	// 获取旧头像URL
+	oldAvatarURL, _ := c.customerService.GetAvatarURL(customerID.(int))
+
+	// 更新数据库中的头像URL
+	if err := c.customerService.UpdateAvatar(customerID.(int), avatarURL); err != nil {
+		// 如果数据库操作失败，删除已上传的图片
+		utils.DeleteImage(avatarURL)
+		c.ResponseError(ctx, errors.CodeDBError, err)
+		return
+	}
+
+	// 删除旧头像文件（如果存在）
+	if oldAvatarURL != "" {
+		utils.DeleteImage(oldAvatarURL)
+	}
+
+	c.ResponseSuccess(ctx, gin.H{
+		"avatar": avatarURL,
 	})
 }

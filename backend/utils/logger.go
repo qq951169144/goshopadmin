@@ -132,29 +132,46 @@ func (l *Logger) Close() {
 }
 
 // 全局日志记录器
-var globalLogger *Logger
+var (
+	globalLogger *Logger
+	loggerOnce   sync.Once
+)
 
-// 初始化全局日志记录器
-func init() {
-	globalLogger = NewLogger()
+// InitLogger 初始化全局日志记录器，由 main() 显式调用
+func InitLogger() {
+	loggerOnce.Do(func() {
+		globalLogger = NewLogger()
+	})
 }
 
 // Info 全局信息日志
 func Info(format string, v ...interface{}) {
+	if globalLogger == nil {
+		return
+	}
 	globalLogger.Info(format, v...)
 }
 
 // Warn 全局警告日志
 func Warn(format string, v ...interface{}) {
+	if globalLogger == nil {
+		return
+	}
 	globalLogger.Warn(format, v...)
 }
 
 // Error 全局错误日志
 func Error(format string, v ...interface{}) {
+	if globalLogger == nil {
+		return
+	}
 	globalLogger.Error(format, v...)
 }
 
 // CloseLogger 关闭全局日志记录器
 func CloseLogger() {
+	if globalLogger == nil {
+		return
+	}
 	globalLogger.Close()
 }

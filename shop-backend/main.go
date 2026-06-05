@@ -26,6 +26,7 @@ var (
 
 func main() {
 	// 初始化日志记录器
+	utils.InitLogger()
 	utils.Info("日志系统初始化成功")
 	defer utils.CloseLogger()
 

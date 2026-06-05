@@ -161,6 +161,7 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 			// 路径: /api/user/profile, /api/user/orders
 			user.GET("/profile", deps.CustomerController.GetProfile)
 			user.PUT("/profile", deps.CustomerController.UpdateProfile)
+			user.POST("/avatar", deps.CustomerController.UploadAvatar)
 			user.GET("/orders", deps.CustomerController.GetOrders)
 		}
 

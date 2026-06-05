@@ -25,6 +25,9 @@ type CustomerResponse struct {
 	ID        int       `json:"id"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`
+	Phone     string    `json:"phone"`
+	Nickname  string    `json:"nickname"`
+	Avatar    string    `json:"avatar"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -40,6 +43,9 @@ func (s *CustomerService) GetProfile(customerID int) (*CustomerResponse, error) 
 		ID:        customer.ID,
 		Username:  customer.Username,
 		Email:     customer.Email,
+		Phone:     customer.Phone,
+		Nickname:  customer.Nickname,
+		Avatar:    customer.Avatar,
 		CreatedAt: customer.CreatedAt,
 	}, nil
 }
@@ -74,6 +80,9 @@ func (s *CustomerService) UpdateProfile(customerID int, req UpdateProfileRequest
 		ID:        customer.ID,
 		Username:  customer.Username,
 		Email:     customer.Email,
+		Phone:     customer.Phone,
+		Nickname:  customer.Nickname,
+		Avatar:    customer.Avatar,
 		CreatedAt: customer.CreatedAt,
 	}, nil
 }
@@ -167,4 +176,23 @@ func (s *CustomerService) GetOrders(customerID int, page, limit int, status stri
 	}
 
 	return orderList, total, nil
+}
+
+// UpdateAvatar 更新客户头像
+func (s *CustomerService) UpdateAvatar(customerID int, avatarURL string) error {
+	result := s.db.Model(&models.Customer{}).Where("id = ?", customerID).Update("avatar", avatarURL)
+	if result.RowsAffected == 0 {
+		return errors.New("用户不存在")
+	}
+	return nil
+}
+
+// GetAvatarURL 获取客户当前头像URL
+func (s *CustomerService) GetAvatarURL(customerID int) (string, error) {
+	var customer models.Customer
+	result := s.db.Select("avatar").First(&customer, customerID)
+	if result.RowsAffected == 0 {
+		return "", errors.New("用户不存在")
+	}
+	return customer.Avatar, nil
 }

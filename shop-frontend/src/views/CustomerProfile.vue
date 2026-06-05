@@ -1,8 +1,16 @@
 <template>
   <div class="customer-profile">
     <div class="profile-header">
-      <div class="avatar">
+      <div class="avatar" @click="triggerUpload">
         <img :src="user.avatar || defaultAvatar" alt="头像" />
+        <div class="avatar-overlay">更换</div>
+        <input
+          ref="fileInput"
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          style="display: none"
+          @change="handleFileChange"
+        />
       </div>
       <div class="user-info">
         <h2>{{ user.username || '未登录' }}</h2>
@@ -64,10 +72,13 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { customerAPI } from '../api'
 
 const router = useRouter()
 const user = ref({})
+const fileInput = ref(null)
+const uploading = ref(false)
 
 const defaultAvatar = 'https://via.placeholder.com/80x80?text=Avatar'
 
@@ -78,6 +89,38 @@ const loadProfile = async () => {
   } catch (error) {
     console.error('加载用户信息失败:', error)
     user.value = null
+  }
+}
+
+const triggerUpload = () => {
+  if (uploading.value) return
+  fileInput.value.click()
+}
+
+const handleFileChange = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  // 验证文件大小（2MB）
+  if (file.size > 2 * 1024 * 1024) {
+    ElMessage.warning('头像文件大小不能超过2MB')
+    return
+  }
+
+  uploading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('avatar', file)
+    const response = await customerAPI.uploadAvatar(formData)
+    user.value.avatar = response.avatar
+    ElMessage.success('头像上传成功')
+  } catch (error) {
+    console.error('头像上传失败:', error)
+    ElMessage.error('头像上传失败')
+  } finally {
+    uploading.value = false
+    // 清空 input，允许重复选择同一文件
+    event.target.value = ''
   }
 }
 
@@ -101,7 +144,6 @@ const logout = () => {
   if (!confirm('确定要退出登录吗？')) return
   
   localStorage.removeItem('token')
-  // 注意：不再清除 customer_id，因为我们不再存储它
   router.push('/login')
 }
 
@@ -127,18 +169,38 @@ onMounted(() => {
 }
 
 .avatar {
+  position: relative;
   width: 70px;
   height: 70px;
   border-radius: 50%;
   overflow: hidden;
   margin-right: 16px;
   border: 3px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
 }
 
 .avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.avatar-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  text-align: center;
+  font-size: 12px;
+  padding: 2px 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.avatar:hover .avatar-overlay {
+  opacity: 1;
 }
 
 .user-info h2 {

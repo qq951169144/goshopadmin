@@ -13,7 +13,7 @@
   - `D:\code\goshopadmin\.trae\documents\goroutine_optimization_enhanced_plan.md`
   - `D:\code\goshopadmin\.trae\documents\goroutine_optimization_implementation_plan.md`
 - **优先级**：高
-- **完成状态**：首次使用superpowers-zh完成该功能，待功能测试
+- **完成状态**：TODO:首次使用superpowers-zh完成该功能，待功能测试
 
 ## 4. WebSocket引入
 
@@ -26,6 +26,7 @@
 - **问题描述**：需要实现多商户的订单处理，目前默认为1了，
 - **优先级**：低
 - **理由**：该项目着重关注redis，mq，websocket，nginx抗压架构上
+- **参考方案**：`D:\code\goshopadmin\docs\多商户订单处理方案.md`
 
 <br />
 
@@ -40,11 +41,18 @@
 
 - **问题描述**：日志对于一些大文件请求的写入非常消耗资源，我希望过滤掉这些日志的写入，或者忽略掉那些请求和返回是图片，文件等大文件的response,request不记录
 - **优先级**：高
-- **完成状态**：使用superpowers-zh完成该功能，待功能测试
+- **完成状态**：TODO:使用superpowers-zh完成该功能，待功能测试
 
 
 ## 8. 引入更详细monitor.go监控
 
 - **问题描述**：引入更详细monitor.go监控
 - **优先级**：高
-- **完成状态**：使用superpowers-zh完成该功能，待功能测试
+- **完成状态**：TODO:使用superpowers-zh完成该功能，待功能测试
+
+
+## 9. 引入elk
+
+- **问题描述**：引入elk
+- **优先级**：高
+- **完成状态**：TODO:使用superpowers-zh完成该功能，待功能测试

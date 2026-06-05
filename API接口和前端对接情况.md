@@ -2836,14 +2836,43 @@ Authorization: Bearer <token>
   "message": "success",
   "data": {
     "username": "zhangsan",
-    "email": "zhangsan@example.com"
+    "email": "zhangsan@example.com",
+    "phone": "13800138000",
+    "nickname": "小明",
+    "avatar": "http://localhost:8000/uploads/avatars/1/avatar.jpg"
   }
 }
 ```
 
 ---
 
-### 2.4.2 更新个人信息
+### 2.4.2 上传客户头像
+
+**接口路径**: `POST /api/user/avatar`
+
+**功能描述**: 上传当前登录客户的头像。需要认证。使用 `multipart/form-data` 上传。
+
+### 请求参数（Body - multipart/form-data）
+
+| 参数名 | 类型 | 必填 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `avatar` | `file` | 是 | 头像图片文件 |
+
+### 成功响应示例
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "avatar": "http://localhost:8000/uploads/avatars/1/avatar.jpg"
+  }
+}
+```
+
+---
+
+### 2.4.3 更新个人信息
 
 **接口路径**: `PUT /api/user/profile`
 
@@ -2872,7 +2901,7 @@ Authorization: Bearer <token>
 
 ---
 
-### 2.4.3 获取订单列表
+### 2.4.4 获取订单列表
 
 **接口路径**: `GET /api/user/orders`
 

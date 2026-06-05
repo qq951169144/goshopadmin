@@ -290,7 +290,11 @@ export const customerAPI = {
   // 更新个人信息
   updateProfile: (data) => api.put('/user/profile', data),
   // 获取订单列表
-  getOrders: (params) => api.get('/user/orders', { params })
+  getOrders: (params) => api.get('/user/orders', { params }),
+  // 上传头像
+  uploadAvatar: (formData) => api.post('/user/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 }
 
 // 地址相关API
