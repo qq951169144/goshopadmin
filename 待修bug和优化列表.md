@@ -57,14 +57,8 @@
 - **优先级**：高
 - **完成状态**：TODO:使用superpowers-zh完成该功能，待功能测试
 
-## 10. 订单取消逻辑有问题，支付的莫名被取消了
 
-- **问题描述**：订单取消逻辑有问题，支付的莫名被取消了
-- **优先级**：高
-- **完成状态**：未完成
-
-
-## 11. 订单管理点击进去，没有任何请求search-service的接口
+## 10. 订单管理点击进去，没有任何请求search-service的接口
 
 - **问题描述**：订单管理点击进去，没有任何请求search-service的接口
 - **优先级**：高
@@ -75,7 +69,7 @@
   -`D:\code\goshopadmin\search-service`
 
 
-## 12. api/search/customer/orders接口有问题
+## 11. api/search/customer/orders接口有问题
 
 - **问题描述**：api/search/customer/orders接口有问题，带了authorization值验证，经过查看和其他接口带的token是一致的，auth.go返回4012无效token
 - **优先级**：高

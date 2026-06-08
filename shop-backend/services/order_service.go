@@ -403,7 +403,7 @@ func (s *OrderService) CancelOrder(orderNo string, customerID int) error {
 		return errors.New("订单不存在")
 	}
 
-	if order.Status != constants.OrderStatusPending && order.Status != constants.OrderStatusPaid {
+	if order.Status != constants.OrderStatusPending {
 		tx.Rollback()
 		return errors.New("当前订单状态不允许取消")
 	}
