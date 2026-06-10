@@ -99,7 +99,7 @@ api.interceptors.response.use(
     }
 
     // 6. 业务错误处理
-    handleBusinessError(res, requestID)
+    handleBusinessError(res, requestID, response.config)
 
     // 7. 返回拒绝的 Promise
     return Promise.reject(new Error(res.message || '操作失败'))
@@ -118,14 +118,19 @@ api.interceptors.response.use(
 )
 
 // 处理业务错误
-function handleBusinessError(res, requestID) {
+function handleBusinessError(res, requestID, config) {
   const { code, message } = res
 
   // 根据错误码分类处理
   switch (true) {
     // 认证错误（4010-4019）
     case code >= 4010 && code < 4020:
-      handleAuthError(code, message)
+      // 区分搜索服务认证错误：搜索服务认证失败不应清除全局 token
+      if (config && config.url && config.url.includes('/search/')) {
+        ElMessage.warning(message || '搜索服务认证异常，搜索功能暂不可用')
+      } else {
+        handleAuthError(code, message)
+      }
       break
 
     // 权限错误（4030-4039）

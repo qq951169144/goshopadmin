@@ -60,18 +60,24 @@ func SearchCustomers(params CustomerSearchParams) (*models.SearchResult, error) 
 		if params.Keyword != "" {
 			shouldQuery := elastic.NewBoolQuery()
 
-			// 用户名精确匹配
-			shouldQuery.Should(elastic.NewTermQuery("username", params.Keyword))
+			// 转义 ES 通配符元字符，防止用户输入导致意外匹配
+			safeKeyword := escapeWildcardChars(params.Keyword)
 
-			// 手机号精确匹配
-			shouldQuery.Should(elastic.NewTermQuery("phone", params.Keyword))
+			// 用户名通配符匹配（支持子串搜索）
+			shouldQuery.Should(elastic.NewWildcardQuery("username", "*"+safeKeyword+"*"))
 
-			// 邮箱模糊匹配
-			shouldQuery.Should(elastic.NewMatchQuery("email", params.Keyword))
+			// 手机号通配符匹配（支持子串搜索，如输入"138"可匹配"13812345678"）
+			shouldQuery.Should(elastic.NewWildcardQuery("phone", "*"+safeKeyword+"*"))
+
+			// 邮箱通配符匹配（支持子串搜索，如输入"qq"可匹配"qq951@qq.com"）
+			shouldQuery.Should(elastic.NewWildcardQuery("email", "*"+safeKeyword+"*"))
 
 			// 昵称 IK 分词搜索，支持中文分词
 			shouldQuery.Should(elastic.NewMatchQuery("nickname", params.Keyword).
-				Analyzer("ik_smart")) // 使用 IK 智能分词
+				Analyzer("ik_smart"))
+
+			// 昵称通配符匹配（补充子串搜索，如输入"明"可匹配包含"明"的昵称）
+			shouldQuery.Should(elastic.NewWildcardQuery("nickname.keyword", "*"+safeKeyword+"*"))
 
 			// 至少匹配一个条件
 			shouldQuery.MinimumNumberShouldMatch(1)

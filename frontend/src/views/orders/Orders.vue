@@ -104,9 +104,8 @@ const handleReset = () => {
   status.value = ''
   paymentStatus.value = ''
   dateRange.value = null
-  orders.value = []
-  total.value = 0
-  hasSearched.value = false
+  currentPage.value = 1
+  fetchOrders()
 }
 
 const fetchOrders = async () => {

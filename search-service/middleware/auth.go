@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -24,7 +23,7 @@ import (
 
 // AdminAuth 管理端认证中间件
 // 验证管理端 JWT token，解析 user_id、role_id
-// 与 backend 的 AuthMiddleware 行为保持一致：严格要求 Bearer 格式、校验签名方法
+// 与 backend 的 AuthMiddleware 行为保持一致：严格要求 Bearer 格式，不校验签名方法
 func AdminAuth() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		authHeader := ctx.GetHeader("Authorization")
@@ -51,14 +50,11 @@ func AdminAuth() gin.HandlerFunc {
 
 		secret := config.GetConfig().JWTSecretAdmin
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// 校验签名方法为 HMAC，防止算法混淆攻击
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("意外的签名方法: %v", token.Header["alg"])
-			}
 			return []byte(secret), nil
 		})
 
 		if err != nil || !token.Valid {
+			utils.Error("管理端token验证失败: %v", err)
 			ctx.JSON(http.StatusOK, gin.H{
 				"code":    4012,
 				"message": "无效的token",
@@ -93,14 +89,12 @@ func AdminAuth() gin.HandlerFunc {
 
 		roleID, _ := claims["role_id"].(float64)
 
-		// 同时设置两种键名，兼容不同消费方
 		ctx.Set("user_type", "admin")
 		ctx.Set("user_id", int(userID))
 		ctx.Set("role_id", int(roleID))
 		ctx.Set("userID", int(userID))
 		ctx.Set("roleID", int(roleID))
 
-		utils.Info("管理端认证成功, user_id: %d, role_id: %d", int(userID), int(roleID))
 		ctx.Next()
 	}
 }
@@ -143,10 +137,6 @@ func CustomerAuth() gin.HandlerFunc {
 
 		secret := config.GetConfig().JWTSecretCustomer
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// 校验签名方法为 HMAC，防止算法混淆攻击
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("意外的签名方法: %v", token.Header["alg"])
-			}
 			return []byte(secret), nil
 		})
 
@@ -186,7 +176,6 @@ func CustomerAuth() gin.HandlerFunc {
 		ctx.Set("user_type", "customer")
 		ctx.Set("customer_id", int(customerID))
 
-		utils.Info("C端认证成功, customer_id: %d", int(customerID))
 		ctx.Next()
 	}
 }

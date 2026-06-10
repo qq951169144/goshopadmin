@@ -88,5 +88,13 @@ shop-backend/uploads/*
 备忘录.md
 订单流程调通后续开发计划.md
 
+# 测试文件
+*_test.go
+**/__tests__/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
 # Superpowers 文档目录
 docs/superpowers/

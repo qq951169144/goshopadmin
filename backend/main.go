@@ -26,6 +26,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+	jwtSecretPreview := "****"
+	if len(cfg.JWTSecret) >= 4 {
+		jwtSecretPreview = cfg.JWTSecret[:4] + "..."
+	}
+	utils.Info("配置加载完成: DB_HOST=%s, DB_PORT=%s, JWT_SECRET_PREVIEW=%s, REDIS_HOST=%s, SERVER_PORT=%d",
+		cfg.DBHost, cfg.DBPort, jwtSecretPreview, cfg.RedisHost, cfg.ServerPort)
 
 	// 2. 初始化数据库连接
 	conn, err := config.InitDB(cfg)
@@ -43,10 +49,10 @@ func main() {
 	// 5. 设置Redis客户端到中间件
 	middleware.SetRedis(conn.Redis)
 
-	// 5. 创建Gin引擎
+	// 6. 创建Gin引擎
 	r := gin.New()
 
-	// 6. 注册中间件（注意顺序）
+	// 7. 注册中间件（注意顺序）
 	// 1. Logger 中间件（最先执行，生成 RequestID）
 	r.Use(middleware.RequestLogger())
 
@@ -59,7 +65,7 @@ func main() {
 	// 7. 配置静态文件服务
 	r.Static("/uploads", "./uploads")
 
-	// 8. 初始化协程监控器
+	// 9. 初始化协程监控器
 	monitor := utils.NewMonitor()
 	monitor.Start(5 * time.Second)
 	utils.Info("协程监控器初始化成功")
@@ -67,7 +73,7 @@ func main() {
 	// 9. 设置路由
 	routes.SetupRoutes(r, conn.DB, conn.Redis, cfg, monitor)
 
-	// 10. 启动服务器
+	// 11. 启动服务器
 	port := cfg.ServerPort
 	fmt.Printf("Server starting on port %d...\n", port)
 	if err := r.Run(fmt.Sprintf(":%d", port)); err != nil {

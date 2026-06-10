@@ -1148,7 +1148,7 @@ Authorization: Bearer <token>
 
 **接口路径**: `GET /api/products`
 
-**功能描述**: 获取商品列表。需要认证 + `product:manage` 权限。
+**功能描述**: 获取商品列表。需要认证 + `product:manage` 权限。返回数据包含 SKU 列表，`stock` 字段为所有启用状态 SKU 的库存总和。
 
 ### 请求参数（Query String）
 
@@ -1168,14 +1168,44 @@ Authorization: Bearer <token>
       "name": "苹果手机 iPhone 15 Pro",
       "description": "全新苹果旗舰手机",
       "detail": "<p>商品详情HTML</p>",
+      "price": 7999.00,
+      "stock": 200,
       "category_id": 1,
+      "merchant_id": 1,
       "status": "active",
+      "is_activity": 0,
       "created_at": "2026-01-15T10:30:00Z",
-      "updated_at": "2026-06-01T08:00:00Z"
+      "updated_at": "2026-06-01T08:00:00Z",
+      "category": {
+        "id": 1,
+        "name": "手机"
+      },
+      "images": [
+        {
+          "id": 1,
+          "product_id": 1,
+          "image_url": "https://example.com/iphone15.jpg",
+          "is_main": true,
+          "sort": 0
+        }
+      ],
+      "skus": [
+        {
+          "id": 1,
+          "product_id": 1,
+          "sku_code": "SKU-001",
+          "price": 7999.00,
+          "original_price": 8999.00,
+          "stock": 100,
+          "status": "active"
+        }
+      ]
     }
   ]
 }
 ```
+
+> **说明**：`stock` 字段为所有 `status: active` 的 SKU 库存总和，非数据库原始值。
 
 ---
 
@@ -2894,7 +2924,10 @@ Authorization: Bearer <token>
   "data": {
     "message": "Profile updated",
     "username": "zhangsan",
-    "email": "new@example.com"
+    "email": "new@example.com",
+    "phone": "13800138000",
+    "nickname": "小明",
+    "avatar": "http://localhost:8000/uploads/avatars/1/avatar.jpg"
   }
 }
 ```
@@ -3654,7 +3687,7 @@ Authorization: Bearer <token>
 
 **接口路径**: `PUT /api/orders/:orderNo/cancel`
 
-**功能描述**: 取消指定订单。需要认证。
+**功能描述**: 取消指定订单。需要认证。仅 `pending`（待支付）状态的订单可以取消。
 
 ### 请求参数（Path）
 

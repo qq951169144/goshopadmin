@@ -31,11 +31,20 @@ var (
 	// db MySQL 数据库连接实例，用于数据补齐同步
 	db *gorm.DB
 
-	// clientOnce 确保 ES 客户端只初始化一次
-	clientOnce sync.Once
+	// esInitMu ES 客户端初始化互斥锁，保证并发安全
+	esInitMu sync.RWMutex
 
 	// dbOnce 确保 MySQL 连接只初始化一次
 	dbOnce sync.Once
+)
+
+// ES 重试初始化配置
+const (
+	// esMaxRetries ES 客户端最大重试初始化次数
+	esMaxRetries = 3
+
+	// esRetryInterval 每次重试之间的等待间隔
+	esRetryInterval = 5 * time.Second
 )
 
 // ESHealthResult ES 健康检查结果
@@ -165,21 +174,42 @@ func (cb *CircuitBreaker) GetState() CircuitState {
 // esHosts: ES 节点地址列表，多个地址用逗号分隔
 // 设置 Sniff=false（不自动发现节点，适合 Docker 环境）
 // 启动后进行健康检查，确保连接正常
+// 支持重试机制：最多重试 esMaxRetries 次，每次间隔 esRetryInterval
 func InitESClient(esHosts string) error {
-	var initErr error
+	return initESClientWithRetry(esHosts, esMaxRetries, esRetryInterval)
+}
 
-	clientOnce.Do(func() {
-		// 解析 ES 地址列表
-		hosts := strings.Split(esHosts, ",")
-		for i := range hosts {
-			hosts[i] = strings.TrimSpace(hosts[i])
+// initESClientWithRetry 带重试的 ES 客户端初始化
+// esHosts: ES 节点地址列表
+// maxRetries: 最大重试次数
+// retryInterval: 重试间隔
+func initESClientWithRetry(esHosts string, maxRetries int, retryInterval time.Duration) error {
+	// 如果已经初始化成功，直接返回
+	esInitMu.RLock()
+	if esClient != nil {
+		esInitMu.RUnlock()
+		return nil
+	}
+	esInitMu.RUnlock()
+
+	// 解析 ES 地址列表
+	hosts := strings.Split(esHosts, ",")
+	for i := range hosts {
+		hosts[i] = strings.TrimSpace(hosts[i])
+	}
+
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// 加写锁进行初始化
+		esInitMu.Lock()
+		// 双重检查：可能在等待锁期间已被其他协程初始化
+		if esClient != nil {
+			esInitMu.Unlock()
+			return nil
 		}
 
 		// 创建 ES 客户端
-		// SetURL: 设置 ES 节点地址
-		// SetSniff: 禁用节点自动发现（Docker 环境下节点 IP 可能不可达）
-		// SetHealthcheck: 启用健康检查
-		// SetHealthcheckInterval: 每 30 秒检查一次
 		client, err := elastic.NewClient(
 			elastic.SetURL(hosts...),
 			elastic.SetSniff(false),
@@ -187,28 +217,45 @@ func InitESClient(esHosts string) error {
 			elastic.SetHealthcheckInterval(30*time.Second),
 		)
 		if err != nil {
-			initErr = fmt.Errorf("创建 ES 客户端失败: %w", err)
-			utils.Error("创建 ES 客户端失败: %v", err)
-			return
-		}
+			lastErr = fmt.Errorf("创建 ES 客户端失败: %w", err)
+			esInitMu.Unlock()
 
-		esClient = client
+			if attempt < maxRetries {
+				utils.Warn("ES 初始化第 %d/%d 次尝试失败: %v, %v 后重试...", attempt, maxRetries, err, retryInterval)
+				time.Sleep(retryInterval)
+				continue
+			}
+			utils.Error("ES 初始化第 %d/%d 次尝试失败，已达最大重试次数: %v", attempt, maxRetries, err)
+			break
+		}
 
 		// 验证连接
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		info, code, err := client.Ping(hosts[0]).Do(ctx)
+		cancel()
+
 		if err != nil {
-			initErr = fmt.Errorf("ES 连接验证失败: %w", err)
-			utils.Error("ES 连接验证失败: %v", err)
-			return
+			lastErr = fmt.Errorf("ES 连接验证失败: %w", err)
+			esInitMu.Unlock()
+
+			if attempt < maxRetries {
+				utils.Warn("ES 连接验证第 %d/%d 次尝试失败: %v, %v 后重试...", attempt, maxRetries, err, retryInterval)
+				time.Sleep(retryInterval)
+				continue
+			}
+			utils.Error("ES 连接验证第 %d/%d 次尝试失败，已达最大重试次数: %v", attempt, maxRetries, err)
+			break
 		}
 
-		utils.Info("ES 连接成功, 版本: %s, 状态码: %d", info.Version.Number, code)
-	})
+		// 初始化成功
+		esClient = client
+		esInitMu.Unlock()
 
-	return initErr
+		utils.Info("ES 连接成功, 版本: %s, 状态码: %d (第 %d 次尝试)", info.Version.Number, code, attempt)
+		return nil
+	}
+
+	return lastErr
 }
 
 // InitDB 初始化 MySQL 数据库连接
@@ -257,9 +304,28 @@ func InitDB(cfg *config.Config) error {
 }
 
 // GetESClient 获取全局 ES 客户端实例
-// 必须在 InitESClient 之后调用
+// 如果客户端未初始化，尝试重新初始化一次（懒重试）
+// 必须在 InitESClient 之后调用，或依赖懒重试机制
 func GetESClient() *elastic.Client {
-	return esClient
+	esInitMu.RLock()
+	client := esClient
+	esInitMu.RUnlock()
+
+	if client != nil {
+		return client
+	}
+
+	// ES 客户端未初始化，尝试懒重试
+	cfg := config.GetConfig()
+	if err := initESClientWithRetry(cfg.ESHosts, 1, 0); err != nil {
+		utils.Warn("ES 客户端懒重试失败: %v", err)
+		return nil
+	}
+
+	esInitMu.RLock()
+	client = esClient
+	esInitMu.RUnlock()
+	return client
 }
 
 // GetDB 获取全局 MySQL 连接实例
@@ -333,16 +399,6 @@ func executeWithCircuitBreaker(fn func() error) error {
 
 	circuitBreaker.RecordSuccess()
 	return nil
-}
-
-// parseESHosts 解析 ES 地址字符串为切片
-// 输入格式: "http://localhost:9200" 或 "http://node1:9200,http://node2:9200"
-func parseESHosts(esHosts string) []string {
-	hosts := strings.Split(esHosts, ",")
-	for i := range hosts {
-		hosts[i] = strings.TrimSpace(hosts[i])
-	}
-	return hosts
 }
 
 // parseIntOrDefault 将字符串解析为整数，失败则返回默认值

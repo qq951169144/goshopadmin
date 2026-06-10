@@ -49,7 +49,16 @@ func main() {
 	}
 
 	cfg := config.LoadConfig()
-	utils.Info("配置加载完成, 服务端口: %s", cfg.ServerPort)
+	jwtAdminPreview := "****"
+	if len(cfg.JWTSecretAdmin) >= 4 {
+		jwtAdminPreview = cfg.JWTSecretAdmin[:4] + "..."
+	}
+	jwtCustomerPreview := "****"
+	if len(cfg.JWTSecretCustomer) >= 4 {
+		jwtCustomerPreview = cfg.JWTSecretCustomer[:4] + "..."
+	}
+	utils.Info("配置加载完成: ES_HOSTS=%s, DB_HOST=%s, JWT_SECRET_ADMIN=%s, JWT_SECRET_CUSTOMER=%s..., SERVER_PORT=%s",
+		cfg.ESHosts, cfg.DBHost, jwtAdminPreview, jwtCustomerPreview, cfg.ServerPort)
 
 	// ========================================
 	// 步骤 3: 初始化 Elasticsearch 客户端

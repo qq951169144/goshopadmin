@@ -35,6 +35,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+	jwtSecretPreview := "****"
+	if len(cfg.JWTSecret) >= 4 {
+		jwtSecretPreview = cfg.JWTSecret[:4] + "..."
+	}
+	utils.Info("配置加载完成: DB_HOST=%s, DB_PORT=%s, JWT_SECRET_PREVIEW=%s, REDIS_HOST=%s, SERVER_PORT=%s",
+		cfg.DBHost, cfg.DBPort, jwtSecretPreview, cfg.RedisHost, cfg.ServerPort)
 
 	// 2. 初始化数据库和Redis连接
 	conn, err := config.InitDB(cfg)

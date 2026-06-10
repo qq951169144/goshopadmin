@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"strings"
 	"time"
 
 	"search-service/models"
@@ -86,25 +86,9 @@ func SearchOrders(params OrderSearchParams) (*models.SearchResult, error) {
 
 		boolQuery := elastic.NewBoolQuery()
 
-		// 关键词搜索
-		if params.Keyword != "" {
-			// 使用 Should 组合多个匹配条件，至少需要匹配一个
-			shouldQuery := elastic.NewBoolQuery()
-
-			// 订单号精确匹配
-			shouldQuery.Should(elastic.NewTermQuery("order_no", params.Keyword))
-
-			// 订单明细中的商品名称模糊匹配（使用 NestedQuery）
-			// 因为 items 是嵌套类型（nested），需要使用 NestedQuery 才能搜索内部字段
-			nestedQuery := elastic.NewNestedQuery("items",
-				elastic.NewMatchQuery("items.product_name", params.Keyword).
-					Analyzer("ik_smart"), // 使用 IK 分词
-			)
-			shouldQuery.Should(nestedQuery)
-
-			// 设置至少匹配一个条件
-			shouldQuery.MinimumNumberShouldMatch(1)
-			boolQuery.Must(shouldQuery)
+		// 关键词搜索（多字段模糊匹配：订单号、客户名称、商品名称）
+		if keywordQuery := buildOrderKeywordQuery(params.Keyword); keywordQuery != nil {
+			boolQuery.Must(keywordQuery)
 		}
 
 		// 客户筛选
@@ -176,12 +160,12 @@ func SearchOrders(params OrderSearchParams) (*models.SearchResult, error) {
 		search = search.From(from).Size(params.PageSize)
 
 		// 执行搜索
-		searchResult, err := search.Do(ctx)
-		if err != nil {
+		searchResult, searchErr := search.Do(ctx)
+		if searchErr != nil {
 			if ctx.Err() == context.DeadlineExceeded {
-				return fmt.Errorf("订单搜索超时: %w", err)
+				return searchErr
 			}
-			return fmt.Errorf("订单搜索执行失败: %w", err)
+			return searchErr
 		}
 
 		// 解析搜索结果
@@ -230,4 +214,45 @@ func applyOrderSort(search *elastic.SearchService, sort, order, keyword string) 
 	}
 
 	return search
+}
+
+// buildOrderKeywordQuery 构建订单关键词多字段模糊查询
+// 支持订单号(通配符)、客户名称(精确)、商品名称(IK分词+通配符)的多字段 Should 组合
+func buildOrderKeywordQuery(keyword string) *elastic.BoolQuery {
+	if keyword == "" {
+		return nil
+	}
+
+	shouldQuery := elastic.NewBoolQuery()
+
+	// 转义 ES 通配符元字符，防止用户输入导致意外匹配
+	safeKeyword := escapeWildcardChars(keyword)
+
+	// 1. 订单号通配符匹配（支持子串搜索）
+	shouldQuery.Should(elastic.NewWildcardQuery("order_no", "*"+safeKeyword+"*"))
+
+	// 2. 客户名称精确匹配（customer_name 为 keyword 类型，使用 TermQuery 语义明确）
+	shouldQuery.Should(elastic.NewTermQuery("customer_name", keyword))
+
+	// 3. 商品名称 IK 分词匹配（嵌套查询）
+	shouldQuery.Should(elastic.NewNestedQuery("items",
+		elastic.NewMatchQuery("items.product_name", keyword).
+			Analyzer("ik_smart"),
+	))
+
+	// 4. 商品名称通配符匹配（嵌套查询，补充子串搜索）
+	shouldQuery.Should(elastic.NewNestedQuery("items",
+		elastic.NewWildcardQuery("items.product_name", "*"+safeKeyword+"*"),
+	))
+
+	shouldQuery.MinimumNumberShouldMatch(1)
+	return shouldQuery
+}
+
+// escapeWildcardChars 转义 Elasticsearch 通配符查询中的特殊字符
+// 防止用户输入的 * ? 等字符被当作通配符处理
+func escapeWildcardChars(s string) string {
+	s = strings.ReplaceAll(s, "*", "\\*")
+	s = strings.ReplaceAll(s, "?", "\\?")
+	return s
 }

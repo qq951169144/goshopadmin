@@ -159,6 +159,9 @@ type OrderItem struct {
 
 	// Subtotal 小计金额
 	Subtotal float64 `json:"subtotal"`
+
+	// ProductImage 商品主图URL，用于搜索结果展示
+	ProductImage string `json:"product_image"`
 }
 
 // UserDoc 用户文档，对应 Elasticsearch 中的 users 索引

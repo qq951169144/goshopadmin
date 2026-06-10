@@ -59,7 +59,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { searchAPI } from '@/api/auth'
 
 const keyword = ref('')
@@ -75,9 +76,8 @@ const handleSearch = () => { currentPage.value = 1; fetchCustomers() }
 const handleReset = () => {
   keyword.value = ''
   status.value = ''
-  customers.value = []
-  total.value = 0
-  hasSearched.value = false
+  currentPage.value = 1
+  fetchCustomers()
 }
 
 const fetchCustomers = async () => {
@@ -91,7 +91,7 @@ const fetchCustomers = async () => {
     total.value = data.total || 0
     hasSearched.value = true
   } catch (error) {
-    console.error('搜索客户失败:', error)
+    ElMessage.error('搜索客户失败，请稍后重试')
     customers.value = []
     total.value = 0
   } finally {
@@ -101,6 +101,11 @@ const fetchCustomers = async () => {
 
 const handleSizeChange = () => { currentPage.value = 1; fetchCustomers() }
 const handlePageChange = () => { fetchCustomers() }
+
+// 页面加载时自动获取客户列表
+onMounted(() => {
+  fetchCustomers()
+})
 </script>
 
 <style scoped>

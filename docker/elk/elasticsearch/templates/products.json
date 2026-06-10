@@ -142,12 +142,12 @@
         },
         "created_at": {
           "type": "date",
-          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||yyyy-MM-dd'T'HH:mm:ss.SSS'Z'||epoch_millis",
           "_comment": "创建时间，支持三种格式：MySQL格式、ISO8601格式、时间戳毫秒"
         },
         "updated_at": {
           "type": "date",
-          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||epoch_millis",
+          "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd'T'HH:mm:ss.SSSZ||yyyy-MM-dd'T'HH:mm:ss.SSS'Z'||epoch_millis",
           "_comment": "更新时间，Logstash 增量同步依据此字段判断数据是否有更新"
         }
       }

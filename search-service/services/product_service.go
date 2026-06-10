@@ -78,10 +78,20 @@ func SearchProducts(params ProductSearchParams) (*models.SearchResult, error) {
 		// 关键词搜索：使用 MultiMatchQuery 同时搜索 name 和 description 字段
 		// 使用 ik_smart 分词器进行中文分词
 		if params.Keyword != "" {
+			shouldQuery := elastic.NewBoolQuery()
+
+			// IK 分词匹配（中文搜索主要靠这个）
 			multiMatch := elastic.NewMultiMatchQuery(params.Keyword, "name", "description").
 				Type("best_fields"). // best_fields 策略：取最高分字段的得分
 				Analyzer("ik_smart") // 使用 IK 智能分词
-			boolQuery.Must(multiMatch)
+			shouldQuery.Should(multiMatch)
+
+			// 通配符匹配（补充：支持英文+数字混合词的子串搜索，如 "iphone" 匹配 "iphone17"）
+			wildcardName := elastic.NewWildcardQuery("name.keyword", "*"+params.Keyword+"*")
+			shouldQuery.Should(wildcardName)
+
+			shouldQuery.MinimumNumberShouldMatch(1)
+			boolQuery.Must(shouldQuery)
 		}
 
 		// 分类筛选：精确匹配 category_id
