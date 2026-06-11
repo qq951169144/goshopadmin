@@ -42,6 +42,7 @@ const (
 	// CodeESUnavailable Elasticsearch 服务不可用
 	CodeESUnavailable = 4083
 
+	// 4090 - 同步相关错误
 	// CodeSyncInProgress 全量同步正在进行中
 	CodeSyncInProgress = 4090
 

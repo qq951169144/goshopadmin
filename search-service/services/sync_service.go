@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"search-service/utils"
@@ -44,7 +45,8 @@ const batchSize = 500
 // 全局变量
 var (
 	// lastSyncTime 上次同步时间，用于健康检查报告数据新鲜度
-	lastSyncTime string
+	// 使用 atomic.Value 保护跨 goroutine 读写，避免数据竞争
+	lastSyncTime atomic.Value
 
 	// syncTicker 定时器，控制同步间隔
 	syncTicker *time.Ticker
@@ -56,7 +58,8 @@ var (
 	fullSyncMutex sync.Mutex
 
 	// isFullSyncRunning 标记全量同步是否正在执行
-	isFullSyncRunning bool
+	// 使用 atomic.Bool 保护跨 goroutine 读写，避免数据竞争
+	isFullSyncRunning atomic.Bool
 )
 
 // SKU同步用的 MySQL 查询结果结构
@@ -96,16 +99,21 @@ func StartSyncService() {
 	syncDone = make(chan struct{})
 
 	// 记录初始同步时间
-	lastSyncTime = time.Now().Format(time.RFC3339)
+	lastSyncTime.Store(time.Now().Format(time.RFC3339))
 
 	// 启动同步协程
 	go func() {
 		// 首次启动时执行全量同步
+		// 纳入互斥锁保护，防止与手动触发的全量同步并发执行
+		fullSyncMutex.Lock()
+		isFullSyncRunning.Store(true)
 		utils.Info("数据同步服务启动，开始首次全量同步")
 		// 注意：runFullSync 在同步协程中同步执行，全量同步完成前增量同步不会执行。
 		// 这不是 bug：增量同步使用 5 分钟查询窗口，即使全量同步耗时数分钟，
 		// 下次增量同步仍能捕获到期间变更的数据。
 		runFullSync()
+		isFullSyncRunning.Store(false)
+		fullSyncMutex.Unlock()
 
 		for {
 			select {
@@ -143,7 +151,7 @@ func runSync() {
 	syncOrderItems()
 
 	// 更新同步时间
-	lastSyncTime = time.Now().Format(time.RFC3339)
+	lastSyncTime.Store(time.Now().Format(time.RFC3339))
 
 	utils.Info("增量同步完成, 耗时: %v", time.Since(startTime))
 }
@@ -161,7 +169,7 @@ func runFullSync() {
 	syncOrderItemsFull()
 
 	// 更新同步时间
-	lastSyncTime = time.Now().Format(time.RFC3339)
+	lastSyncTime.Store(time.Now().Format(time.RFC3339))
 
 	utils.Info("全量同步完成, 耗时: %v", time.Since(startTime))
 }
@@ -396,7 +404,11 @@ func syncOrderItems() {
 // GetLastSyncTime 获取上次同步时间
 // 供健康检查接口调用，报告数据新鲜度
 func GetLastSyncTime() string {
-	return lastSyncTime
+	val := lastSyncTime.Load()
+	if val == nil {
+		return ""
+	}
+	return val.(string)
 }
 
 // syncProductSkusFull 全量同步 SKU 数据到 Elasticsearch
@@ -652,10 +664,10 @@ func TriggerFullSync() error {
 		return errors.New("全量同步正在进行中，请稍后再试")
 	}
 
-	isFullSyncRunning = true
+	isFullSyncRunning.Store(true)
 	go func() {
 		defer fullSyncMutex.Unlock()
-		defer func() { isFullSyncRunning = false }()
+		defer isFullSyncRunning.Store(false)
 
 		utils.Info("手动触发全量同步")
 		runFullSync()
@@ -668,7 +680,7 @@ func TriggerFullSync() error {
 // 返回上次同步时间和全量同步是否正在执行
 func GetSyncStatus() map[string]interface{} {
 	return map[string]interface{}{
-		"last_sync_time":       lastSyncTime,
-		"is_full_sync_running": isFullSyncRunning,
+		"last_sync_time":       GetLastSyncTime(),
+		"is_full_sync_running": isFullSyncRunning.Load(),
 	}
 }

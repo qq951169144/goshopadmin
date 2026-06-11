@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	svcErrors "search-service/errors"
 	"search-service/services"
 
@@ -35,7 +36,7 @@ func (sc *SyncController) TriggerFullSync(ctx *gin.Context) {
 	}
 
 	if req.Confirm != "yes" {
-		sc.ResponseError(ctx, svcErrors.CodeParamError, nil)
+		sc.ResponseError(ctx, svcErrors.CodeParamError, errors.New("confirm 字段必须为 yes"))
 		return
 	}
 

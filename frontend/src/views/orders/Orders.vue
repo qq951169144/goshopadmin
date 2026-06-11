@@ -85,6 +85,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { searchAPI } from '@/api/auth'
 
 const keyword = ref('')
