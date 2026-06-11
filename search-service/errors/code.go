@@ -42,6 +42,9 @@ const (
 	// CodeESUnavailable Elasticsearch 服务不可用
 	CodeESUnavailable = 4083
 
+	// CodeSyncInProgress 全量同步正在进行中
+	CodeSyncInProgress = 4090
+
 	// 5000 - 服务器错误 (5xx 服务端错误)
 	// CodeInternalError 内部错误
 	CodeInternalError = 5000
@@ -67,6 +70,7 @@ var ErrorMessage = map[int]string{
 	CodeSearchTimeout:     "搜索请求超时",
 	CodeSearchRateLimited: "搜索请求过于频繁",
 	CodeESUnavailable:     "搜索服务暂不可用",
+	CodeSyncInProgress:     "全量同步正在进行中",
 	CodeInternalError:     "内部错误",
 	CodeDBError:           "数据库错误",
 	CodeESError:           "搜索引擎错误",

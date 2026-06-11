@@ -110,6 +110,7 @@ func main() {
 		CustomerController: &controllers.CustomerController{},
 		HealthController:   &controllers.HealthController{},
 		SuggestController:  &controllers.SuggestController{},
+		SyncController:     &controllers.SyncController{},
 	}
 	routes.SetupRoutes(engine, deps)
 

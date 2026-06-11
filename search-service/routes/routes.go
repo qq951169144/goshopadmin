@@ -33,6 +33,9 @@ type Dependencies struct {
 
 	// SuggestController 搜索建议控制器
 	SuggestController *controllers.SuggestController
+
+	// SyncController 同步管理控制器
+	SyncController *controllers.SyncController
 }
 
 // SetupRoutes 设置路由
@@ -73,6 +76,12 @@ func SetupRoutes(r *gin.Engine, deps *Dependencies) {
 			// 客户搜索
 			// GET /api/search/admin/customers?keyword=xxx&status=active&page=1&page_size=20
 			admin.GET("/customers", deps.CustomerController.SearchCustomers)
+
+			// 同步管理
+			// POST /api/search/admin/sync/full  手动触发全量同步
+			// GET /api/search/admin/sync/status 查询同步状态
+			admin.POST("/sync/full", deps.SyncController.TriggerFullSync)
+			admin.GET("/sync/status", deps.SyncController.GetSyncStatus)
 		}
 
 		// C端接口（需要C端认证）
