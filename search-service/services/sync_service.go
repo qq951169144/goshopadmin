@@ -11,6 +11,19 @@ import (
 	"github.com/olivere/elastic/v7"
 )
 
+// attributesToSpecs 将 attributes map 转换为 specs 数组，匹配 ES mapping 中的 nested 类型
+// ES mapping 期望: specs: [{"spec_name": "颜色", "spec_value": "红色"}, ...]
+func attributesToSpecs(attributes map[string]string) []map[string]interface{} {
+	var specs []map[string]interface{}
+	for k, v := range attributes {
+		specs = append(specs, map[string]interface{}{
+			"spec_name":  k,
+			"spec_value": v,
+		})
+	}
+	return specs
+}
+
 // esTimestamp 返回 ES 兼容的时间戳格式（毫秒精度）
 func esTimestamp() string {
 	return time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
@@ -191,14 +204,15 @@ func syncProductSkus() {
 				}
 			}
 
+			specs := attributesToSpecs(attributes)
+
 			skuDocs = append(skuDocs, map[string]interface{}{
 				"id":             sku.ID,
-				"product_id":     sku.ProductID,
 				"sku_code":       sku.SkuCode,
 				"price":          sku.Price,
 				"original_price": sku.OriginalPrice,
 				"stock":          sku.Stock,
-				"attributes":     attributes,
+				"specs":          specs,
 			})
 		}
 
@@ -414,14 +428,15 @@ func syncProductSkusFull() {
 				}
 			}
 
+			specs := attributesToSpecs(attributes)
+
 			skuDocs = append(skuDocs, map[string]interface{}{
 				"id":             sku.ID,
-				"product_id":     sku.ProductID,
 				"sku_code":       sku.SkuCode,
 				"price":          sku.Price,
 				"original_price": sku.OriginalPrice,
 				"stock":          sku.Stock,
-				"attributes":     attributes,
+				"specs":          specs,
 			})
 		}
 
