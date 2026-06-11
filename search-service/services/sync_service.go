@@ -186,7 +186,9 @@ func syncProductSkus() {
 		for _, sku := range skuList {
 			var attributes map[string]string
 			if len(sku.Attributes) > 0 {
-				json.Unmarshal(sku.Attributes, &attributes)
+				if err := json.Unmarshal(sku.Attributes, &attributes); err != nil {
+					utils.Warn("SKU attributes 反序列化失败, SKU ID: %d, 错误: %v", sku.ID, err)
+				}
 			}
 
 			skuDocs = append(skuDocs, map[string]interface{}{
@@ -252,6 +254,7 @@ func syncOrderItems() {
 	client := GetESClient()
 
 	if database == nil || client == nil {
+		utils.Warn("数据同步跳过: MySQL 或 ES 客户端未初始化")
 		return
 	}
 
@@ -406,7 +409,9 @@ func syncProductSkusFull() {
 		for _, sku := range skuList {
 			var attributes map[string]string
 			if len(sku.Attributes) > 0 {
-				json.Unmarshal(sku.Attributes, &attributes)
+				if err := json.Unmarshal(sku.Attributes, &attributes); err != nil {
+					utils.Warn("SKU attributes 反序列化失败, SKU ID: %d, 错误: %v", sku.ID, err)
+				}
 			}
 
 			skuDocs = append(skuDocs, map[string]interface{}{
