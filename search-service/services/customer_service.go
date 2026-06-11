@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"search-service/models"
 	"search-service/utils"
@@ -16,12 +17,12 @@ import (
 // ============================================================
 // 客户搜索服务
 // 提供基于 Elasticsearch 的 C 端商城客户搜索功能
-// 支持关键词搜索（用户名/手机号精确匹配 + 邮箱模糊匹配 + 昵称 IK 分词搜索）、状态筛选
+// 支持关键词搜索（用户名/手机号前缀匹配 + 邮箱/昵称通配符匹配 + 昵称 IK 分词搜索）、状态筛选
 // ============================================================
 
 // CustomerSearchParams 客户搜索参数
 type CustomerSearchParams struct {
-	// Keyword 搜索关键词，匹配用户名/手机号（精确）或邮箱（模糊）或昵称（IK 分词）
+	// Keyword 搜索关键词，匹配用户名/手机号（前缀匹配）或邮箱/昵称（通配符匹配）或昵称（IK 分词）
 	Keyword string
 
 	// Status 客户状态
@@ -36,11 +37,13 @@ type CustomerSearchParams struct {
 
 // SearchCustomers 客户搜索
 // 查询逻辑：
-// 1. 如果有关键词，使用 Should 组合：
-//    - 用户名精确匹配
-//    - 手机号精确匹配
-//    - 邮箱模糊匹配
+// 1. 如果有关键词，使用 Should 组合（关键词至少 2 字符才触发通配符/前缀查询）：
+//    - 用户名前缀匹配
+//    - 手机号前缀匹配
+//    - 邮箱通配符匹配
+//    - 昵称通配符匹配
 //    - 昵称 IK 分词搜索（支持中文分词）
+//
 // 2. 支持状态精确筛选
 func SearchCustomers(params CustomerSearchParams) (*models.SearchResult, error) {
 	client := GetESClient()
@@ -63,21 +66,19 @@ func SearchCustomers(params CustomerSearchParams) (*models.SearchResult, error) 
 			// 转义 ES 通配符元字符，防止用户输入导致意外匹配
 			safeKeyword := escapeWildcardChars(params.Keyword)
 
-			// 用户名通配符匹配（支持子串搜索）
-			shouldQuery.Should(elastic.NewWildcardQuery("username", "*"+safeKeyword+"*"))
+			if shouldUsePrefixWildcard(safeKeyword) {
+				// username/phone 使用 prefix 查询（前缀匹配，性能优于通配符子串匹配）
+				shouldQuery.Should(elastic.NewPrefixQuery("username", safeKeyword))
+				shouldQuery.Should(elastic.NewPrefixQuery("phone", safeKeyword))
 
-			// 手机号通配符匹配（支持子串搜索，如输入"138"可匹配"13812345678"）
-			shouldQuery.Should(elastic.NewWildcardQuery("phone", "*"+safeKeyword+"*"))
+				// email 和 nickname.keyword 保留通配符（需要子串搜索）
+				shouldQuery.Should(elastic.NewWildcardQuery("email", "*"+safeKeyword+"*"))
+				shouldQuery.Should(elastic.NewWildcardQuery("nickname.keyword", "*"+safeKeyword+"*"))
+			}
 
-			// 邮箱通配符匹配（支持子串搜索，如输入"qq"可匹配"qq951@qq.com"）
-			shouldQuery.Should(elastic.NewWildcardQuery("email", "*"+safeKeyword+"*"))
-
-			// 昵称 IK 分词搜索，支持中文分词
+			// 昵称 IK 分词搜索（不受关键词长度限制，IK 分词本身性能较好）
 			shouldQuery.Should(elastic.NewMatchQuery("nickname", params.Keyword).
 				Analyzer("ik_smart"))
-
-			// 昵称通配符匹配（补充子串搜索，如输入"明"可匹配包含"明"的昵称）
-			shouldQuery.Should(elastic.NewWildcardQuery("nickname.keyword", "*"+safeKeyword+"*"))
 
 			// 至少匹配一个条件
 			shouldQuery.MinimumNumberShouldMatch(1)
@@ -146,4 +147,10 @@ func applyCustomerSort(search *elastic.SearchService, keyword string) *elastic.S
 		search = search.Sort("created_at", false)
 	}
 	return search
+}
+
+// shouldUsePrefixWildcard 判断关键词长度是否满足触发前缀/通配符查询的最低要求（至少 2 字符）
+// 过短的关键词执行通配符/前缀查询会产生大量匹配，性能较差
+func shouldUsePrefixWildcard(keyword string) bool {
+	return utf8.RuneCountInString(keyword) >= 2
 }
