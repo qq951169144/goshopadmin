@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"search-service/utils"
@@ -36,6 +38,9 @@ func esTimestamp() string {
 // 同步策略：每 60 秒查询一次最近 5 分钟更新的数据，批量写入 ES
 // ============================================================
 
+// 全量同步批次大小
+const batchSize = 500
+
 // 全局变量
 var (
 	// lastSyncTime 上次同步时间，用于健康检查报告数据新鲜度
@@ -46,6 +51,12 @@ var (
 
 	// syncDone 通道，用于通知同步协程退出
 	syncDone chan struct{}
+
+	// fullSyncMutex 全量同步互斥锁，防止并发全量同步
+	fullSyncMutex sync.Mutex
+
+	// isFullSyncRunning 标记全量同步是否正在执行
+	isFullSyncRunning bool
 )
 
 // SKU同步用的 MySQL 查询结果结构
@@ -382,6 +393,7 @@ func GetLastSyncTime() string {
 }
 
 // syncProductSkusFull 全量同步 SKU 数据到 Elasticsearch
+// 使用分页查询，每批 500 条，避免大数据量下 OOM
 // 查询所有 SKU 数据，按 product_id 分组后批量更新到 ES
 func syncProductSkusFull() {
 	database := GetDB()
@@ -392,24 +404,95 @@ func syncProductSkusFull() {
 		return
 	}
 
-	var skus []skuRow
-	err := database.Raw(`
-		SELECT s.id, s.product_id, s.sku_code, s.price, s.original_price, s.stock,
-		       s.attributes, s.updated_at
-		FROM product_skus s
-		ORDER BY s.product_id, s.id
-	`).Scan(&skus).Error
+	offset := 0
+	totalSynced := 0
+	for {
+		var batch []skuRow
+		err := database.Raw(`
+			SELECT s.id, s.product_id, s.sku_code, s.price, s.original_price, s.stock,
+			       s.attributes, s.updated_at
+			FROM product_skus s
+			ORDER BY s.product_id, s.id
+			LIMIT ? OFFSET ?
+		`, batchSize, offset).Scan(&batch).Error
 
-	if err != nil {
-		utils.Error("全量同步 SKU 数据查询失败: %v", err)
-		return
+		if err != nil {
+			utils.Error("全量同步 SKU 数据查询失败: %v", err)
+			return
+		}
+
+		if len(batch) == 0 {
+			break
+		}
+
+		processSkuBatch(client, batch)
+		totalSynced += len(batch)
+		offset += batchSize
 	}
 
-	if len(skus) == 0 {
+	if totalSynced > 0 {
+		utils.Info("全量同步 SKU 完成, 总计: %d", totalSynced)
+	} else {
 		utils.Info("全量同步 SKU: 无数据需要同步")
+	}
+}
+
+// syncOrderItemsFull 全量同步订单明细数据到 Elasticsearch
+// 使用分页查询，每批 500 条，避免大数据量下 OOM
+// 关联 product_images 表获取商品主图URL
+func syncOrderItemsFull() {
+	database := GetDB()
+	client := GetESClient()
+
+	if database == nil || client == nil {
+		utils.Warn("全量同步订单明细跳过: MySQL 或 ES 客户端未初始化")
 		return
 	}
 
+	offset := 0
+	totalSynced := 0
+	for {
+		var batch []orderItemRow
+		err := database.Raw(`
+			SELECT oi.id, oi.order_id, oi.product_id, oi.product_name,
+			       oi.sku_id, oi.sku_attributes, oi.price, oi.quantity,
+			       oi.total_amount, oi.updated_at,
+			       COALESCE(pi.image_url, '') AS product_image
+			FROM order_items oi
+			LEFT JOIN (
+			    SELECT product_id, MIN(image_url) AS image_url
+			    FROM product_images
+			    WHERE is_main = 1
+			    GROUP BY product_id
+			) pi ON oi.product_id = pi.product_id
+			ORDER BY oi.order_id, oi.id
+			LIMIT ? OFFSET ?
+		`, batchSize, offset).Scan(&batch).Error
+
+		if err != nil {
+			utils.Error("全量同步订单明细查询失败: %v", err)
+			return
+		}
+
+		if len(batch) == 0 {
+			break
+		}
+
+		processOrderItemBatch(client, batch)
+		totalSynced += len(batch)
+		offset += batchSize
+	}
+
+	if totalSynced > 0 {
+		utils.Info("全量同步订单明细完成, 总计: %d", totalSynced)
+	} else {
+		utils.Info("全量同步订单明细: 无数据需要同步")
+	}
+}
+
+// processSkuBatch 处理一批 SKU 数据，按 product_id 分组后批量更新到 ES
+// 用于全量同步的分页批次处理
+func processSkuBatch(client *elastic.Client, skus []skuRow) {
 	// 按 product_id 分组
 	productSkus := make(map[int][]skuRow)
 	for _, sku := range skus {
@@ -454,12 +537,13 @@ func syncProductSkusFull() {
 	}
 
 	if bulkRequest.NumberOfActions() > 0 {
+		// 全量同步 Bulk 超时 30 秒：全量数据量大，需要更长超时
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		bulkResponse, err := bulkRequest.Do(ctx)
 		if err != nil {
-			utils.Error("全量同步 SKU 到 ES 失败: %v", err)
+			utils.Error("SKU 批量同步到 ES 失败: %v", err)
 			return
 		}
 
@@ -469,54 +553,20 @@ func syncProductSkusFull() {
 			if updateItem, ok := item["update"]; ok {
 				if updateItem.Error != nil {
 					failCount++
+					utils.Warn("SKU 同步失败, 文档ID: %s, 错误: %s", updateItem.Id, updateItem.Error.Reason)
 				} else {
 					successCount++
 				}
 			}
 		}
 
-		utils.Info("全量同步 SKU 完成, 成功: %d, 失败: %d", successCount, failCount)
+		utils.Info("SKU 批次同步完成, 成功: %d, 失败: %d", successCount, failCount)
 	}
 }
 
-// syncOrderItemsFull 全量同步订单明细数据到 Elasticsearch
-// 查询所有订单明细，按 order_id 分组后批量更新到 ES
-// 关联 product_images 表获取商品主图URL
-func syncOrderItemsFull() {
-	database := GetDB()
-	client := GetESClient()
-
-	if database == nil || client == nil {
-		utils.Warn("全量同步订单明细跳过: MySQL 或 ES 客户端未初始化")
-		return
-	}
-
-	var items []orderItemRow
-	err := database.Raw(`
-		SELECT oi.id, oi.order_id, oi.product_id, oi.product_name,
-		       oi.sku_id, oi.sku_attributes, oi.price, oi.quantity,
-		       oi.total_amount, oi.updated_at,
-		       COALESCE(pi.image_url, '') AS product_image
-		FROM order_items oi
-		LEFT JOIN (
-		    SELECT product_id, MIN(image_url) AS image_url
-		    FROM product_images
-		    WHERE is_main = 1
-		    GROUP BY product_id
-		) pi ON oi.product_id = pi.product_id
-		ORDER BY oi.order_id, oi.id
-	`).Scan(&items).Error
-
-	if err != nil {
-		utils.Error("全量同步订单明细查询失败: %v", err)
-		return
-	}
-
-	if len(items) == 0 {
-		utils.Info("全量同步订单明细: 无数据需要同步")
-		return
-	}
-
+// processOrderItemBatch 处理一批订单明细数据，按 order_id 分组后批量更新到 ES
+// 用于全量同步的分页批次处理
+func processOrderItemBatch(client *elastic.Client, items []orderItemRow) {
 	// 按 order_id 分组
 	orderItems := make(map[int][]orderItemRow)
 	for _, item := range items {
@@ -528,7 +578,6 @@ func syncOrderItemsFull() {
 	for orderID, itemList := range orderItems {
 		var itemDocs []map[string]interface{}
 		for _, item := range itemList {
-			// sku_attributes 在 ES mapping 中是 keyword 类型，需要存储为字符串
 			skuAttrStr := ""
 			if len(item.SkuAttributes) > 0 {
 				skuAttrStr = string(item.SkuAttributes)
@@ -561,12 +610,13 @@ func syncOrderItemsFull() {
 	}
 
 	if bulkRequest.NumberOfActions() > 0 {
+		// 全量同步 Bulk 超时 30 秒：全量数据量大，需要更长超时
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		bulkResponse, err := bulkRequest.Do(ctx)
 		if err != nil {
-			utils.Error("全量同步订单明细到 ES 失败: %v", err)
+			utils.Error("订单明细批量同步到 ES 失败: %v", err)
 			return
 		}
 
@@ -576,13 +626,42 @@ func syncOrderItemsFull() {
 			if updateItem, ok := item["update"]; ok {
 				if updateItem.Error != nil {
 					failCount++
-					utils.Warn("全量同步订单明细失败, 文档ID: %s, 错误: %s", updateItem.Id, updateItem.Error.Reason)
+					utils.Warn("订单明细同步失败, 文档ID: %s, 错误: %s", updateItem.Id, updateItem.Error.Reason)
 				} else {
 					successCount++
 				}
 			}
 		}
 
-		utils.Info("全量同步订单明细完成, 成功: %d, 失败: %d", successCount, failCount)
+		utils.Info("订单明细批次同步完成, 成功: %d, 失败: %d", successCount, failCount)
+	}
+}
+
+// TriggerFullSync 手动触发全量同步
+// 使用互斥锁防止并发全量同步
+// 返回 error 如果全量同步正在进行中
+func TriggerFullSync() error {
+	if !fullSyncMutex.TryLock() {
+		return errors.New("全量同步正在进行中，请稍后再试")
+	}
+
+	isFullSyncRunning = true
+	go func() {
+		defer fullSyncMutex.Unlock()
+		defer func() { isFullSyncRunning = false }()
+
+		utils.Info("手动触发全量同步")
+		runFullSync()
+	}()
+
+	return nil
+}
+
+// GetSyncStatus 获取同步状态
+// 返回上次同步时间和全量同步是否正在执行
+func GetSyncStatus() map[string]interface{} {
+	return map[string]interface{}{
+		"last_sync_time":       lastSyncTime,
+		"is_full_sync_running": isFullSyncRunning,
 	}
 }
