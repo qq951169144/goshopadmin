@@ -122,7 +122,7 @@ const fetchOrders = async () => {
     total.value = data.total || 0
     hasSearched.value = true
   } catch (error) {
-    console.error('搜索订单失败:', error)
+    ElMessage.error('搜索订单失败，请稍后重试')
     orders.value = []
     total.value = 0
   } finally {
