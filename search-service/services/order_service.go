@@ -250,9 +250,11 @@ func buildOrderKeywordQuery(keyword string) *elastic.BoolQuery {
 }
 
 // escapeWildcardChars 转义 Elasticsearch 通配符查询中的特殊字符
-// 防止用户输入的 * ? 等字符被当作通配符处理
+// 防止用户输入的 * ? \ 等字符被当作通配符处理
+// 注意：必须先转义反斜杠 \，再转义 * 和 ?，否则已转义的 \* 中的 \ 会被二次转义
 func escapeWildcardChars(s string) string {
-	s = strings.ReplaceAll(s, "*", "\\*")
-	s = strings.ReplaceAll(s, "?", "\\?")
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, "*", `\*`)
+	s = strings.ReplaceAll(s, "?", `\?`)
 	return s
 }
