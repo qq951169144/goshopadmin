@@ -56,8 +56,8 @@ func SetupRoutes(r *gin.Engine, db *gorm.DB, redisClient *redis.Client, cfg *con
 		MerchantController:      controllers.NewMerchantController(db),
 		ProductController:       controllers.NewProductController(db, redisClient),
 		SpecificationController: controllers.NewSpecificationController(db),
-		SkuController:           controllers.NewSkuController(db),
-		ActivityController:      controllers.NewActivityController(db),
+		SkuController:           controllers.NewSkuController(db, redisClient),
+		ActivityController:      controllers.NewActivityController(db, redisClient),
 		RedeemCodeController:    controllers.NewRedeemCodeController(db),
 	}
 

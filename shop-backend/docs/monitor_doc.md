@@ -1,7 +1,17 @@
-
 # 运行时监控器技术文档
 
+> 本文档对项目中 monitor/pprof 监控体系的代码流程、结构、统计内容进行完整总结，涵盖 shop-backend 完整版和 backend 简化版两套实现。
+
+---
+
 ## 概述
+
+项目中有 **两套** Monitor 实现，分属不同子项目：
+
+| 子项目 | Monitor 文件 | 复杂度 | 特点 |
+|:---|:---|:---|:---|
+| **shop-backend** (C端商城) | `utils/monitor.go` + `monitor_prometheus.go` + `monitor_module.go` + `controllers/monitor_controller.go` | **完整版** | 5类指标采集 + Prometheus 推送 + pprof 端点 + 告警 |
+| **backend** (后台管理) | `utils/monitor.go` | **简化版** | 仅协程统计，手动计数器，无 Prometheus |
 
 `monitor.go` + `monitor_prometheus.go` + `monitor_module.go` 实现了一个完整的 Go 运行时监控器，用于实时采集和监控应用程序的协程、内存、线程、锁竞争等运行时指标，并通过 Prometheus + Grafana 进行可视化展示。
 
@@ -222,7 +232,49 @@ type Monitor struct {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.2 详细流程说明
+### 3.2 代码执行流程
+
+```
+main.go
+  │
+  ├── NewMonitor(1000, 10s, 100)     // 创建监控器实例
+  │     ├── 设置 Mutex 采样率: SetMutexProfileFraction(5)  // 每5次竞争采样1次
+  │     ├── 设置 Block 采样率: SetBlockProfileRate(100)    // 阻塞>=100ns才记录
+  │     ├── 注册 Prometheus 指标 (11个)
+  │     └── 预分配 1MB stackBuf 缓冲区
+  │
+  ├── monitor.Start()                // 启动后台采集协程
+  │     └── go collectMetrics()      // 后台协程循环
+  │           ├── <-ticker.C         // 每10秒触发
+  │           │     └── collectOnce()
+  │           │           ├── collectRuntimeStats()   // 采集5类指标
+  │           │           │     ├── runtime.NumGoroutine()          → 协程数
+  │           │           │     ├── runtime.ReadMemStats()          → 内存 (触发短暂STW)
+  │           │           │     ├── collectModuleStats()            → 模块协程分布
+  │           │           │     │     └── runtime.Stack(buf, true)  → 解析堆栈按模块分组
+  │           │           │     ├── collectMutexStats()             → 锁竞争增量
+  │           │           │     │     └── pprof.Lookup("mutex")     → 竞争次数+延迟
+  │           │           │     └── getThreadCount()                → OS线程数
+  │           │           │           └── pprof.Lookup("threadcreate").Count()
+  │           │           ├── 存储历史记录 (环形缓冲区, max=100)
+  │           │           ├── 计算 GC/CGO 增量 (当前累积 - 上次累积)
+  │           │           ├── updatePrometheusMetrics()  → 推送到 Prometheus
+  │           │           ├── checkAlerts()              → 告警检查
+  │           │           │     ├── 协程数 > 1000 → Warn日志
+  │           │           │     └── 堆内存 > 512MB → Warn日志
+  │           │           └── Info日志 (协程数, 堆内存, 线程数)
+  │           │
+  │           └── <-quit             // 收到退出信号
+  │                 └── return
+  │
+  └── routes.SetupRoutes(r, ..., monitor)
+        ├── /api/monitor/stats         → GetCurrentStats()  (JWT认证)
+        ├── /api/monitor/stats/history → GetHistoryStats()  (JWT认证)
+        ├── /metrics                   → promhttp.Handler() (IP白名单)
+        └── /debug/pprof/*             → gin-contrib/pprof  (JWT认证)
+```
+
+### 3.3 详细流程说明
 
 #### 阶段一：监控器初始化
 
@@ -314,6 +366,8 @@ Prometheus 的 Counter 类型只能单调递增，不能直接 Set 绝对值。�
 Counter.Add(30)
 ```
 
+Monitor 结构体中保存了 `lastGCCount`、`lastCgoCallCount`、`lastMutexContentions`、`lastMutexDelay` 四个字段用于增量计算。
+
 #### 阶段五：运行时指标采集
 
 ```go
@@ -343,9 +397,27 @@ func (m *Monitor) Stop() {
 
 ---
 
-## 四、模块协程统计原理
+## 四、统计内容汇总
 
-### 4.1 采集流程
+| 指标类别 | 统计项 | 数据来源 | Prometheus 指标名 | 类型 |
+|:---|:---|:---|:---|:---|
+| **协程** | 协程总数 | `runtime.NumGoroutine()` | `shop_goroutine_count` | Gauge |
+| **协程** | 按模块协程数 | `runtime.Stack()` + 堆栈解析 | `shop_goroutine_module_count{module}` | GaugeVec |
+| **内存** | 已分配堆对象字节 | `runtime.ReadMemStats().Alloc` | `shop_memory_alloc_bytes` | Gauge |
+| **内存** | 从OS获取总内存 | `runtime.ReadMemStats().Sys` | `shop_memory_sys_bytes` | Gauge |
+| **内存** | 堆分配字节 | `runtime.ReadMemStats().HeapAlloc` | `shop_memory_heap_alloc_bytes` | Gauge |
+| **内存** | 栈区使用字节 | `runtime.ReadMemStats().StackInuse` | `shop_memory_stack_inuse_bytes` | Gauge |
+| **内存** | GC次数(增量) | `runtime.ReadMemStats().NumGC` | `shop_gc_count_total` | Counter |
+| **线程** | OS线程数 | `pprof.Lookup("threadcreate")` | `shop_thread_count` | Gauge |
+| **线程** | CGO调用次数(增量) | `runtime.NumCgoCall()` | `shop_cgo_call_count_total` | Counter |
+| **锁竞争** | 竞争次数(增量) | `pprof.Lookup("mutex")` | `shop_mutex_contentions_total` | Counter |
+| **锁竞争** | 等待延迟(增量,秒) | `pprof.Lookup("mutex")` 文本解析 | `shop_mutex_delay_seconds_total` | Counter |
+
+---
+
+## 五、模块协程统计原理
+
+### 5.1 采集流程
 
 ```
 runtime.Stack(buf, true)
@@ -366,7 +438,7 @@ runtime.Stack(buf, true)
 返回模块名或 "other"
 ```
 
-### 4.2 堆栈格式示例
+### 5.2 堆栈格式示例
 
 ```
 goroutine 42 [running]:
@@ -376,7 +448,7 @@ shop-backend/controllers.(*OrderController).CreateOrder(...)
         /app/controllers/order_controller.go:28 +0x456
 ```
 
-### 4.3 模块匹配规则
+### 5.3 模块匹配规则
 
 | 堆栈中的路径 | 匹配到的模块 |
 | :--- | :--- |
@@ -392,15 +464,15 @@ shop-backend/controllers.(*OrderController).CreateOrder(...)
 | `runtime.*` | `runtime` |
 | 其他 | `other` |
 
-### 4.4 缓冲区复用
+### 5.4 缓冲区复用
 
 `stackBuf` 是预分配的 1MB 缓冲区，存储在 `Monitor` 结构体中。每次调用 `runtime.Stack()` 复用此缓冲区，避免每 10 秒分配 1MB 内存造成 GC 压力。
 
 ---
 
-## 五、Prometheus 指标说明
+## 六、Prometheus 指标说明
 
-### 5.1 自定义指标列表
+### 6.1 自定义指标列表
 
 | 指标名 | 类型 | 标签 | 说明 |
 | :--- | :--- | :--- | :--- |
@@ -416,18 +488,18 @@ shop-backend/controllers.(*OrderController).CreateOrder(...)
 | `shop_mutex_contentions_total` | Counter | - | 互斥锁竞争总次数（增量推送） |
 | `shop_mutex_delay_seconds_total` | Counter | - | 互斥锁等待延迟总秒数（增量推送） |
 
-### 5.2 Gauge vs Counter 使用规则
+### 6.2 Gauge vs Counter 使用规则
 
 | 类型 | 语义 | 操作 | 适用场景 |
 | :--- | :--- | :--- | :--- |
 | **Gauge** | 当前值，可增可减 | `Set(value)` | 协程数、内存、线程数 |
 | **Counter** | 累积值，只能递增 | `Add(delta)` | GC 次数、CGO 调用、锁竞争 |
 
-### 5.3 GaugeVec 标签管理
+### 6.3 GaugeVec 标签管理
 
 `shop_goroutine_module_count` 使用 `Reset()` 策略：每次更新前先清除所有标签，再重新设置当前存在的模块。这避免了模块协程数降为 0 后标签仍然残留在 Prometheus 中的问题。
 
-### 5.4 增量计算逻辑
+### 6.4 增量计算逻辑
 
 对于 Counter 类型指标，需要计算增量后推送：
 
@@ -439,16 +511,16 @@ Counter.Add(增量)
 
 ---
 
-## 六、HTTP 接口
+## 七、HTTP 接口
 
-### 6.1 监控 API（需要认证）
+### 7.1 监控 API（需要认证）
 
 | 接口路径 | HTTP 方法 | 功能描述 | 认证 |
 | :--- | :--- | :--- | :--- |
 | `/api/monitor/stats` | `GET` | 获取最新运行时统计快照 | 需要 |
 | `/api/monitor/stats/history` | `GET` | 获取历史统计列表 | 需要 |
 
-### 6.2 Prometheus Metrics 端点
+### 7.2 Prometheus Metrics 端点
 
 | 接口路径 | HTTP 方法 | 功能描述 | 认证 |
 | :--- | :--- | :--- | :--- |
@@ -459,17 +531,23 @@ Counter.Add(增量)
 - `192.168.0.0/16` — 局域网
 - `127.0.0.1` — 本机回环
 
-### 6.3 pprof 性能分析端点（需要认证）
+### 7.3 pprof 性能分析端点（需要认证）
 
-| 接口路径 | HTTP 方法 | 功能描述 | 认证 |
-| :--- | :--- | :--- | :--- |
-| `/debug/pprof/` | `GET` | pprof 概览页 | 需要 |
-| `/debug/pprof/profile` | `GET` | CPU profile | 需要 |
-| `/debug/pprof/heap` | `GET` | 堆内存 profile | 需要 |
-| `/debug/pprof/goroutine` | `GET` | 协程 profile | 需要 |
-| `/debug/pprof/mutex` | `GET` | 互斥锁 profile | 需要 |
+pprof 端点仅在 **shop-backend** 中注册，通过 `gin-contrib/pprof` 库提供标准 Go 性能分析能力：
 
-### 6.4 接口响应格式
+| 接口路径 | HTTP 方法 | 功能描述 | 认证 | 用途 |
+| :--- | :--- | :--- | :--- | :--- |
+| `/debug/pprof/` | `GET` | pprof 概览页 | 需要 | 查看所有 profile 链接 |
+| `/debug/pprof/profile` | `GET` | CPU profile | 需要 | 分析 CPU 热点函数（默认30秒采样） |
+| `/debug/pprof/heap` | `GET` | 堆内存 profile | 需要 | 分析内存分配和泄漏 |
+| `/debug/pprof/goroutine` | `GET` | 协程 profile | 需要 | 分析协程泄漏和阻塞 |
+| `/debug/pprof/mutex` | `GET` | 互斥锁 profile | 需要 | 分析锁竞争热点 |
+| `/debug/pprof/block` | `GET` | 阻塞 profile | 需要 | 分析阻塞操作（采样率100ns） |
+| `/debug/pprof/threadcreate` | `GET` | 线程创建 profile | 需要 | 分析线程创建情况 |
+
+pprof 数据同时被 Monitor 内部使用：`pprof.Lookup("threadcreate").Count()` 获取线程数，`pprof.Lookup("mutex")` 获取锁竞争数据。
+
+### 7.4 接口响应格式
 
 #### `/api/monitor/stats` 响应
 
@@ -510,24 +588,70 @@ Counter.Add(增量)
 
 ---
 
-## 七、告警机制
+## 八、告警机制
 
-### 7.1 告警触发条件
+### 8.1 告警触发条件
 
 | 条件 | 阈值 | 告警级别 | 输出格式 |
 | :--- | :--- | :--- | :--- |
 | 协程数超阈值 | 默认 1000 | WARN | `协程数量超过阈值: 当前=X, 阈值=Y` |
 | 堆内存超阈值 | 默认 512MB | WARN | `堆内存使用超过阈值: 当前=X MB, 阈值=Y MB` |
 
-### 7.2 告警方式
+### 8.2 告警方式
 
 当前仅输出 WARN 级别日志。可通过 Grafana 的 Alert Rules 配置更丰富的告警通知（邮件、Webhook 等）。
 
 ---
 
-## 八、Docker 部署架构
+## 九、backend 简化版监控体系
 
-### 8.1 服务依赖关系
+### 9.1 数据结构
+
+```
+GoroutineMetrics (协程监控指标)
+├── Total        int            // 总协程数 (runtime.NumGoroutine)
+├── System       int            // 系统协程数 (硬编码估算=4)
+├── Application  int            // 应用协程数 (Total - System)
+├── ByModule     map[string]int // 按模块统计 (手动计数器)
+└── Timestamp    time.Time      // 时间戳
+```
+
+### 9.2 代码流程
+
+```
+main.go
+  ├── NewMonitor()              // 创建简化版监控器
+  ├── monitor.Start(5s)         // 每5秒采集
+  │     └── go updateMetrics()  // 后台协程
+  │           ├── runtime.NumGoroutine() → Total
+  │           ├── estimateSystemGoroutines() → System (固定=4)
+  │           ├── Total - System → Application
+  │           └── 读取 moduleCounters → ByModule
+  │
+  └── routes.SetupRoutes(r, ..., monitor)
+        └── /api/monitor/goroutines         → 协程指标 (认证+权限)
+        └── /api/monitor/goroutines/total   → 协程总数
+        └── /api/monitor/goroutines/module  → 模块分布
+```
+
+### 9.3 与 shop-backend 的关键差异
+
+| 对比项 | shop-backend | backend |
+|:---|:---|:---|
+| 指标种类 | 5类(协程+内存+线程+锁+模块) | 1类(仅协程) |
+| 模块统计方式 | `runtime.Stack()` 自动解析堆栈 | 手动 `IncrementModuleCounter/DecrementModuleCounter` |
+| Prometheus 集成 | 完整(11个自定义指标) | 无 |
+| pprof 端点 | 有 (`/debug/pprof/*`) | 无 |
+| 告警机制 | 有(协程数+堆内存) | 无 |
+| 历史数据 | 环形缓冲区(100条) | 仅保留当前快照 |
+| 增量计算 | GC/CGO/锁竞争增量 | 无 |
+| IP 白名单 | `/metrics` 有 | 无 |
+
+---
+
+## 十、Docker 部署架构
+
+### 10.1 服务依赖关系
 
 ```
                     ┌─────────────┐
@@ -556,7 +680,7 @@ Counter.Add(增量)
                                                └────────────┘
 ```
 
-### 8.2 端口映射
+### 10.2 端口映射
 
 | 服务 | 容器端口 | 宿主机映射 | 访问限制 |
 | :--- | :--- | :--- | :--- |
@@ -564,7 +688,7 @@ Counter.Add(增量)
 | Prometheus | 9090 | `9090:9090` | Docker 内部网络 |
 | Grafana | 3000 | `3000:3000` | 需要登录（admin/admin） |
 
-### 8.3 Grafana 配置
+### 10.3 Grafana 配置
 
 | 配置项 | 值 | 说明 |
 | :--- | :--- | :--- |
@@ -573,7 +697,7 @@ Counter.Add(增量)
 | 数据源 | Prometheus (uid: prometheus) | 自动配置 |
 | Dashboard | Go Runtime Monitor | 自动加载 |
 
-### 8.4 Grafana Dashboard 面板
+### 10.4 Grafana Dashboard 面板
 
 | 面板 | 指标 | 图表类型 | 说明 |
 | :--- | :--- | :--- | :--- |
@@ -586,9 +710,9 @@ Counter.Add(增量)
 
 ---
 
-## 九、使用示例
+## 十一、使用示例
 
-### 9.1 创建并启动监控器
+### 11.1 创建并启动监控器
 
 ```go
 // 创建监控器：阈值2000，每5秒采集，保留200条历史
@@ -603,7 +727,7 @@ monitor.Start()
 monitor.Stop()
 ```
 
-### 9.2 查询监控数据
+### 11.2 查询监控数据
 
 ```go
 // 获取最新统计
@@ -617,7 +741,7 @@ for _, s := range history {
 }
 ```
 
-### 9.3 通过 API 查询
+### 11.3 通过 API 查询
 
 ```bash
 # 获取最新统计（需要认证）
@@ -632,9 +756,9 @@ curl http://goshopadmin-shop-backend:8081/metrics
 
 ---
 
-## 十、安全策略
+## 十二、安全策略
 
-### 10.1 端点安全
+### 12.1 端点安全
 
 | 端点 | 安全策略 | 原因 |
 | :--- | :--- | :--- |
@@ -642,7 +766,7 @@ curl http://goshopadmin-shop-backend:8081/metrics
 | `/metrics` | IP 白名单 | Prometheus 需要频繁访问，JWT 不适用 |
 | `/debug/pprof/*` | JWT 认证 | pprof 暴露 CPU、内存等敏感运行时数据 |
 
-### 10.2 网络隔离
+### 12.2 网络隔离
 
 - `shop-backend` 端口 8081 仅映射到 `127.0.0.1`，外部无法直接访问
 - Prometheus 通过 Docker 内部网络 (`goshopadmin-network`) 访问 shop-backend
@@ -650,9 +774,9 @@ curl http://goshopadmin-shop-backend:8081/metrics
 
 ---
 
-## 十一、性能影响分析
+## 十三、性能影响分析
 
-### 11.1 采集开销
+### 13.1 采集开销
 
 | 采集项 | 开销 | 说明 |
 | :--- | :--- | :--- |
@@ -662,7 +786,7 @@ curl http://goshopadmin-shop-backend:8081/metrics
 | `pprof.Lookup("mutex")` | 低 | 读取已有的 profile 数据 |
 | `pprof.Lookup("threadcreate")` | 极低 | 仅读取计数器 |
 
-### 11.2 采样率影响
+### 13.2 采样率影响
 
 | 采样设置 | 值 | 性能影响 |
 | :--- | :--- | :--- |
@@ -673,7 +797,7 @@ curl http://goshopadmin-shop-backend:8081/metrics
 
 ---
 
-## 十二、配置参数汇总
+## 十四、配置参数汇总
 
 | 参数 | 默认值 | 配置方式 | 说明 |
 | :--- | :--- | :--- | :--- |
@@ -685,8 +809,9 @@ curl http://goshopadmin-shop-backend:8081/metrics
 | Block 采样阈值 | 100ns | `runtime.SetBlockProfileRate(100)` | 阻塞时间阈值 |
 | Prometheus 采集间隔 | 15s | `prometheus.yml: scrape_interval` | Prometheus 抓取间隔 |
 | Grafana 刷新间隔 | 10s | Dashboard JSON: `refresh` | 面板自动刷新间隔 |
+| stackBuf 缓冲区 | 1MB | `make([]byte, 1<<20)` | 协程堆栈读取缓冲区，复用避免GC压力 |
 
 ---
 
-*文档版本: 2.0*
-*最后更新: 2026-05-28*
+*文档版本: 3.0*
+*最后更新: 2026-06-11*

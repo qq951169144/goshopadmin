@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
@@ -17,9 +18,9 @@ type SkuController struct {
 	merchantService *services.MerchantService
 }
 
-func NewSkuController(db *gorm.DB) *SkuController {
+func NewSkuController(db *gorm.DB, redisClient *redis.Client) *SkuController {
 	return &SkuController{
-		skuService:      services.NewSkuService(db),
+		skuService:      services.NewSkuService(db, redisClient),
 		merchantService: services.NewMerchantService(db),
 	}
 }

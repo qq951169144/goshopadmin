@@ -3,11 +3,10 @@ package services
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"shop-backend/models"
+	"shop-backend/utils"
 
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -115,15 +114,5 @@ func (s *AuthService) Login(req LoginRequest) (string, *models.Customer, error) 
 
 // generateToken 生成JWT token
 func (s *AuthService) generateToken(customerID int) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"customer_id": customerID,
-		"exp":         time.Now().Add(time.Hour * time.Duration(s.jwtExpireHour)).Unix(),
-	})
-
-	tokenString, err := token.SignedString([]byte(s.jwtSecret))
-	if err != nil {
-		return "", err
-	}
-
-	return tokenString, nil
+	return utils.GenerateCustomerToken(customerID, s.jwtSecret, s.jwtExpireHour)
 }

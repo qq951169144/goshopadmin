@@ -1,12 +1,15 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"goshopadmin/cache"
 	"goshopadmin/models"
 	"strconv"
 	"strings"
 
+	"github.com/go-redis/redis/v8"
 	"gorm.io/gorm"
 )
 
@@ -40,12 +43,13 @@ type SkuPreviewResp struct {
 
 // SkuService SKU服务
 type SkuService struct {
-	DB *gorm.DB
+	DB        *gorm.DB
+	CacheUtil *cache.CacheUtil
 }
 
 // NewSkuService 创建SKU服务实例
-func NewSkuService(db *gorm.DB) *SkuService {
-	return &SkuService{DB: db}
+func NewSkuService(db *gorm.DB, redisClient *redis.Client) *SkuService {
+	return &SkuService{DB: db, CacheUtil: cache.NewCacheUtil(db, redisClient)}
 }
 
 func boolToInt(b bool) int {
@@ -134,7 +138,15 @@ func (s *SkuService) CreateSku(sku *models.ProductSku, specCombinations []models
 		return err
 	}
 
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// 清除商品详情缓存和列表缓存
+	_ = s.CacheUtil.DeleteProductCache(context.Background(), sku.ProductID)
+	s.CacheUtil.DeleteProductListCache(context.Background())
+
+	return nil
 }
 
 // BatchCreateSku 批量创建SKU（单表插入）
@@ -231,7 +243,15 @@ func (s *SkuService) BatchCreateSku(productID int, skus []models.ProductSku, spe
 		return err
 	}
 
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// 清除商品详情缓存和列表缓存
+	_ = s.CacheUtil.DeleteProductCache(context.Background(), productID)
+	s.CacheUtil.DeleteProductListCache(context.Background())
+
+	return nil
 }
 
 // UpdateSku 更新SKU
@@ -292,7 +312,15 @@ func (s *SkuService) UpdateSku(skuID int, updates map[string]interface{}, specCo
 		return err
 	}
 
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// 清除商品详情缓存和列表缓存
+	_ = s.CacheUtil.DeleteProductCache(context.Background(), existingSku.ProductID)
+	s.CacheUtil.DeleteProductListCache(context.Background())
+
+	return nil
 }
 
 // DeleteSku 删除SKU（禁用）
@@ -344,7 +372,15 @@ func (s *SkuService) DeleteSku(skuID int, merchantID int) error {
 		return err
 	}
 
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+
+	// 清除商品详情缓存和列表缓存
+	_ = s.CacheUtil.DeleteProductCache(context.Background(), sku.ProductID)
+	s.CacheUtil.DeleteProductListCache(context.Background())
+
+	return nil
 }
 
 // GetSkusByProductID 获取商品的SKU列表（精简版）

@@ -2,9 +2,10 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // JWTClaims 自定义JWT声明
@@ -12,30 +13,25 @@ type JWTClaims struct {
 	UserID   int    `json:"user_id"`
 	Username string `json:"username"`
 	RoleID   int    `json:"role_id"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 // GenerateToken 生成JWT token
 func GenerateToken(userID int, username string, roleID int, secret string, expireHour int) (string, error) {
-	// 设置token过期时间
 	expireTime := time.Now().Add(time.Hour * time.Duration(expireHour))
 
-	// 创建JWT声明
 	claims := JWTClaims{
 		UserID:   userID,
 		Username: username,
 		RoleID:   roleID,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expireTime.Unix(),
-			IssuedAt:  time.Now().Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expireTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "goshopadmin",
 		},
 	}
 
-	// 创建token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// 签名并获取完整的token字符串
 	tokenString, err := token.SignedString([]byte(secret))
 	if err != nil {
 		return "", err
@@ -46,8 +42,10 @@ func GenerateToken(userID int, username string, roleID int, secret string, expir
 
 // ParseToken 解析JWT token
 func ParseToken(tokenString string, secret string) (*JWTClaims, error) {
-	// 解析token
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return []byte(secret), nil
 	})
 
@@ -55,7 +53,6 @@ func ParseToken(tokenString string, secret string) (*JWTClaims, error) {
 		return nil, err
 	}
 
-	// 验证token
 	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
 		return claims, nil
 	}

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
+	"shop-backend/utils"
 )
 
 var jwtSecret string
@@ -51,31 +51,14 @@ func Auth() gin.HandlerFunc {
 			return
 		}
 
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte(secret), nil
-		})
-
-		if err != nil || !token.Valid {
+		claims, err := utils.ParseCustomerToken(tokenString, secret)
+		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			c.Abort()
 			return
 		}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
-			c.Abort()
-			return
-		}
-
-		customerID, ok := claims["customer_id"].(float64)
-		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid customer ID in token"})
-			c.Abort()
-			return
-		}
-
-		c.Set("customer_id", int(customerID))
+		c.Set("customer_id", claims.CustomerID)
 		c.Next()
 	}
 }

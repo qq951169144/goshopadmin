@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -20,6 +21,20 @@ import (
 //   /api/search/customer/* → JWT_SECRET_CUSTOMER（C端）
 //   /api/search/products, /api/search/suggest → 公开，无需认证
 // ============================================================
+
+// AdminClaims 管理端JWT声明（与 backend/utils/jwt.go JWTClaims 保持一致）
+type AdminClaims struct {
+	UserID   int    `json:"user_id"`
+	Username string `json:"username"`
+	RoleID   int    `json:"role_id"`
+	jwt.RegisteredClaims
+}
+
+// CustomerClaims C端客户JWT声明（与 shop-backend/utils/jwt.go CustomerClaims 保持一致）
+type CustomerClaims struct {
+	CustomerID int `json:"customer_id"`
+	jwt.RegisteredClaims
+}
 
 // AdminAuth 管理端认证中间件
 // 验证管理端 JWT token，解析 user_id、role_id
@@ -49,7 +64,10 @@ func AdminAuth() gin.HandlerFunc {
 		}
 
 		secret := config.GetConfig().JWTSecretAdmin
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenString, &AdminClaims{}, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
 			return []byte(secret), nil
 		})
 
@@ -64,7 +82,7 @@ func AdminAuth() gin.HandlerFunc {
 			return
 		}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
+		claims, ok := token.Claims.(*AdminClaims)
 		if !ok {
 			ctx.JSON(http.StatusOK, gin.H{
 				"code":    4012,
@@ -75,25 +93,11 @@ func AdminAuth() gin.HandlerFunc {
 			return
 		}
 
-		// 管理端 token 包含 user_id 和 role_id
-		userID, ok := claims["user_id"].(float64)
-		if !ok {
-			ctx.JSON(http.StatusOK, gin.H{
-				"code":    4012,
-				"message": "无效的管理端token",
-				"data":    nil,
-			})
-			ctx.Abort()
-			return
-		}
-
-		roleID, _ := claims["role_id"].(float64)
-
 		ctx.Set("user_type", "admin")
-		ctx.Set("user_id", int(userID))
-		ctx.Set("role_id", int(roleID))
-		ctx.Set("userID", int(userID))
-		ctx.Set("roleID", int(roleID))
+		ctx.Set("user_id", claims.UserID)
+		ctx.Set("role_id", claims.RoleID)
+		ctx.Set("userID", claims.UserID)
+		ctx.Set("roleID", claims.RoleID)
 
 		ctx.Next()
 	}
@@ -136,7 +140,10 @@ func CustomerAuth() gin.HandlerFunc {
 		}
 
 		secret := config.GetConfig().JWTSecretCustomer
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenString, &CustomerClaims{}, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
 			return []byte(secret), nil
 		})
 
@@ -150,7 +157,7 @@ func CustomerAuth() gin.HandlerFunc {
 			return
 		}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
+		claims, ok := token.Claims.(*CustomerClaims)
 		if !ok {
 			ctx.JSON(http.StatusOK, gin.H{
 				"code":    4012,
@@ -161,20 +168,8 @@ func CustomerAuth() gin.HandlerFunc {
 			return
 		}
 
-		// C端 token 包含 customer_id
-		customerID, ok := claims["customer_id"].(float64)
-		if !ok {
-			ctx.JSON(http.StatusOK, gin.H{
-				"code":    4012,
-				"message": "无效的C端token",
-				"data":    nil,
-			})
-			ctx.Abort()
-			return
-		}
-
 		ctx.Set("user_type", "customer")
-		ctx.Set("customer_id", int(customerID))
+		ctx.Set("customer_id", claims.CustomerID)
 
 		ctx.Next()
 	}

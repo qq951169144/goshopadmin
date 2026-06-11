@@ -46,7 +46,7 @@
         </el-row>
       </div>
 
-      <el-table :data="orders" style="width: 100%" v-loading="loading">
+      <el-table :data="orders" fit v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="order_no" label="订单号" width="200" />
         <el-table-column prop="customer_name" label="客户" width="120" />

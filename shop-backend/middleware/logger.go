@@ -43,6 +43,7 @@ var skipPaths = []string{
 	"/api/download", // 文件下载接口
 	"/api/image",    // 图片相关接口
 	"/api/export",   // 数据导出接口
+	"/metrics",      // Prometheus 采集端点，返回 gzip 二进制数据
 }
 
 // shouldSkipLogging 判断是否应该跳过日志记录

@@ -49,7 +49,7 @@
             <div class="order-total">
               <span>共{{ getTotalItems(order.items) }}件商品</span>
               <span class="total-amount">
-                合计：<strong>¥{{ formatPrice(order.amount) }}</strong>
+                合计：<strong>¥{{ formatPrice(order.total_amount) }}</strong>
               </span>
             </div>
             <div class="order-actions">

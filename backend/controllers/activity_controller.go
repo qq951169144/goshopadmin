@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
@@ -52,11 +53,11 @@ type ActivityDetailResponse struct {
 	RedeemCodeRules *RedeemCodeRulesResponse  `json:"redeem_code_rules,omitempty"` // 兑换码规则（仅兑换码活动有值）
 }
 
-func NewActivityController(db *gorm.DB) *ActivityController {
+func NewActivityController(db *gorm.DB, redisClient *redis.Client) *ActivityController {
 	return &ActivityController{
 		activityService:   services.NewActivityService(db),
 		redeemCodeService: services.NewRedeemCodeService(db),
-		skuService:        services.NewSkuService(db),
+		skuService:        services.NewSkuService(db, redisClient),
 		merchantService:   services.NewMerchantService(db),
 		DB:                db,
 	}
