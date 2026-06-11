@@ -184,6 +184,7 @@ const handleClear = () => {
   results.value = []
   total.value = 0
   hasSearched.value = false
+  currentPage.value = 1
 }
 
 // 切换Tab
