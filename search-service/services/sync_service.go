@@ -102,6 +102,9 @@ func StartSyncService() {
 	go func() {
 		// 首次启动时执行全量同步
 		utils.Info("数据同步服务启动，开始首次全量同步")
+		// 注意：runFullSync 在同步协程中同步执行，全量同步完成前增量同步不会执行。
+		// 这不是 bug：增量同步使用 5 分钟查询窗口，即使全量同步耗时数分钟，
+		// 下次增量同步仍能捕获到期间变更的数据。
 		runFullSync()
 
 		for {
@@ -166,6 +169,8 @@ func runFullSync() {
 // syncProductSkus 同步 SKU 数据到 Elasticsearch
 // 查询最近 5 分钟更新的 SKU，按 product_id 分组
 // 对每个商品，批量更新其 SKU 列表到 ES 的 products 索引
+// 注意：SKU 同步不关联 product_images 表，因为 SKU 没有独立图片。
+// 商品主图在 product 顶层的 main_image 字段，由 Logstash 同步。
 func syncProductSkus() {
 	database := GetDB()
 	client := GetESClient()
@@ -244,6 +249,7 @@ func syncProductSkus() {
 
 	// 执行批量更新
 	if bulkRequest.NumberOfActions() > 0 {
+		// 增量同步 Bulk 超时 10 秒：增量数据量小（5 分钟窗口内的变更），10 秒足够
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
@@ -359,6 +365,7 @@ func syncOrderItems() {
 
 	// 执行批量更新
 	if bulkRequest.NumberOfActions() > 0 {
+		// 增量同步 Bulk 超时 10 秒：增量数据量小（5 分钟窗口内的变更），10 秒足够
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
